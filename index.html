@@ -599,6 +599,90 @@ onAuthStateChanged(auth, async (user) => {
   .prio-normal .prio-badge { background: rgba(116,185,255,0.1); color: var(--accent4); }
   .prio-baja .prio-badge { background: rgba(139,144,167,0.1); color: var(--text3); }
 
+  /* CARD EXPANDABLE */
+  .card.expandable {
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .card.expandable:hover { transform: translateY(-2px); }
+  .card.expandable:hover.red { border-color: var(--accent2); }
+  .card.expandable:hover.green { border-color: var(--accent); }
+  .expand-icon {
+    font-size: 0.7rem;
+    opacity: 0.5;
+    margin-left: 4px;
+    transition: transform 0.25s;
+    display: inline-block;
+  }
+  .expand-icon.open { transform: rotate(180deg); opacity: 1; }
+
+  /* PANEL EXPANDIBLE */
+  .card-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+    overflow: hidden;
+    animation: slideDown 0.2s ease;
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .panel-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 0.9rem 1.4rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .panel-table td {
+    padding: 9px 14px;
+    font-size: 0.82rem;
+    border-bottom: 1px solid rgba(37,42,58,0.4);
+    vertical-align: middle;
+  }
+  .panel-table tr:last-child td { border-bottom: none; }
+  .panel-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .panel-section {
+    padding: 0.7rem 1.4rem 0.4rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem 1.4rem;
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text2);
+  }
+  .panel-total span:last-child {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+  }
+  .panel-empty {
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--text3);
+    font-size: 0.8rem;
+  }
+
   /* NOTIFICATION */
   .notif {
     position: fixed;
@@ -1018,28 +1102,66 @@ onAuthStateChanged(auth, async (user) => {
   </div>
   <div class="month-sel" id="dashMonths"></div>
   <div class="cards">
-    <div class="card red">
-      <div class="label">Gasto del mes</div>
+
+    <!-- GASTO -->
+    <div class="card red expandable" onclick="toggleCardPanel('panel-gasto')">
+      <div class="label">Gasto del mes <span class="expand-icon" id="icon-panel-gasto">▾</span></div>
       <div class="value" id="d-gasto">$0</div>
       <div class="sub" id="d-gastos-n">0 transacciones</div>
     </div>
-    <div class="card green">
-      <div class="label">Ingreso del mes</div>
+
+    <!-- INGRESO -->
+    <div class="card green expandable" onclick="toggleCardPanel('panel-ingreso')">
+      <div class="label">Ingreso del mes <span class="expand-icon" id="icon-panel-ingreso">▾</span></div>
       <div class="value" id="d-ingreso">$0</div>
     </div>
-    <div class="card yellow">
-      <div class="label">Saldo disponible</div>
+
+    <!-- SALDO -->
+    <div class="card yellow expandable" onclick="toggleCardPanel('panel-saldo')">
+      <div class="label">Saldo disponible <span class="expand-icon" id="icon-panel-saldo">▾</span></div>
       <div class="value" id="d-saldo">$0</div>
       <div class="sub" id="d-saldo-sub"></div>
     </div>
-    <div class="card green">
-      <div class="label">Ahorro del mes</div>
+
+    <!-- AHORRO -->
+    <div class="card green expandable" onclick="toggleCardPanel('panel-ahorro')">
+      <div class="label">Ahorro del mes <span class="expand-icon" id="icon-panel-ahorro">▾</span></div>
       <div class="value" id="d-ahorro">$0</div>
     </div>
-    <div class="card blue">
-      <div class="label">Cuotas activas</div>
+
+    <!-- CUOTAS -->
+    <div class="card blue expandable" onclick="toggleCardPanel('panel-cuotas')">
+      <div class="label">Cuotas activas <span class="expand-icon" id="icon-panel-cuotas">▾</span></div>
       <div class="value" id="d-cuotas">0</div>
+      <div class="sub" id="d-cuotas-sub"></div>
     </div>
+
+  </div>
+
+  <!-- PANELES EXPANDIBLES -->
+  <div class="card-panel" id="panel-gasto" style="display:none">
+    <div class="panel-title">💸 Detalle de gastos del mes</div>
+    <div id="panel-gasto-body"></div>
+  </div>
+
+  <div class="card-panel" id="panel-ingreso" style="display:none">
+    <div class="panel-title">💵 Detalle de ingresos del mes</div>
+    <div id="panel-ingreso-body"></div>
+  </div>
+
+  <div class="card-panel" id="panel-ahorro" style="display:none">
+    <div class="panel-title">🏦 Ahorro del mes + acumulado por categoría</div>
+    <div id="panel-ahorro-body"></div>
+  </div>
+
+  <div class="card-panel" id="panel-saldo" style="display:none">
+    <div class="panel-title">📊 Composición del saldo disponible</div>
+    <div id="panel-saldo-body"></div>
+  </div>
+
+  <div class="card-panel" id="panel-cuotas" style="display:none">
+    <div class="panel-title">📅 Detalle de cuotas activas</div>
+    <div id="panel-cuotas-body"></div>
   </div>
 
   <div class="dash-grid">
@@ -1730,26 +1852,21 @@ function deleteIngreso(key) {
   renderIngresosTable();
 }
 
-function toggleEditIngreso(key) {
-  const row = document.getElementById('edit-i-' + CSS.escape(key));
+function toggleEditIngreso(uid) {
+  const row = document.getElementById('edit-i-' + uid);
   if (!row) return;
   row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
 }
 
-function saveEditIngreso(key) {
-  const idx = ingresos.findIndex(i => i.key === key);
+function saveEditIngreso(uid) {
+  const idx = ingresos.findIndex(i => (i.uid && String(i.uid) === String(uid)) || String(i.key).replace(/[^a-zA-Z0-9_-]/g,'_') === String(uid));
   if (idx < 0) return;
-  const sueldo = parseFloat(document.getElementById('ei-sueldo-' + key).value) || 0;
-  const sueldoMoneda = document.getElementById('ei-smoneda-' + key).value;
-  let totalARS = sueldoMoneda === 'ARS' ? sueldo : 0;
-  let totalUSD = sueldoMoneda === 'USD' ? sueldo : 0;
-  // sumar otros existentes
+  const sueldo = parseFloat(document.getElementById('ei-sueldo-' + uid).value) || 0;
+  const sueldoMoneda = document.getElementById('ei-smoneda-' + uid).value;
   const otros = ingresos[idx].otros || [];
-  otros.forEach(o => { if(o.moneda==='ARS') totalARS += o.monto; else totalUSD += o.monto; });
-  ingresos[idx] = { ...ingresos[idx], sueldo, sueldoMoneda,
-    totalARS: (sueldoMoneda==='ARS'?sueldo:0) + otros.filter(o=>o.moneda==='ARS').reduce((s,o)=>s+o.monto,0),
-    totalUSD: (sueldoMoneda==='USD'?sueldo:0) + otros.filter(o=>o.moneda==='USD').reduce((s,o)=>s+o.monto,0)
-  };
+  const totalARS = (sueldoMoneda === 'ARS' ? sueldo : 0) + otros.filter(o => o.moneda === 'ARS').reduce((s, o) => s + o.monto, 0);
+  const totalUSD = (sueldoMoneda === 'USD' ? sueldo : 0) + otros.filter(o => o.moneda === 'USD').reduce((s, o) => s + o.monto, 0);
+  ingresos[idx] = { ...ingresos[idx], sueldo, sueldoMoneda, totalARS, totalUSD, total: totalARS };
   save();
   notify('Ingreso actualizado');
   renderIngresosTable();
@@ -1772,7 +1889,11 @@ function renderIngresosTable() {
         const otrosHtml = otros.length
           ? otros.map(o => `<div style="font-size:0.75rem;color:var(--text2)">${o.nombre}: ${o.moneda==='USD'?'u$s':'$'}${o.monto.toLocaleString('es-AR')}</div>`).join('')
           : (i.extra > 0 ? `<div style="font-size:0.75rem;color:var(--text2)">Extra: $${i.extra.toLocaleString('es-AR')}</div>` : '—');
-        const ek = i.key.replace(/[^a-zA-Z0-9_-]/g,'_');
+        // uid: identificador seguro para IDs del DOM (sin caracteres problemáticos)
+        const uid = i.uid || i.key;
+        const safeUid = String(uid).replace(/[^a-zA-Z0-9_-]/g, '_');
+        // Asegurar que el registro tenga uid persistente
+        if (!i.uid) i.uid = safeUid;
         return `
         <tr>
           <td style="font-family:'DM Mono',monospace;color:var(--text2)">${i.año}</td>
@@ -1782,23 +1903,25 @@ function renderIngresosTable() {
           <td style="color:var(--accent);font-family:'DM Mono',monospace;font-weight:600">${fmtARS(i.totalARS ?? i.total)}</td>
           <td style="color:var(--accent3);font-family:'DM Mono',monospace;font-weight:600">${fmtUSD(i.totalUSD ?? 0)}</td>
           <td style="display:flex;gap:4px">
-            <button class="btn-edit" onclick="toggleEditIngreso('${i.key}')">✏</button>
+            <button class="btn-edit" onclick="toggleEditIngreso('${safeUid}')">✏</button>
             <button class="btn-del" onclick="deleteIngreso('${i.key}')">✕</button>
           </td>
         </tr>
-        <tr id="edit-i-${ek}" class="edit-row" style="display:none">
+        <tr id="edit-i-${safeUid}" class="edit-row" style="display:none">
           <td colspan="2" style="color:var(--text3);font-size:0.75rem">${i.mes} ${i.año}</td>
           <td colspan="2">
             <div style="display:flex;gap:5px;align-items:center">
-              <select id="ei-smoneda-${i.key}" class="edit-input" style="width:80px">
+              <select id="ei-smoneda-${safeUid}" class="edit-input" style="width:80px">
                 <option value="ARS" ${(i.sueldoMoneda||'ARS')==='ARS'?'selected':''}>$ ARS</option>
                 <option value="USD" ${i.sueldoMoneda==='USD'?'selected':''}>u$s USD</option>
               </select>
-              <input class="edit-input" id="ei-sueldo-${i.key}" type="number" value="${i.sueldo||0}" style="width:110px">
+              <input class="edit-input" id="ei-sueldo-${safeUid}" type="number" value="${i.sueldo||0}" style="width:110px" placeholder="Sueldo">
             </div>
           </td>
-          <td colspan="2" style="color:var(--text3);font-size:0.72rem">Los otros ingresos no se editan inline — eliminá y re-cargá si es necesario.</td>
-          <td><button class="btn-save" onclick="saveEditIngreso('${i.key}')">✓ Guardar</button></td>
+          <td colspan="2">
+            ${(i.otros||[]).length ? '<div style="font-size:0.72rem;color:var(--text3)">Otros: ' + (i.otros||[]).map(o=> o.nombre + ' ' + (o.moneda==='USD'?'u$s':'$') + o.monto.toLocaleString('es-AR')).join(', ') + '</div>' : ''}
+          </td>
+          <td><button class="btn-save" onclick="saveEditIngreso('${safeUid}')">✓ Guardar</button></td>
         </tr>`;
       }).join('')}
     </tbody>
@@ -1929,6 +2052,16 @@ function renderDashboard() {
   const nTx = gastosNormalesM.length + cuotasEnMes.length;
   document.getElementById('d-gastos-n').textContent = nTx + ' transacciones' + (cuotasEnMes.length ? ` (${cuotasEnMes.length} en cuotas)` : '');
   document.getElementById('d-cuotas').textContent = gastos.filter(g => g.cuota).length;
+  // Sub de cuotas: total adeudado
+  const today = new Date();
+  const totalAdeudado = gastos.filter(g => g.cuota).reduce((s, g) => {
+    const [fy, fm] = g.fecha.split('-').map(Number);
+    const mesesPasados = Math.floor((today - new Date(fy, fm-1, 1)) / (1000*60*60*24*30));
+    const restantes = g.ncuotas - Math.min(mesesPasados + 1, g.ncuotas);
+    return s + restantes * g.montoXcuota;
+  }, 0);
+  const subCuotas = document.getElementById('d-cuotas-sub');
+  if (subCuotas) subCuotas.textContent = totalAdeudado > 0 ? '$' + totalAdeudado.toLocaleString('es-AR') + ' adeudado' : 'todo pago';
 
   // Saldo sub label
   const subEl = document.getElementById('d-saldo-sub');
@@ -2053,6 +2186,326 @@ function renderDashboard() {
       ${bars}
       ${leyenda}
     </svg>`;
+
+  // Cerrar paneles al cambiar de mes
+  ['panel-gasto','panel-ingreso','panel-ahorro','panel-saldo','panel-cuotas'].forEach(id => {
+    const p = document.getElementById(id);
+    if (p && p.style.display !== 'none') {
+      renderCardPanel(id.replace('panel-',''));
+    }
+  });
+}
+
+function toggleCardPanel(panelId) {
+  const panel = document.getElementById(panelId);
+  const icon = document.getElementById('icon-' + panelId);
+  const isOpen = panel.style.display !== 'none';
+
+  // Cerrar todos
+  ['panel-gasto','panel-ingreso','panel-ahorro','panel-saldo','panel-cuotas'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+    const ic = document.getElementById('icon-' + id);
+    if (ic) ic.classList.remove('open');
+  });
+
+  if (!isOpen) {
+    panel.style.display = 'block';
+    if (icon) icon.classList.add('open');
+    renderCardPanel(panelId.replace('panel-',''));
+  }
+}
+
+function renderCardPanel(tipo) {
+  const ym = selectedDashMonth;
+  const fmt = v => '$' + v.toLocaleString('es-AR');
+
+  if (tipo === 'saldo')  { _renderSaldoPanel(ym); return; }
+  if (tipo === 'cuotas') { _renderCuotasPanel();  return; }
+
+  if (tipo === 'gasto') {
+    const el = document.getElementById('panel-gasto-body');
+    // Gastos normales del mes
+    const normales = gastos.filter(g => !g.cuota && g.fecha.slice(0,7) === ym)
+      .sort((a,b) => b.monto - a.monto);
+    // Cuotas que caen este mes
+    const [wy, wm] = ym.split('-').map(Number);
+    const cuotasMes = gastos.filter(g => {
+      if (!g.cuota) return false;
+      const [fy, fm] = g.fecha.split('-').map(Number);
+      const n = (wy - fy) * 12 + (wm - fm);
+      return n >= 0 && n < g.ncuotas;
+    }).map(g => {
+      const [fy, fm] = g.fecha.split('-').map(Number);
+      const n = (wy - fy) * 12 + (wm - fm) + 1;
+      return { ...g, cuotaN: n };
+    }).sort((a,b) => b.montoXcuota - a.montoXcuota);
+
+    if (!normales.length && !cuotasMes.length) {
+      el.innerHTML = '<div class="panel-empty">Sin gastos este mes</div>'; return;
+    }
+
+    let html = '<table class="panel-table">';
+    if (normales.length) {
+      html += `<tr><td colspan="4" class="panel-section">Gastos normales</td></tr>`;
+      normales.forEach(g => {
+        html += `<tr>
+          <td style="color:var(--text2);font-size:0.75rem;width:85px">${g.fecha.slice(5).replace('-','/')}</td>
+          <td>${g.desc}</td>
+          <td><span class="badge badge-cat">${g.cat}</span></td>
+          <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent2);white-space:nowrap">${fmt(g.monto)}</td>
+        </tr>`;
+      });
+    }
+    if (cuotasMes.length) {
+      html += `<tr><td colspan="4" class="panel-section">Cuotas del mes</td></tr>`;
+      cuotasMes.forEach(g => {
+        html += `<tr>
+          <td style="color:var(--text2);font-size:0.75rem;width:85px">cuota ${g.cuotaN}/${g.ncuotas}</td>
+          <td>${g.desc}</td>
+          <td><span class="badge badge-cat">${g.cat}</span></td>
+          <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent2);white-space:nowrap">${fmt(g.montoXcuota)}</td>
+        </tr>`;
+      });
+    }
+    const total = normales.reduce((s,g) => s+g.monto,0) + cuotasMes.reduce((s,g) => s+g.montoXcuota,0);
+    html += `</table><div class="panel-total"><span>Total del mes</span><span style="color:var(--accent2)">${fmt(total)}</span></div>`;
+    el.innerHTML = html;
+  }
+
+  if (tipo === 'ingreso') {
+    const el = document.getElementById('panel-ingreso-body');
+    const ingM = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym);
+    if (!ingM.length) { el.innerHTML = '<div class="panel-empty">Sin ingresos registrados este mes</div>'; return; }
+
+    let html = '<table class="panel-table">';
+    let total = 0;
+    ingM.forEach(i => {
+      if (i.sueldo > 0) {
+        const moneda = i.sueldoMoneda || 'ARS';
+        const label = moneda === 'USD' ? 'u$s' : '$';
+        const val = moneda === 'USD'
+          ? `<span style="color:var(--accent3);font-family:'DM Mono',monospace">u$s ${i.sueldo.toLocaleString('es-AR')}</span>`
+          : `<span style="font-family:'DM Mono',monospace;color:var(--accent)">${fmt(i.sueldo)}</span>`;
+        html += `<tr>
+          <td>💼 Sueldo / Salario</td>
+          <td style="text-align:right">${val}</td>
+        </tr>`;
+        if (moneda === 'ARS') total += i.sueldo;
+      }
+      (i.otros || []).forEach(o => {
+        const val = o.moneda === 'USD'
+          ? `<span style="color:var(--accent3);font-family:'DM Mono',monospace">u$s ${o.monto.toLocaleString('es-AR')}</span>`
+          : `<span style="font-family:'DM Mono',monospace;color:var(--accent)">${fmt(o.monto)}</span>`;
+        html += `<tr>
+          <td>✦ ${o.nombre}</td>
+          <td style="text-align:right">${val}</td>
+        </tr>`;
+        if (o.moneda === 'ARS') total += o.monto;
+      });
+      if (i.extra > 0 && !(i.otros||[]).length) {
+        html += `<tr>
+          <td>✦ Freelance / Extra</td>
+          <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${fmt(i.extra)}</td>
+        </tr>`;
+        total += i.extra;
+      }
+    });
+    html += `</table><div class="panel-total"><span>Total ARS del mes</span><span style="color:var(--accent)">${fmt(total)}</span></div>`;
+    el.innerHTML = html;
+  }
+
+  if (tipo === 'ahorro') {
+    const el = document.getElementById('panel-ahorro-body');
+    const ahorrosMes = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym);
+    const totalMes = ahorrosMes.reduce((s,a) => s + a.monto, 0);
+
+    // Acumulado por tipo/categoría (todos los registros)
+    const porTipo = {};
+    ahorros.filter(a => (a.moneda || 'ARS') === 'ARS').forEach(a => {
+      const t = a.tipo || 'Sin categoría';
+      porTipo[t] = (porTipo[t] || 0) + a.monto;
+    });
+    const sortedTipos = Object.entries(porTipo).sort((a,b) => b[1]-a[1]);
+    const totalAcum = sortedTipos.reduce((s,[,v]) => s+v, 0);
+    const maxTipo = sortedTipos[0]?.[1] || 1;
+
+    if (!ahorrosMes.length && !sortedTipos.length) {
+      el.innerHTML = '<div class="panel-empty">Sin ahorros registrados</div>'; return;
+    }
+
+    let html = '';
+
+    // Detalle del mes
+    if (ahorrosMes.length) {
+      html += `<div class="panel-section">Este mes</div><table class="panel-table">`;
+      ahorrosMes.forEach(a => {
+        const monedaLabel = a.moneda === 'USD' ? 'u$s ' : '$';
+        const color = a.moneda === 'USD' ? 'var(--accent3)' : 'var(--accent)';
+        html += `<tr>
+          <td>${a.tipo || '—'}</td>
+          <td style="color:var(--text3);font-size:0.75rem">${a.notas || ''}</td>
+          <td style="text-align:right;font-family:'DM Mono',monospace;color:${color};white-space:nowrap">${monedaLabel}${a.monto.toLocaleString('es-AR')}</td>
+        </tr>`;
+      });
+      html += `</table><div class="panel-total"><span>Ahorrado este mes</span><span style="color:var(--accent)">${fmt(totalMes)}</span></div>`;
+    }
+
+    // Acumulado por categoría
+    if (sortedTipos.length) {
+      html += `<div class="panel-section" style="margin-top:${ahorrosMes.length?'0':''}">Acumulado total por categoría (ARS)</div>`;
+      html += '<div style="padding:0.8rem 1.4rem;display:flex;flex-direction:column;gap:10px">';
+      sortedTipos.forEach(([tipo, v]) => {
+        const pct = (v / maxTipo * 100).toFixed(1);
+        const pctTotal = totalAcum > 0 ? (v / totalAcum * 100).toFixed(0) : 0;
+        html += `<div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:0.78rem;color:var(--text2)">${tipo}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--accent)">${fmt(v)} <span style="color:var(--text3);font-size:0.7rem">${pctTotal}%</span></span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--accent)"></div></div>
+        </div>`;
+      });
+      html += `</div><div class="panel-total"><span>Total acumulado ARS</span><span style="color:var(--accent)">${fmt(totalAcum)}</span></div>`;
+    }
+
+    el.innerHTML = html;
+  }
+}
+
+function _renderSaldoPanel(ym) {
+  const fmt = v => '$' + Math.abs(v).toLocaleString('es-AR');
+  const el = document.getElementById('panel-saldo-body');
+
+  const totalGasto   = gastosDelMes(ym).reduce((s,x) => s+x.monto, 0);
+  const ingM         = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym);
+  const totalIngreso = ingM.reduce((s,i) => s+(i.totalARS ?? i.total ?? 0), 0);
+  const ahorrosMes   = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym);
+  const totalAhorro  = ahorrosMes.reduce((s,a) => s+a.monto, 0);
+  const saldo        = totalIngreso - totalGasto - totalAhorro;
+
+  // Barras de composición
+  const maxVal = Math.max(totalIngreso, 1);
+  function barra(v, color) {
+    const pct = Math.min((v / maxVal * 100), 100).toFixed(1);
+    return `<div class="bar-track" style="height:8px;margin-top:4px"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>`;
+  }
+
+  const filas = [
+    { label: '💵 Ingreso del mes',   v: totalIngreso, color: 'var(--accent)',  signo: '+' },
+    { label: '💸 Gasto del mes',     v: totalGasto,   color: 'var(--accent2)', signo: '−' },
+    { label: '🏦 Ahorro separado',   v: totalAhorro,  color: 'var(--accent4)', signo: '−' },
+  ];
+
+  let html = '<div style="padding:1rem 1.4rem;display:flex;flex-direction:column;gap:12px">';
+  filas.forEach(f => {
+    if (f.v === 0) return;
+    html += `<div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:0.82rem;color:var(--text2)">${f.label}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:0.85rem;color:${f.color}">${f.signo} ${fmt(f.v)}</span>
+      </div>
+      ${barra(f.v, f.color)}
+    </div>`;
+  });
+  html += '</div>';
+
+  // Línea divisoria y resultado
+  const saldoColor = saldo >= 0 ? 'var(--accent)' : 'var(--accent2)';
+  const saldoLabel = saldo >= 0 ? '✓ Disponible' : '⚠ Déficit';
+  html += `<div class="panel-total" style="border-top:2px solid var(--border)">
+    <span>${saldoLabel}</span>
+    <span style="color:${saldoColor};font-size:1rem">${saldo < 0 ? '−' : ''}${fmt(saldo)}</span>
+  </div>`;
+
+  // Si hay ingreso 0 mostrar aviso
+  if (totalIngreso === 0) {
+    html = '<div class="panel-empty">No hay ingresos registrados para este mes.<br>Cargalos en la pestaña Ingresos.</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function _renderCuotasPanel() {
+  const fmt = v => '$' + v.toLocaleString('es-AR');
+  const el = document.getElementById('panel-cuotas-body');
+  const cuotaGastos = gastos.filter(g => g.cuota);
+
+  if (!cuotaGastos.length) {
+    el.innerHTML = '<div class="panel-empty">Sin gastos en cuotas registrados</div>'; return;
+  }
+
+  const today = new Date();
+  const ym = selectedDashMonth;
+  const [wy, wm] = ym.split('-').map(Number);
+
+  const rows = cuotaGastos.map(g => {
+    const [fy, fm] = g.fecha.split('-').map(Number);
+    const mesesDesde = (wy - fy) * 12 + (wm - fm);
+    const cuotaActual = Math.min(mesesDesde + 1, g.ncuotas);
+    const restantes   = g.ncuotas - cuotaActual;
+    const adeudado    = restantes * g.montoXcuota;
+    // Mes en que termina
+    let ey = fy, em = fm + g.ncuotas - 1;
+    while (em > 12) { em -= 12; ey++; }
+    const finLabel = MESES[em-1].slice(0,3) + ' ' + ey;
+    return { g, cuotaActual, restantes, adeudado, finLabel, activa: restantes > 0 };
+  }).sort((a,b) => b.adeudado - a.adeudado);
+
+  const totalAdeudado = rows.reduce((s,r) => s+r.adeudado, 0);
+  const activas = rows.filter(r => r.activa);
+  const pagas   = rows.filter(r => !r.activa);
+  const maxAdeudado = Math.max(...rows.map(r => r.adeudado), 1);
+
+  let html = '<table class="panel-table">';
+
+  if (activas.length) {
+    html += `<tr><td colspan="6" class="panel-section">Activas (${activas.length})</td></tr>`;
+    activas.forEach(r => {
+      const pct = (r.adeudado / maxAdeudado * 100).toFixed(0);
+      html += `<tr>
+        <td>
+          <div style="font-size:0.82rem;font-weight:600;color:var(--text)">${r.g.desc}</div>
+          <div style="font-size:0.7rem;color:var(--text3);margin-top:2px">${r.g.cat} · termina ${r.finLabel}</div>
+          <div class="bar-track" style="margin-top:5px;width:100px">
+            <div class="bar-fill" style="width:${pct}%;background:var(--accent4)"></div>
+          </div>
+        </td>
+        <td style="text-align:center;white-space:nowrap">
+          <span style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--text2)">${r.cuotaActual}/${r.g.ncuotas}</span>
+          <div style="font-size:0.68rem;color:var(--text3)">${r.restantes} restantes</div>
+        </td>
+        <td style="text-align:right;white-space:nowrap">
+          <div style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--accent2)">${fmt(r.g.montoXcuota)}/mes</div>
+          <div style="font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--text3)">total ${fmt(r.adeudado)}</div>
+        </td>
+      </tr>`;
+    });
+  }
+
+  if (pagas.length) {
+    html += `<tr><td colspan="6" class="panel-section">Pagadas (${pagas.length})</td></tr>`;
+    pagas.forEach(r => {
+      html += `<tr style="opacity:0.45">
+        <td>
+          <div style="font-size:0.82rem;text-decoration:line-through;color:var(--text3)">${r.g.desc}</div>
+          <div style="font-size:0.7rem;color:var(--text3)">${r.g.cat}</div>
+        </td>
+        <td style="text-align:center">
+          <span style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--text3)">${r.g.ncuotas}/${r.g.ncuotas} ✓</span>
+        </td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text3)">${fmt(r.g.monto)} total</td>
+      </tr>`;
+    });
+  }
+
+  html += `</table>`;
+  if (totalAdeudado > 0) {
+    html += `<div class="panel-total">
+      <span>Total adeudado</span>
+      <span style="color:var(--accent2)">${fmt(totalAdeudado)}</span>
+    </div>`;
+  }
+  el.innerHTML = html;
 }
 
 // ---- AHORRO ----
