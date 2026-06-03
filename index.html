@@ -42,6 +42,10 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'block';
     document.getElementById('user-email').textContent = user.email;
+    // Mostrar pestaña admin solo para el administrador
+    if (user.email === 'pachadofran@gmail.com') {
+      document.getElementById('btn-admin').style.display = '';
+    }
     await window.loadUserData(user.uid);
     window.renderDashboard();
   } else {
@@ -1068,6 +1072,7 @@ onAuthStateChanged(auth, async (user) => {
     <button onclick="showTab('cuotas')"><span class="nav-icon">📅</span>Cuotas</button>
     <button onclick="showTab('ahorro')"><span class="nav-icon">🏦</span>Ahorro</button>
     <button onclick="showTab('pendientes')"><span class="nav-icon">📋</span>Pendientes</button>
+    <button id="btn-admin" onclick="showTab('admin')" style="display:none"><span class="nav-icon">🔐</span>Admin</button>
   </nav>
   <div class="data-btns">
     <div class="user-bar">
@@ -1538,6 +1543,47 @@ onAuthStateChanged(auth, async (user) => {
 
 </main>
 
+<!-- ADMIN -->
+<section id="tab-admin" style="display:none">
+  <div style="max-width:1100px;margin:0 auto;padding:2rem 1.5rem">
+    <div class="page-title">
+      Panel de Administración
+      <small>SOLO VISIBLE PARA pachadofran@gmail.com</small>
+    </div>
+
+    <!-- Agregar email habilitado -->
+    <div class="form-grid" style="margin-bottom:1.5rem;max-width:600px">
+      <div class="form-group" style="flex:1">
+        <label>Email a habilitar</label>
+        <input type="email" id="admin-email-input" placeholder="usuario@email.com"
+          onkeydown="if(event.key==='Enter')addEmailHabilitado()">
+      </div>
+      <div class="form-group" style="align-self:flex-end">
+        <button class="btn-add" onclick="addEmailHabilitado()">+ Habilitar</button>
+      </div>
+    </div>
+
+    <!-- Cards resumen -->
+    <div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:1.5rem;max-width:600px">
+      <div class="card green">
+        <div class="label">Habilitados</div>
+        <div class="value" id="admin-count">0</div>
+      </div>
+      <div class="card blue">
+        <div class="label">Registro</div>
+        <div class="value" style="font-size:1rem" id="admin-modo">Abierto</div>
+        <div class="sub">solo habilitados</div>
+      </div>
+    </div>
+
+    <!-- Lista de emails habilitados -->
+    <div class="table-wrap" style="max-width:600px">
+      <div class="table-header"><h3>EMAILS HABILITADOS PARA REGISTRARSE</h3></div>
+      <div id="admin-email-list"></div>
+    </div>
+  </div>
+</section>
+
 <div class="notif" id="notif">✓ <span id="notif-msg"></span></div>
 
 <script>
@@ -1586,6 +1632,7 @@ function showTab(tab) {
   if (tab === 'cuotas') renderCuotasTable();
   if (tab === 'ahorro') renderAhorroTable();
   if (tab === 'pendientes') renderPendientesTab();
+  if (tab === 'admin') renderAdminPanel();
 }
 
 function notify(msg) {
@@ -2792,6 +2839,15 @@ window.authAction = async function() {
     if (authMode === 'register') {
       if (pass !== pass2) { errEl.textContent = 'Las contraseñas no coinciden'; errEl.style.display = 'block'; return; }
       if (pass.length < 6) { errEl.textContent = 'La contraseña debe tener al menos 6 caracteres'; errEl.style.display = 'block'; return; }
+      // Verificar si el email está habilitado (admin siempre puede)
+      if (email !== 'pachadofran@gmail.com') {
+        const habilitado = await checkEmailHabilitado(email);
+        if (!habilitado) {
+          errEl.textContent = 'Este email no está habilitado para registrarse. Contactá al administrador.';
+          errEl.style.display = 'block';
+          return;
+        }
+      }
       await window._fbCreateUser(window._fbAuth, email, pass);
     } else {
       await window._fbSignIn(window._fbAuth, email, pass);
@@ -3073,6 +3129,74 @@ function renderCatModalList() {
       '<button data-idx="' + i + '" onclick="deleteCatFromModal(cats[_catModalTipo][this.dataset.idx])" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--accent2);font-size:0.72rem;padding:4px 9px;cursor:pointer">✕</button>' +
     '</div>'
   ).join('');
+}
+
+// ---- ADMIN ----
+const ADMIN_EMAIL = 'pachadofran@gmail.com';
+const ADMIN_DOC   = 'config/habilitados';
+
+async function checkEmailHabilitado(email) {
+  try {
+    const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'config', 'habilitados'));
+    if (!snap.exists()) return false;
+    const lista = snap.data().emails || [];
+    return lista.map(e => e.toLowerCase()).includes(email.toLowerCase());
+  } catch(e) { return false; }
+}
+
+async function addEmailHabilitado() {
+  const inp = document.getElementById('admin-email-input');
+  const email = inp.value.trim().toLowerCase();
+  if (!email || !email.includes('@')) { notify('⚠ Email inválido'); return; }
+  try {
+    const ref = window._fbDoc(window._fbDb, 'config', 'habilitados');
+    const snap = await window._fbGetDoc(ref);
+    const lista = snap.exists() ? (snap.data().emails || []) : [];
+    if (lista.map(e => e.toLowerCase()).includes(email)) { notify('Ya está habilitado'); return; }
+    lista.push(email);
+    await window._fbSetDoc(ref, { emails: lista });
+    inp.value = '';
+    notify('✓ Email habilitado: ' + email);
+    renderAdminPanel();
+  } catch(e) { notify('Error: ' + e.message); }
+}
+
+async function removeEmailHabilitado(email) {
+  if (!confirm('¿Deshabilitar ' + email + '?')) return;
+  try {
+    const ref = window._fbDoc(window._fbDb, 'config', 'habilitados');
+    const snap = await window._fbGetDoc(ref);
+    const lista = (snap.data().emails || []).filter(e => e.toLowerCase() !== email.toLowerCase());
+    await window._fbSetDoc(ref, { emails: lista });
+    notify('Email deshabilitado');
+    renderAdminPanel();
+  } catch(e) { notify('Error: ' + e.message); }
+}
+
+async function renderAdminPanel() {
+  const el = document.getElementById('admin-email-list');
+  el.innerHTML = '<div class="panel-empty">Cargando...</div>';
+  try {
+    const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'config', 'habilitados'));
+    const lista = snap.exists() ? (snap.data().emails || []) : [];
+    document.getElementById('admin-count').textContent = lista.length;
+    if (!lista.length) {
+      el.innerHTML = '<div class="panel-empty">Sin emails habilitados aún. Cualquier persona puede intentar registrarse pero será rechazada.</div>';
+      return;
+    }
+    el.innerHTML = '<table class="panel-table"><tbody>' +
+      lista.map(email =>
+        '<tr>' +
+          '<td style="font-size:0.85rem">' + email + '</td>' +
+          '<td style="text-align:right">' +
+            '<button class="btn-del" onclick="removeEmailHabilitado(\'' + email + '\')">✕ Deshabilitar</button>' +
+          '</td>' +
+        '</tr>'
+      ).join('') +
+    '</tbody></table>';
+  } catch(e) {
+    el.innerHTML = '<div class="panel-empty">Error cargando: ' + e.message + '</div>';
+  }
 }
 
 // ---- INIT ----
