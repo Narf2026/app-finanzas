@@ -350,6 +350,7 @@ onAuthStateChanged(auth, async (user) => {
   .dash-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    grid-auto-rows: auto;
     gap: 1.2rem;
     margin-top: 1.5rem;
   }
@@ -508,6 +509,95 @@ onAuthStateChanged(auth, async (user) => {
     transform: translateX(16px);
   }
   .cuota-toggle label { font-size: 0.8rem; color: var(--text2); cursor: pointer; }
+
+
+  /* PENDIENTES */
+  .p-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 8px;
+    transition: opacity 0.2s, border-color 0.2s;
+    position: relative;
+  }
+  .p-item.done {
+    opacity: 0.45;
+    border-color: transparent;
+  }
+  .p-item.prio-alta { border-left: 3px solid var(--accent2); }
+  .p-item.prio-baja { border-left: 3px solid var(--text3); }
+  .p-item.prio-normal { border-left: 3px solid var(--accent4); }
+  .p-item.vencido:not(.done) { border-left: 3px solid var(--accent3) !important; }
+
+  .p-check {
+    width: 22px; height: 22px;
+    appearance: none;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .p-check:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .p-check:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    color: #0d0f14;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .p-check:not(:checked):hover { border-color: var(--accent); }
+
+  .p-body { flex: 1; min-width: 0; }
+  .p-desc {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .done .p-desc { text-decoration: line-through; color: var(--text3); }
+  .p-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .p-monto {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--accent2);
+    font-weight: 500;
+  }
+  .p-vence {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text3);
+  }
+  .p-vence.vencido { color: var(--accent3); }
+  .prio-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 99px;
+  }
+  .prio-alta .prio-badge { background: rgba(255,107,107,0.12); color: var(--accent2); }
+  .prio-normal .prio-badge { background: rgba(116,185,255,0.1); color: var(--accent4); }
+  .prio-baja .prio-badge { background: rgba(139,144,167,0.1); color: var(--text3); }
 
   /* NOTIFICATION */
   .notif {
@@ -893,6 +983,7 @@ onAuthStateChanged(auth, async (user) => {
     <button onclick="showTab('ingresos')"><span class="nav-icon">💵</span>Ingresos</button>
     <button onclick="showTab('cuotas')"><span class="nav-icon">📅</span>Cuotas</button>
     <button onclick="showTab('ahorro')"><span class="nav-icon">🏦</span>Ahorro</button>
+    <button onclick="showTab('pendientes')"><span class="nav-icon">📋</span>Pendientes</button>
   </nav>
   <div class="data-btns">
     <div class="user-bar">
@@ -958,9 +1049,9 @@ onAuthStateChanged(auth, async (user) => {
         <div class="empty"><div class="icon">🪣</div>Sin gastos aún</div>
       </div>
     </div>
-    <div class="chart-box">
-      <h3>Evolución Mensual</h3>
-      <div class="month-bars" id="monthly-bars"></div>
+    <div class="chart-box" style="grid-column: span 2">
+      <h3>Evolución Mensual — Gastos vs Ingresos</h3>
+      <div id="monthly-bars"></div>
     </div>
   </div>
 </section>
@@ -1246,6 +1337,92 @@ onAuthStateChanged(auth, async (user) => {
   </div>
 </section>
 
+<!-- PENDIENTES -->
+<section id="tab-pendientes">
+  <div class="page-title">
+    Lista de Pendientes
+    <small>RECORDATORIO PERSONAL — NO AFECTA TUS REGISTROS</small>
+  </div>
+
+  <div class="form-grid" style="margin-bottom:1.5rem">
+    <div class="form-group">
+      <label>Concepto</label>
+      <input type="text" id="p-desc" placeholder="ej: Pagar tarjeta Visa">
+    </div>
+    <div class="form-group">
+      <label>Monto estimado ($)</label>
+      <input type="number" id="p-monto" placeholder="Opcional" min="0" step="0.01">
+    </div>
+    <div class="form-group">
+      <label>Categoría</label>
+      <select id="p-cat">
+        <option value="">Sin categoría</option>
+        <option>Alimentación</option>
+        <option>Transporte</option>
+        <option>Vivienda/Alquiler</option>
+        <option>Servicios (luz/gas/agua)</option>
+        <option>Internet/Telefonía</option>
+        <option>Ropa/Calzado</option>
+        <option>Salud/Farmacia</option>
+        <option>Educación</option>
+        <option>Entretenimiento</option>
+        <option>Restaurantes/Delivery</option>
+        <option>Tarjetas/Cuotas</option>
+        <option>Impuestos</option>
+        <option>Otros</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Vencimiento</label>
+      <input type="date" id="p-vence">
+    </div>
+    <div class="form-group">
+      <label>Prioridad</label>
+      <select id="p-prio">
+        <option value="normal">Normal</option>
+        <option value="alta">Alta</option>
+        <option value="baja">Baja</option>
+      </select>
+    </div>
+    <div class="form-group" style="align-self:flex-end">
+      <button class="btn-add" onclick="addPendiente()">+ Agregar</button>
+    </div>
+  </div>
+
+  <div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:1.5rem">
+    <div class="card yellow">
+      <div class="label">Pendientes</div>
+      <div class="value" id="p-count">0</div>
+    </div>
+    <div class="card green">
+      <div class="label">Completados</div>
+      <div class="value" id="p-done">0</div>
+    </div>
+    <div class="card red">
+      <div class="label">Total estimado</div>
+      <div class="value" id="p-total">$0</div>
+      <div class="sub">solo pendientes</div>
+    </div>
+    <div class="card blue">
+      <div class="label">Vencidos / hoy</div>
+      <div class="value" id="p-vencidos">0</div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
+    <span style="font-size:0.72rem;color:var(--text3);font-weight:600;letter-spacing:0.8px;text-transform:uppercase">Filtrar:</span>
+    <button class="month-btn active" id="pf-todos" onclick="setPendienteFiltro('todos',this)">Todos</button>
+    <button class="month-btn" id="pf-pendientes" onclick="setPendienteFiltro('pendientes',this)">Pendientes</button>
+    <button class="month-btn" id="pf-completados" onclick="setPendienteFiltro('completados',this)">Completados</button>
+    <button class="month-btn" id="pf-alta" onclick="setPendienteFiltro('alta',this)">🔴 Alta prioridad</button>
+    <div style="margin-left:auto">
+      <button class="btn-export" onclick="limpiarCompletados()" style="border-color:var(--accent2);color:var(--accent2)">🗑 Limpiar completados</button>
+    </div>
+  </div>
+
+  <div id="pendientes-list"></div>
+</section>
+
 </main>
 
 <div class="notif" id="notif">✓ <span id="notif-msg"></span></div>
@@ -1294,6 +1471,7 @@ function showTab(tab) {
   if (tab === 'ingresos') renderIngresosTable();
   if (tab === 'cuotas') renderCuotasTable();
   if (tab === 'ahorro') renderAhorroTable();
+  if (tab === 'pendientes') renderPendientesTab();
 }
 
 function notify(msg) {
@@ -1563,8 +1741,8 @@ function saveEditIngreso(key) {
   if (idx < 0) return;
   const sueldo = parseFloat(document.getElementById('ei-sueldo-' + key).value) || 0;
   const sueldoMoneda = document.getElementById('ei-smoneda-' + key).value;
-  const totalARS = sueldoMoneda === 'ARS' ? sueldo : 0;
-  const totalUSD = sueldoMoneda === 'USD' ? sueldo : 0;
+  let totalARS = sueldoMoneda === 'ARS' ? sueldo : 0;
+  let totalUSD = sueldoMoneda === 'USD' ? sueldo : 0;
   // sumar otros existentes
   const otros = ingresos[idx].otros || [];
   otros.forEach(o => { if(o.moneda==='ARS') totalARS += o.monto; else totalUSD += o.monto; });
@@ -1693,13 +1871,53 @@ function selectDashMonth(m, el) {
   renderDashboard();
 }
 
+// Devuelve {monto, cat} de cada cuota que cae en el mes ym,
+// más los gastos normales (sin cuota) cuya fecha está en ym.
+function gastosDelMes(ym) {
+  const items = [];
+  const [ymYear, ymMonth] = ym.split('-').map(Number);
+  gastos.forEach(g => {
+    if (!g.cuota) {
+      // Gasto normal: aparece en su mes de compra
+      if (g.fecha.slice(0, 7) === ym) items.push({ monto: g.monto, cat: g.cat });
+    } else {
+      // Cuota: calcular qué cuotas caen en ym
+      const [fy, fm, fd] = g.fecha.split('-').map(Number);
+      for (let n = 0; n < g.ncuotas; n++) {
+        // Mes en que cae la cuota n (0-indexed)
+        let cy = fy, cm = fm + n;
+        while (cm > 12) { cm -= 12; cy++; }
+        const cuotaYm = `${cy}-${String(cm).padStart(2, '0')}`;
+        if (cuotaYm === ym) items.push({ monto: g.montoXcuota, cat: g.cat });
+      }
+    }
+  });
+  return items;
+}
+
+function totalDelMes(ym) {
+  return gastosDelMes(ym).reduce((s, x) => s + x.monto, 0);
+}
+
 function renderDashboard() {
   buildDashMonths();
   const ym = selectedDashMonth;
-  const gastosM = gastos.filter(g => g.fecha.slice(0,7) === ym);
+
+  // Gastos: normales en su mes + cuotas que caen en ym
+  const itemsM = gastosDelMes(ym);
+  // Cantidad de transacciones: gastos normales del mes + cuotas que caen este mes
+  const gastosNormalesM = gastos.filter(g => !g.cuota && g.fecha.slice(0,7) === ym);
+  const cuotasEnMes = gastos.filter(g => {
+    if (!g.cuota) return false;
+    const [fy, fm] = g.fecha.split('-').map(Number);
+    const [wy, wm] = ym.split('-').map(Number);
+    const n0 = (wy - fy) * 12 + (wm - fm);
+    return n0 >= 0 && n0 < g.ncuotas;
+  });
+
+  const totalGasto = itemsM.reduce((s, x) => s + x.monto, 0);
   const ingM = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym);
   const ahorrosM = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym);
-  const totalGasto = gastosM.reduce((s, g) => s + (g.cuota ? g.montoXcuota : g.monto), 0);
   const totalIngreso = ingM.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
   const totalAhorro = ahorrosM.reduce((s, a) => s + a.monto, 0);
   const saldo = totalIngreso - totalGasto - totalAhorro;
@@ -1708,7 +1926,8 @@ function renderDashboard() {
   document.getElementById('d-ingreso').textContent = '$' + totalIngreso.toLocaleString('es-AR');
   document.getElementById('d-saldo').textContent = '$' + saldo.toLocaleString('es-AR');
   document.getElementById('d-ahorro').textContent = '$' + totalAhorro.toLocaleString('es-AR');
-  document.getElementById('d-gastos-n').textContent = gastosM.length + ' transacciones';
+  const nTx = gastosNormalesM.length + cuotasEnMes.length;
+  document.getElementById('d-gastos-n').textContent = nTx + ' transacciones' + (cuotasEnMes.length ? ` (${cuotasEnMes.length} en cuotas)` : '');
   document.getElementById('d-cuotas').textContent = gastos.filter(g => g.cuota).length;
 
   // Saldo sub label
@@ -1720,9 +1939,9 @@ function renderDashboard() {
   const saldoEl = document.getElementById('d-saldo');
   saldoEl.style.color = saldo >= 0 ? 'var(--accent)' : 'var(--accent2)';
 
-  // Category bars
+  // Category bars (incluye cuotas del mes)
   const cats = {};
-  gastosM.forEach(g => { cats[g.cat] = (cats[g.cat] || 0) + (g.cuota ? g.montoXcuota : g.monto); });
+  itemsM.forEach(x => { cats[x.cat] = (cats[x.cat] || 0) + x.monto; });
   const sorted = Object.entries(cats).sort((a,b) => b[1]-a[1]);
   const catEl = document.getElementById('cat-bars');
   if (!sorted.length) { catEl.innerHTML = '<div class="empty"><div class="icon">🪣</div>Sin gastos este mes</div>'; }
@@ -1735,24 +1954,105 @@ function renderDashboard() {
       </div>`).join('');
   }
 
-  // Monthly bars (last 6 months)
+  // Gráfico evolución mensual (SVG, 6 meses)
   const months = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
     months.push(d.toISOString().slice(0,7));
   }
-  const monthTotals = months.map(m => ({
-    m, label: MESES[parseInt(m.slice(5,7))-1].slice(0,3),
-    total: gastos.filter(g => g.fecha.slice(0,7) === m).reduce((s,g) => s + (g.cuota ? g.montoXcuota : g.monto), 0)
-  }));
-  const maxT = Math.max(...monthTotals.map(x => x.total), 1);
-  document.getElementById('monthly-bars').innerHTML = monthTotals.map(x =>
-    `<div class="m-bar-wrap">
-      <div class="m-bar ${x.m===ym?'current':''}" style="height:${Math.max((x.total/maxT)*100,2)}%"></div>
-      <div class="m-label">${x.label}</div>
-    </div>`
-  ).join('');
+  const monthTotals = months.map(m => {
+    const ingRec = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === m);
+    const totalIng = ingRec.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
+    return {
+      m,
+      label: MESES[parseInt(m.slice(5,7))-1].slice(0,3),
+      gastos: totalDelMes(m),
+      ingresos: totalIng
+    };
+  });
+
+  const allVals = monthTotals.flatMap(x => [x.gastos, x.ingresos]).filter(v => v > 0);
+  const maxV = Math.max(...allVals, 1);
+
+  // Formato compacto de montos
+  function fmtK(v) {
+    if (v === 0) return '$0';
+    if (v >= 1000000) return '$' + (v/1000000).toFixed(1).replace('.0','') + 'M';
+    if (v >= 1000) return '$' + Math.round(v/1000) + 'k';
+    return '$' + v.toLocaleString('es-AR');
+  }
+
+  const W = 560, H = 220;
+  const padL = 52, padR = 16, padT = 28, padB = 44;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const n = monthTotals.length;
+  const groupW = chartW / n;
+  const barW = Math.min(groupW * 0.28, 22);
+  const gap = barW * 0.5;
+
+  // Líneas guía Y (3 líneas)
+  const guideVals = [0.25, 0.5, 0.75, 1].map(f => Math.round(maxV * f));
+  const guides = guideVals.map(v => {
+    const y = padT + chartH - (v / maxV) * chartH;
+    return `
+      <line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="#252a3a" stroke-width="1"/>
+      <text x="${padL - 6}" y="${y + 4}" text-anchor="end" fill="#555c78" font-size="9" font-family="DM Mono,monospace">${fmtK(v)}</text>`;
+  }).join('');
+
+  const bars = monthTotals.map((x, i) => {
+    const cx = padL + groupW * i + groupW / 2;
+    const xG = cx - gap/2 - barW;
+    const xI = cx + gap/2;
+    const hG = x.gastos > 0 ? Math.max((x.gastos / maxV) * chartH, 3) : 0;
+    const hI = x.ingresos > 0 ? Math.max((x.ingresos / maxV) * chartH, 3) : 0;
+    const yG = padT + chartH - hG;
+    const yI = padT + chartH - hI;
+    const isCurrent = x.m === ym;
+    const colG = isCurrent ? '#ff6b6b' : '#ff6b6b99';
+    const colI = isCurrent ? '#00e5a0' : '#00e5a055';
+    const labelY = H - padB + 16;
+
+    const valG = x.gastos > 0
+      ? `<text x="${xG + barW/2}" y="${yG - 5}" text-anchor="middle" fill="#ff6b6b" font-size="8.5" font-family="DM Mono,monospace" font-weight="500">${fmtK(x.gastos)}</text>`
+      : '';
+    const valI = x.ingresos > 0
+      ? `<text x="${xI + barW/2}" y="${yI - 5}" text-anchor="middle" fill="#00e5a0" font-size="8.5" font-family="DM Mono,monospace" font-weight="500">${fmtK(x.ingresos)}</text>`
+      : '';
+
+    const resalte = isCurrent
+      ? `<rect x="${cx - groupW/2 + 2}" y="${padT - 8}" width="${groupW - 4}" height="${chartH + 8}" rx="6" fill="rgba(255,255,255,0.025)"/>`
+      : '';
+
+    return `
+      ${resalte}
+      ${hG > 0 ? `<rect x="${xG}" y="${yG}" width="${barW}" height="${hG}" rx="3" fill="${colG}"/>` : ''}
+      ${hI > 0 ? `<rect x="${xI}" y="${yI}" width="${barW}" height="${hI}" rx="3" fill="${colI}"/>` : ''}
+      ${valG}${valI}
+      <text x="${cx}" y="${labelY}" text-anchor="middle" fill="${isCurrent ? '#e8eaf0' : '#8b90a7'}" font-size="10" font-family="DM Mono,monospace" font-weight="${isCurrent ? '600' : '400'}">${x.label}</text>
+      ${isCurrent ? `<text x="${cx}" y="${labelY + 11}" text-anchor="middle" fill="#00e5a0" font-size="7.5" font-family="DM Mono,monospace">◆ actual</text>` : ''}
+    `;
+  }).join('');
+
+  // Eje X base
+  const ejeX = `<line x1="${padL}" x2="${W - padR}" y1="${padT + chartH}" y2="${padT + chartH}" stroke="#252a3a" stroke-width="1.5"/>`;
+
+  // Leyenda
+  const leyenda = `
+    <rect x="${padL}" y="6" width="10" height="10" rx="2" fill="#ff6b6b"/>
+    <text x="${padL + 14}" y="15" fill="#8b90a7" font-size="9.5" font-family="Sora,sans-serif">Gastos</text>
+    <rect x="${padL + 62}" y="6" width="10" height="10" rx="2" fill="#00e5a0"/>
+    <text x="${padL + 76}" y="15" fill="#8b90a7" font-size="9.5" font-family="Sora,sans-serif">Ingresos</text>
+  `;
+
+  document.getElementById('monthly-bars').innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;overflow:visible">
+      ${guides}
+      ${ejeX}
+      ${bars}
+      ${leyenda}
+    </svg>`;
 }
 
 // ---- AHORRO ----
@@ -2049,6 +2349,130 @@ window.doLogout = async function() {
   await window._fbSignOut(window._fbAuth);
   gastos = []; ingresos = []; ahorros = [];
 };
+
+
+// ---- PENDIENTES ----
+let pendientes = JSON.parse(localStorage.getItem('gf_pendientes') || '[]');
+let pendienteFiltro = 'todos';
+
+function savePendientes() {
+  localStorage.setItem('gf_pendientes', JSON.stringify(pendientes));
+}
+
+function addPendiente() {
+  const desc  = document.getElementById('p-desc').value.trim();
+  const monto = parseFloat(document.getElementById('p-monto').value) || 0;
+  const cat   = document.getElementById('p-cat').value;
+  const vence = document.getElementById('p-vence').value;
+  const prio  = document.getElementById('p-prio').value;
+  if (!desc) { notify('⚠ Escribí un concepto'); return; }
+  pendientes.push({ id: Date.now(), desc, monto, cat, vence, prio, done: false, creadoEn: new Date().toISOString() });
+  savePendientes();
+  document.getElementById('p-desc').value = '';
+  document.getElementById('p-monto').value = '';
+  document.getElementById('p-cat').value = '';
+  document.getElementById('p-vence').value = '';
+  document.getElementById('p-prio').value = 'normal';
+  notify('Pendiente agregado');
+  renderPendientesTab();
+}
+
+function togglePendiente(id) {
+  const idx = pendientes.findIndex(p => p.id === id);
+  if (idx < 0) return;
+  pendientes[idx].done = !pendientes[idx].done;
+  savePendientes();
+  renderPendientesTab();
+}
+
+function deletePendiente(id) {
+  pendientes = pendientes.filter(p => p.id !== id);
+  savePendientes();
+  renderPendientesTab();
+}
+
+function limpiarCompletados() {
+  pendientes = pendientes.filter(p => !p.done);
+  savePendientes();
+  notify('Completados eliminados');
+  renderPendientesTab();
+}
+
+function setPendienteFiltro(filtro, el) {
+  pendienteFiltro = filtro;
+  document.querySelectorAll('[id^="pf-"]').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderPendientesTab();
+}
+
+function renderPendientesTab() {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const total_pendientes = pendientes.filter(p => !p.done).length;
+  const total_done       = pendientes.filter(p => p.done).length;
+  const total_monto      = pendientes.filter(p => !p.done).reduce((s, p) => s + p.monto, 0);
+  const total_vencidos   = pendientes.filter(p => !p.done && p.vence && p.vence <= hoy).length;
+
+  document.getElementById('p-count').textContent = total_pendientes;
+  document.getElementById('p-done').textContent  = total_done;
+  document.getElementById('p-total').textContent = '$' + total_monto.toLocaleString('es-AR');
+  document.getElementById('p-vencidos').textContent = total_vencidos;
+
+  let lista = [...pendientes];
+  if (pendienteFiltro === 'pendientes')  lista = lista.filter(p => !p.done);
+  if (pendienteFiltro === 'completados') lista = lista.filter(p => p.done);
+  if (pendienteFiltro === 'alta')        lista = lista.filter(p => p.prio === 'alta' && !p.done);
+
+  // Ordenar: alta prio primero, luego por vencimiento, luego por creación
+  lista.sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    const prioVal = { alta: 0, normal: 1, baja: 2 };
+    if (prioVal[a.prio] !== prioVal[b.prio]) return prioVal[a.prio] - prioVal[b.prio];
+    if (a.vence && b.vence) return a.vence.localeCompare(b.vence);
+    if (a.vence) return -1;
+    if (b.vence) return 1;
+    return b.id - a.id;
+  });
+
+  const el = document.getElementById('pendientes-list');
+  if (!lista.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">📋</div>No hay items para mostrar</div>';
+    return;
+  }
+
+  const prioPretty = { alta: '🔴 Alta', normal: '🔵 Normal', baja: '⚪ Baja' };
+  const MESES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  function fmtVence(v) {
+    if (!v) return '';
+    const [y, m, d] = v.split('-');
+    return `${d} ${MESES_CORTO[parseInt(m)-1]} ${y}`;
+  }
+
+  el.innerHTML = lista.map(p => {
+    const vencido = !p.done && p.vence && p.vence < hoy;
+    const venceHoy = !p.done && p.vence && p.vence === hoy;
+    let venceLabel = '';
+    if (p.vence) {
+      if (vencido) venceLabel = `<span class="p-vence vencido">⚠ Vencido: ${fmtVence(p.vence)}</span>`;
+      else if (venceHoy) venceLabel = `<span class="p-vence vencido">⏰ Vence hoy</span>`;
+      else venceLabel = `<span class="p-vence">📅 ${fmtVence(p.vence)}</span>`;
+    }
+    return `
+    <div class="p-item prio-${p.prio} ${p.done ? 'done' : ''} ${(vencido || venceHoy) ? 'vencido' : ''}">
+      <input type="checkbox" class="p-check" ${p.done ? 'checked' : ''} onchange="togglePendiente(${p.id})">
+      <div class="p-body">
+        <div class="p-desc">${p.desc}</div>
+        <div class="p-meta">
+          ${p.monto > 0 ? `<span class="p-monto">$${p.monto.toLocaleString('es-AR')}</span>` : ''}
+          ${p.cat ? `<span class="badge badge-cat" style="font-size:0.65rem">${p.cat}</span>` : ''}
+          ${venceLabel}
+          <span class="prio-badge">${prioPretty[p.prio]}</span>
+        </div>
+      </div>
+      <button class="btn-del" onclick="deletePendiente(${p.id})" title="Eliminar">✕</button>
+    </div>`;
+  }).join('');
+}
 
 // ---- INIT ----
 document.getElementById('g-fecha').value = new Date().toISOString().slice(0,7) + '-' + String(new Date().getDate()).padStart(2,'0');
