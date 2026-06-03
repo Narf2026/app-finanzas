@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -32,6 +32,7 @@ window._fbGetDoc = getDoc;
 window._fbCreateUser = createUserWithEmailAndPassword;
 window._fbSignIn = signInWithEmailAndPassword;
 window._fbSignOut = signOut;
+window._fbResetPassword = sendPasswordResetEmail;
 window._fbOnAuth = onAuthStateChanged;
 
 // Escuchar cambios de sesión
@@ -874,6 +875,9 @@ onAuthStateChanged(auth, async (user) => {
     <button class="btn-auth" onclick="window.authAction()" id="auth-btn">Ingresar</button>
     <div class="auth-toggle" id="auth-toggle">
       ¿No tenés cuenta? <span onclick="window.toggleAuthMode()">Registrate</span>
+    </div>
+    <div class="auth-toggle" id="auth-reset-wrap" style="margin-top:-4px">
+      <span onclick="window.resetPassword()">¿Olvidaste tu contraseña?</span>
     </div>
   </div>
 </div>
@@ -1976,7 +1980,37 @@ window.toggleAuthMode = function() {
     ? '¿Ya tenés cuenta? <span onclick="window.toggleAuthMode()">Iniciá sesión</span>'
     : '¿No tenés cuenta? <span onclick="window.toggleAuthMode()">Registrate</span>';
   document.getElementById('auth-pass2-wrap').style.display = isReg ? 'block' : 'none';
+  document.getElementById('auth-reset-wrap').style.display = isReg ? 'none' : 'block';
   document.getElementById('auth-error').style.display = 'none';
+};
+
+window.resetPassword = async function() {
+  const email = document.getElementById('auth-email').value.trim();
+  const errEl = document.getElementById('auth-error');
+  errEl.style.display = 'none';
+  if (!email) {
+    errEl.textContent = 'Escribí tu email primero';
+    errEl.style.display = 'block';
+    return;
+  }
+  try {
+    await window._fbResetPassword(window._fbAuth, email);
+    errEl.style.background = 'rgba(0,229,160,0.1)';
+    errEl.style.borderColor = 'rgba(0,229,160,0.3)';
+    errEl.style.color = 'var(--accent)';
+    errEl.textContent = '✓ Te mandamos un email para restablecer tu contraseña';
+    errEl.style.display = 'block';
+  } catch(e) {
+    errEl.style.background = 'rgba(255,107,107,0.1)';
+    errEl.style.borderColor = 'rgba(255,107,107,0.3)';
+    errEl.style.color = 'var(--accent2)';
+    const msgs = {
+      'auth/user-not-found': 'No existe una cuenta con ese email',
+      'auth/invalid-email': 'Email inválido',
+    };
+    errEl.textContent = msgs[e.code] || 'Error al enviar el email';
+    errEl.style.display = 'block';
+  }
 };
 
 window.authAction = async function() {
