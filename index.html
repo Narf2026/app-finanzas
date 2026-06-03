@@ -1080,6 +1080,25 @@ onAuthStateChanged(auth, async (user) => {
   </div>
 </header>
 
+<!-- MODAL CATEGORÍAS -->
+<div class="modal-overlay" id="cat-modal">
+  <div class="modal" style="max-width:480px;width:94%;text-align:left">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <h3 style="font-family:'DM Serif Display',serif;font-size:1.15rem" id="cat-modal-title">Categorías</h3>
+      <button onclick="closeCatModal()" style="background:none;border:none;color:var(--text3);font-size:1.1rem;cursor:pointer">✕</button>
+    </div>
+    <!-- Agregar nueva -->
+    <div style="display:flex;gap:8px;margin-bottom:1.2rem">
+      <input type="text" id="cat-modal-input" placeholder="Nueva categoría..." class="form-group input"
+        style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none"
+        onkeydown="if(event.key==='Enter')addCatFromModal()">
+      <button class="btn-add" style="padding:9px 16px;font-size:0.82rem" onclick="addCatFromModal()">+ Agregar</button>
+    </div>
+    <!-- Lista -->
+    <div id="cat-modal-list" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+</div>
+
 <!-- MODAL CONFIRMACIÓN IMPORTAR -->
 <div class="modal-overlay" id="import-modal">
   <div class="modal">
@@ -1195,27 +1214,14 @@ onAuthStateChanged(auth, async (user) => {
       <input type="text" id="g-desc" placeholder="ej: Super Vea">
     </div>
     <div class="form-group">
-      <label>Categoría</label>
-      <select id="g-cat" onchange="toggleOtro('g-cat','g-cat-otro')">
+      <label style="display:flex;justify-content:space-between;align-items:center">
+        Categoría
+        <button type="button" onclick="openCatModal('gastos')" style="background:none;border:none;color:var(--text3);font-size:0.75rem;cursor:pointer;padding:0;font-family:'Sora',sans-serif" title="Gestionar categorías">⚙ gestionar</button>
+      </label>
+      <select id="g-cat" onchange="onCatSelect('g-cat','g-cat-otro','gastos')">
         <option value="">Seleccionar...</option>
-        <option>Alimentación</option>
-        <option>Transporte</option>
-        <option>Vivienda/Alquiler</option>
-        <option>Servicios (luz/gas/agua)</option>
-        <option>Internet/Telefonía</option>
-        <option>Ropa/Calzado</option>
-        <option>Salud/Farmacia</option>
-        <option>Educación</option>
-        <option>Entretenimiento</option>
-        <option>Restaurantes/Delivery</option>
-        <option>Viajes</option>
-        <option>Cuidado personal</option>
-        <option>Mascotas</option>
-        <option>Ahorro/Inversión</option>
-        <option>Cuota préstamo</option>
-        <option>Otros</option>
       </select>
-      <input type="text" id="g-cat-otro" placeholder="Escribí la categoría..." style="display:none;margin-top:6px">
+      <input type="text" id="g-cat-otro" placeholder="Nueva categoría..." style="display:none;margin-top:6px" onblur="saveNewCat('g-cat','g-cat-otro','gastos')">
     </div>
     <div class="form-group">
       <label>Medio de Pago</label>
@@ -1410,19 +1416,14 @@ onAuthStateChanged(auth, async (user) => {
       <input type="number" id="a-monto" placeholder="0.00" min="0" step="0.01">
     </div>
     <div class="form-group">
-      <label>Dónde lo guardás</label>
-      <select id="a-tipo" onchange="toggleOtro('a-tipo','a-tipo-otro')">
+      <label style="display:flex;justify-content:space-between;align-items:center">
+        Dónde lo guardás
+        <button type="button" onclick="openCatModal('ahorro')" style="background:none;border:none;color:var(--text3);font-size:0.75rem;cursor:pointer;padding:0;font-family:'Sora',sans-serif">⚙ gestionar</button>
+      </label>
+      <select id="a-tipo" onchange="onCatSelect('a-tipo','a-tipo-otro','ahorro')">
         <option value="">Seleccionar...</option>
-        <option>Efectivo</option>
-        <option>Caja de ahorro</option>
-        <option>Plazo fijo</option>
-        <option>Dólar</option>
-        <option>Crypto</option>
-        <option>Fondo común</option>
-        <option>Acciones</option>
-        <option>Otro</option>
       </select>
-      <input type="text" id="a-tipo-otro" placeholder="Escribí dónde lo guardás..." style="display:none;margin-top:6px">
+      <input type="text" id="a-tipo-otro" placeholder="Nueva categoría..." style="display:none;margin-top:6px" onblur="saveNewCat('a-tipo','a-tipo-otro','ahorro')">
     </div>
     <div class="form-group">
       <label>Notas</label>
@@ -1476,22 +1477,12 @@ onAuthStateChanged(auth, async (user) => {
       <input type="number" id="p-monto" placeholder="Opcional" min="0" step="0.01">
     </div>
     <div class="form-group">
-      <label>Categoría</label>
+      <label style="display:flex;justify-content:space-between;align-items:center">
+        Categoría
+        <button type="button" onclick="openCatModal('pendientes')" style="background:none;border:none;color:var(--text3);font-size:0.75rem;cursor:pointer;padding:0;font-family:'Sora',sans-serif">⚙ gestionar</button>
+      </label>
       <select id="p-cat">
         <option value="">Sin categoría</option>
-        <option>Alimentación</option>
-        <option>Transporte</option>
-        <option>Vivienda/Alquiler</option>
-        <option>Servicios (luz/gas/agua)</option>
-        <option>Internet/Telefonía</option>
-        <option>Ropa/Calzado</option>
-        <option>Salud/Farmacia</option>
-        <option>Educación</option>
-        <option>Entretenimiento</option>
-        <option>Restaurantes/Delivery</option>
-        <option>Tarjetas/Cuotas</option>
-        <option>Impuestos</option>
-        <option>Otros</option>
       </select>
     </div>
     <div class="form-group">
@@ -1620,9 +1611,17 @@ function toggleOtro(selectId, inputId) {
 function resolveOtro(selectId, inputId) {
   const sel = document.getElementById(selectId);
   const inp = document.getElementById(inputId);
-  const isOtro = sel.value === 'Otros' || sel.value === 'Otro';
-  if (isOtro) return inp.value.trim() || 'Otros';
+  const isNueva = sel.value === '__nueva__' || sel.value === 'Otros' || sel.value === 'Otro';
+  if (isNueva) return inp.value.trim() || '';
   return sel.value;
+}
+
+// Guarda la categoría nueva si no existe, y actualiza el select
+function autoSaveNewCat(valor, tipo) {
+  if (!valor || cats[tipo].includes(valor)) return;
+  cats[tipo].push(valor);
+  saveCats(tipo);
+  initCatSelects();
 }
 
 // ---- GASTOS ----
@@ -1643,6 +1642,9 @@ function addGasto() {
 
   const mes = MESES[parseInt(fecha.slice(5,7)) - 1];
   const montoXcuota = cuota ? +(monto / ncuotas).toFixed(2) : monto;
+
+  // Si la categoría es nueva, guardarla automáticamente
+  autoSaveNewCat(cat, 'gastos');
 
   gastos.push({ id: Date.now(), fecha, desc, cat, medio, monto, cuota, ncuotas: cuota ? ncuotas : 1, montoXcuota, mes, notas });
   save();
@@ -2517,6 +2519,7 @@ function addAhorro() {
   const tipo  = resolveOtro('a-tipo', 'a-tipo-otro');
   const notas = document.getElementById('a-notas').value.trim();
   if (!año || !monto || monto <= 0) { notify('⚠ Completá año y monto'); return; }
+  autoSaveNewCat(tipo, 'ahorro');
   // Key única con timestamp para no pisar registros anteriores del mismo mes
   const mesNum = String(MESES.indexOf(mes)+1).padStart(2,'0');
   const ymBase = `${año}-${mesNum}`;
@@ -2927,8 +2930,152 @@ function renderPendientesTab() {
   }).join('');
 }
 
+// ---- CATEGORÍAS DINÁMICAS ----
+const CATS_DEFAULT = {
+  gastos:     ['Alimentación','Transporte','Vivienda/Alquiler','Servicios (luz/gas/agua)','Internet/Telefonía','Ropa/Calzado','Salud/Farmacia','Educación','Entretenimiento','Restaurantes/Delivery','Viajes','Cuidado personal','Mascotas','Ahorro/Inversión','Cuota préstamo'],
+  ahorro:     ['Efectivo','Caja de ahorro','Plazo fijo','Dólar','Crypto','Fondo común','Acciones'],
+  pendientes: ['Alimentación','Transporte','Vivienda/Alquiler','Servicios (luz/gas/agua)','Internet/Telefonía','Ropa/Calzado','Salud/Farmacia','Educación','Entretenimiento','Restaurantes/Delivery','Tarjetas/Cuotas','Impuestos']
+};
+
+let cats = {
+  gastos:     JSON.parse(localStorage.getItem('gf_cats_gastos')     || 'null') || [...CATS_DEFAULT.gastos],
+  ahorro:     JSON.parse(localStorage.getItem('gf_cats_ahorro')     || 'null') || [...CATS_DEFAULT.ahorro],
+  pendientes: JSON.parse(localStorage.getItem('gf_cats_pendientes') || 'null') || [...CATS_DEFAULT.pendientes]
+};
+
+function saveCats(tipo) {
+  localStorage.setItem('gf_cats_' + tipo, JSON.stringify(cats[tipo]));
+}
+
+// Poblar un select con las categorías del tipo dado
+function populateCatSelect(selectId, tipo, withBlank = true, extraOpts = []) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const prev = sel.value;
+  const blanks = withBlank ? ['<option value="">Seleccionar...</option>'] : ['<option value="">Sin categoría</option>'];
+  sel.innerHTML = blanks.join('') +
+    cats[tipo].map(c => `<option${prev === c ? ' selected' : ''}>${c}</option>`).join('') +
+    extraOpts.map(o => `<option value="${o.v}">${o.l}</option>`).join('');
+}
+
+// Inicializar todos los selects de categorías
+function initCatSelects() {
+  populateCatSelect('g-cat', 'gastos');
+  populateCatSelect('a-tipo', 'ahorro');
+  populateCatSelect('p-cat', 'pendientes', false);
+}
+
+// Cuando se elige una opción: si es "Nueva categoría..." abre campo texto
+function onCatSelect(selectId, inputId, tipo) {
+  const sel = document.getElementById(selectId);
+  const inp = document.getElementById(inputId);
+  if (sel.value === '__nueva__') {
+    inp.style.display = 'block';
+    inp.value = '';
+    inp.focus();
+  } else {
+    inp.style.display = 'none';
+    inp.value = '';
+  }
+}
+
+// Guardar categoría nueva al salir del input
+function saveNewCat(selectId, inputId, tipo) {
+  const inp = document.getElementById(inputId);
+  const nombre = inp.value.trim();
+  if (!nombre || cats[tipo].includes(nombre)) return;
+  cats[tipo].push(nombre);
+  saveCats(tipo);
+  populateCatSelect(selectId, tipo);
+  document.getElementById(selectId).value = nombre;
+  inp.style.display = 'none';
+  inp.value = '';
+}
+
+// ---- MODAL CATEGORÍAS ----
+let _catModalTipo = '';
+
+function openCatModal(tipo) {
+  _catModalTipo = tipo;
+  const titles = { gastos: '⚙ Categorías de Gastos', ahorro: '⚙ Categorías de Ahorro', pendientes: '⚙ Categorías de Pendientes' };
+  document.getElementById('cat-modal-title').textContent = titles[tipo] || 'Categorías';
+  document.getElementById('cat-modal-input').value = '';
+  renderCatModalList();
+  document.getElementById('cat-modal').classList.add('show');
+  setTimeout(() => document.getElementById('cat-modal-input').focus(), 80);
+}
+
+function closeCatModal() {
+  document.getElementById('cat-modal').classList.remove('show');
+  // Refrescar todos los selects
+  initCatSelects();
+}
+
+function addCatFromModal() {
+  const inp = document.getElementById('cat-modal-input');
+  const nombre = inp.value.trim();
+  if (!nombre) return;
+  if (cats[_catModalTipo].includes(nombre)) { notify('Ya existe esa categoría'); return; }
+  cats[_catModalTipo].push(nombre);
+  saveCats(_catModalTipo);
+  inp.value = '';
+  renderCatModalList();
+  notify('Categoría agregada');
+}
+
+function deleteCatFromModal(nombre) {
+  if (!confirm(`¿Eliminar "${nombre}"? Los registros que la usen la conservan.`)) return;
+  cats[_catModalTipo] = cats[_catModalTipo].filter(c => c !== nombre);
+  saveCats(_catModalTipo);
+  renderCatModalList();
+}
+
+function startEditCat(idx) {
+  // Convertir ítem a modo edición
+  const item = document.getElementById('cat-item-' + idx);
+  const nombre = cats[_catModalTipo][idx];
+  item.innerHTML = `
+    <input type="text" value="${nombre}" id="cat-edit-inp-${idx}"
+      style="flex:1;background:var(--bg);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.82rem;padding:6px 10px;outline:none"
+      onkeydown="if(event.key==='Enter')confirmEditCat(${idx});if(event.key==='Escape')renderCatModalList()">
+    <button onclick="confirmEditCat(${idx})" style="background:var(--accent);border:none;border-radius:6px;color:#0d0f14;font-size:0.75rem;font-weight:700;padding:6px 12px;cursor:pointer">✓</button>
+    <button onclick="renderCatModalList()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:0.75rem;padding:6px 10px;cursor:pointer">✕</button>`;
+  document.getElementById('cat-edit-inp-' + idx).focus();
+}
+
+function confirmEditCat(idx) {
+  const inp = document.getElementById('cat-edit-inp-' + idx);
+  const nuevo = inp.value.trim();
+  if (!nuevo) return;
+  const viejo = cats[_catModalTipo][idx];
+  if (nuevo === viejo) { renderCatModalList(); return; }
+  if (cats[_catModalTipo].includes(nuevo)) { notify('Ya existe esa categoría'); return; }
+  // Actualizar en registros existentes
+  if (_catModalTipo === 'gastos')     gastos.forEach(g => { if (g.cat === viejo) g.cat = nuevo; });
+  if (_catModalTipo === 'ahorro')     ahorros.forEach(a => { if (a.tipo === viejo) a.tipo = nuevo; });
+  if (_catModalTipo === 'pendientes') pendientes.forEach(p => { if (p.cat === viejo) p.cat = nuevo; });
+  cats[_catModalTipo][idx] = nuevo;
+  saveCats(_catModalTipo);
+  save();
+  renderCatModalList();
+  notify('Categoría renombrada');
+}
+
+function renderCatModalList() {
+  const el = document.getElementById('cat-modal-list');
+  const lista = cats[_catModalTipo];
+  if (!lista.length) { el.innerHTML = '<div style="color:var(--text3);font-size:0.82rem;padding:0.5rem">Sin categorías</div>'; return; }
+  el.innerHTML = lista.map((c, i) => `
+    <div id="cat-item-${i}" style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px">
+      <span style="flex:1;font-size:0.85rem;color:var(--text)">${c}</span>
+      <button onclick="startEditCat(${i})" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--accent4);font-size:0.72rem;padding:4px 9px;cursor:pointer">✏ Editar</button>
+      <button onclick="deleteCatFromModal('${c.replace(/'/g,"\\'")}')` style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--accent2);font-size:0.72rem;padding:4px 9px;cursor:pointer">✕</button>
+    </div>`).join('');
+}
+
 // ---- INIT ----
 document.getElementById('g-fecha').value = new Date().toISOString().slice(0,7) + '-' + String(new Date().getDate()).padStart(2,'0');
+initCatSelects();
 // renderDashboard() se llama desde onAuthStateChanged cuando el usuario inicia sesión
 window.renderDashboard = renderDashboard;
 </script>
