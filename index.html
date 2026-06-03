@@ -1578,7 +1578,8 @@ function showTab(tab) {
   document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
-  event.currentTarget.classList.add('active');
+  const btn = document.querySelector(`nav button[onclick="showTab('${tab}')"]`);
+  if (btn) btn.classList.add('active');
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'gastos') { renderGastosTable(); populateFilters(); }
   if (tab === 'ingresos') renderIngresosTable();
