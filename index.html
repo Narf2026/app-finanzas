@@ -1578,8 +1578,8 @@ function showTab(tab) {
   document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
-  const btn = document.querySelector(`nav button[onclick="showTab('${tab}')"]`);
-  if (btn) btn.classList.add('active');
+  const _btn = document.querySelector('nav button[onclick="showTab(\''+tab+'\')"]');
+  if (_btn) _btn.classList.add('active');
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'gastos') { renderGastosTable(); populateFilters(); }
   if (tab === 'ingresos') renderIngresosTable();
@@ -3070,7 +3070,7 @@ function renderCatModalList() {
     <div id="cat-item-${i}" style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px">
       <span style="flex:1;font-size:0.85rem;color:var(--text)">${c}</span>
       <button onclick="startEditCat(${i})" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--accent4);font-size:0.72rem;padding:4px 9px;cursor:pointer">✏ Editar</button>
-      <button onclick="deleteCatFromModal('${c.replace(/'/g,"\\'")}')` style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--accent2);font-size:0.72rem;padding:4px 9px;cursor:pointer">✕</button>
+      <button onclick="deleteCatFromModal('${c.replace(/'/g,&quot;\\\'&quot;)}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--accent2);font-size:0.72rem;padding:4px 9px;cursor:pointer">✕</button>
     </div>`).join('');
 }
 
