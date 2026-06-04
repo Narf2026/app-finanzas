@@ -1103,16 +1103,16 @@ tr:hover td { background: rgba(255,255,255,.035); }
   /* ── NAV PILL BOTTOM ── */
   nav {
     position: fixed;
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
-    border-radius: 26px;
+    left: 6px;
+    right: 6px;
+    bottom: 8px;
+    border-radius: 24px;
     border: 1px solid rgba(255,255,255,.10);
     background: rgba(6, 12, 22, .90);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     box-shadow: 0 8px 32px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.07);
-    padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+    padding: 7px 4px calc(7px + env(safe-area-inset-bottom));
     display: flex;
     justify-content: space-around;
     align-items: center;
@@ -1124,11 +1124,11 @@ tr:hover td { background: rgba(255,255,255,.035); }
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 3px;
-    font-size: .57rem;
+    gap: 2px;
+    font-size: .53rem;
     font-weight: 600;
-    padding: 5px 2px;
-    border-radius: 14px;
+    padding: 4px 1px;
+    border-radius: 12px;
     letter-spacing: 0;
     color: rgba(182,194,209,.55);
     background: transparent;
@@ -1146,9 +1146,9 @@ tr:hover td { background: rgba(255,255,255,.035); }
     border-radius: 14px;
   }
   nav button.nav-add {
-    flex: 0 0 52px;
-    height: 44px;
-    border-radius: 16px;
+    flex: 0 0 46px;
+    height: 42px;
+    border-radius: 14px;
     background: linear-gradient(135deg, #ff4f5e, #d93545);
     color: #fff;
     box-shadow: 0 4px 16px rgba(255,79,94,.35);
@@ -1379,13 +1379,13 @@ tr:hover td { background: rgba(255,255,255,.035); }
   isolation: isolate;
 }
 .app-nav .nav-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 11px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
   color: currentColor;
   background: rgba(255,255,255,.045);
   border: 1px solid rgba(255,255,255,.075);
@@ -1393,8 +1393,8 @@ tr:hover td { background: rgba(255,255,255,.035); }
   transition: transform .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
 }
 .app-nav .nav-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   display: block;
   overflow: visible;
 }
@@ -1432,13 +1432,13 @@ tr:hover td { background: rgba(255,255,255,.035); }
 }
 .app-nav button:active .nav-icon { transform: scale(.94); }
 .app-nav .nav-add .nav-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 18px;
+  width: 38px;
+  height: 38px;
+  border-radius: 15px;
   background: linear-gradient(145deg, #ff5968, #d73547);
   border-color: rgba(255,255,255,.22);
   color: #fff;
-  box-shadow: 0 12px 28px rgba(255,79,94,.36), inset 0 1px 0 rgba(255,255,255,.18);
+  box-shadow: 0 10px 22px rgba(255,79,94,.36), inset 0 1px 0 rgba(255,255,255,.18);
   margin-bottom: 1px;
 }
 .app-nav .nav-add.active .nav-icon {
@@ -1464,7 +1464,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
     margin-bottom: 0;
   }
   .app-nav .nav-icon svg { width: 17px; height: 17px; }
-  .app-nav .nav-add .nav-icon { width: 30px; height: 30px; border-radius: 12px; }
+  .app-nav .nav-add .nav-icon { width: 28px; height: 28px; border-radius: 11px; }
 }
 @media (max-width: 700px) {
   nav.app-nav {
@@ -1508,10 +1508,10 @@ tr:hover td { background: rgba(255,255,255,.035); }
   nav.app-nav .nav-add.active::after { background: #ff5968; box-shadow: 0 0 14px #ff5968; }
 }
 @media (max-width: 380px) {
-  .app-nav .nav-icon { width: 31px; height: 31px; border-radius: 13px; }
-  .app-nav .nav-icon svg { width: 18px; height: 18px; }
-  .app-nav .nav-add .nav-icon { width: 40px; height: 40px; border-radius: 16px; }
-  nav.app-nav .nav-text { font-size: .52rem; }
+  .app-nav .nav-icon { width: 27px; height: 27px; border-radius: 10px; }
+  .app-nav .nav-icon svg { width: 15px; height: 15px; }
+  .app-nav .nav-add .nav-icon { width: 34px; height: 34px; border-radius: 13px; }
+  nav.app-nav .nav-text { font-size: .48rem; }
 }
 
 </style>
