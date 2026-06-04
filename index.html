@@ -1103,16 +1103,16 @@ tr:hover td { background: rgba(255,255,255,.035); }
   /* ── NAV PILL BOTTOM ── */
   nav {
     position: fixed;
-    left: 6px;
-    right: 6px;
-    bottom: 8px;
-    border-radius: 24px;
+    left: 4px;
+    right: 4px;
+    bottom: 6px;
+    border-radius: 22px;
     border: 1px solid rgba(255,255,255,.10);
     background: rgba(6, 12, 22, .90);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     box-shadow: 0 8px 32px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.07);
-    padding: 7px 4px calc(7px + env(safe-area-inset-bottom));
+    padding: 6px 2px calc(6px + env(safe-area-inset-bottom));
     display: flex;
     justify-content: space-around;
     align-items: center;
@@ -1124,11 +1124,11 @@ tr:hover td { background: rgba(255,255,255,.035); }
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    font-size: .53rem;
+    gap: 3px;
+    font-size: .57rem;
     font-weight: 600;
-    padding: 4px 1px;
-    border-radius: 12px;
+    padding: 5px 2px;
+    border-radius: 14px;
     letter-spacing: 0;
     color: rgba(182,194,209,.55);
     background: transparent;
@@ -1146,9 +1146,9 @@ tr:hover td { background: rgba(255,255,255,.035); }
     border-radius: 14px;
   }
   nav button.nav-add {
-    flex: 0 0 46px;
-    height: 42px;
-    border-radius: 14px;
+    flex: 0 0 52px;
+    height: 44px;
+    border-radius: 16px;
     background: linear-gradient(135deg, #ff4f5e, #d93545);
     color: #fff;
     box-shadow: 0 4px 16px rgba(255,79,94,.35);
@@ -1379,13 +1379,13 @@ tr:hover td { background: rgba(255,255,255,.035); }
   isolation: isolate;
 }
 .app-nav .nav-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 11px;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
   color: currentColor;
   background: rgba(255,255,255,.045);
   border: 1px solid rgba(255,255,255,.075);
@@ -1432,13 +1432,13 @@ tr:hover td { background: rgba(255,255,255,.035); }
 }
 .app-nav button:active .nav-icon { transform: scale(.94); }
 .app-nav .nav-add .nav-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 15px;
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
   background: linear-gradient(145deg, #ff5968, #d73547);
   border-color: rgba(255,255,255,.22);
   color: #fff;
-  box-shadow: 0 10px 22px rgba(255,79,94,.36), inset 0 1px 0 rgba(255,255,255,.18);
+  box-shadow: 0 12px 28px rgba(255,79,94,.36), inset 0 1px 0 rgba(255,255,255,.18);
   margin-bottom: 1px;
 }
 .app-nav .nav-add.active .nav-icon {
@@ -1464,16 +1464,17 @@ tr:hover td { background: rgba(255,255,255,.035); }
     margin-bottom: 0;
   }
   .app-nav .nav-icon svg { width: 17px; height: 17px; }
-  .app-nav .nav-add .nav-icon { width: 28px; height: 28px; border-radius: 11px; }
+  .app-nav .nav-add .nav-icon { width: 30px; height: 30px; border-radius: 12px; }
 }
 @media (max-width: 700px) {
   nav.app-nav {
-    overflow: visible;
-    padding-top: 9px;
+    overflow: hidden;
+    padding-top: 3px;
+    padding-bottom: calc(3px + env(safe-area-inset-bottom));
   }
   nav.app-nav button {
-    gap: 4px;
-    padding: 4px 2px 5px;
+    gap: 2px;
+    padding: 3px 1px 4px;
     color: rgba(214,224,236,.58);
   }
   nav.app-nav button.active {
@@ -1496,7 +1497,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
     font-size: unset !important;
   }
   nav.app-nav .nav-text {
-    font-size: .58rem;
+    font-size: .52rem;
     max-width: 100%;
     white-space: nowrap;
   }
@@ -1508,10 +1509,10 @@ tr:hover td { background: rgba(255,255,255,.035); }
   nav.app-nav .nav-add.active::after { background: #ff5968; box-shadow: 0 0 14px #ff5968; }
 }
 @media (max-width: 380px) {
-  .app-nav .nav-icon { width: 27px; height: 27px; border-radius: 10px; }
-  .app-nav .nav-icon svg { width: 15px; height: 15px; }
-  .app-nav .nav-add .nav-icon { width: 34px; height: 34px; border-radius: 13px; }
-  nav.app-nav .nav-text { font-size: .48rem; }
+  .app-nav .nav-icon { width: 31px; height: 31px; border-radius: 13px; }
+  .app-nav .nav-icon svg { width: 18px; height: 18px; }
+  .app-nav .nav-add .nav-icon { width: 40px; height: 40px; border-radius: 16px; }
+  nav.app-nav .nav-text { font-size: .52rem; }
 }
 
 </style>
