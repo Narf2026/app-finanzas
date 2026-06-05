@@ -2114,34 +2114,17 @@ tr:hover td { background: rgba(255,255,255,.035); }
       <p style="font-size:0.82rem;color:var(--text3);margin-bottom:1.2rem">Agregá tus tarjetas, cuentas y billeteras para usarlas al registrar gastos.</p>
 
       <!-- Form nuevo medio -->
-      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:1.2rem">
-        <div class="form-group" style="min-width:160px;flex:2">
+      <div style="margin-bottom:1.2rem">
+        <!-- Paso 1: banco -->
+        <div class="form-group" style="max-width:320px;margin-bottom:12px">
           <label>Banco / Institución</label>
-          <input type="text" id="tc-banco" placeholder="ej: Galicia, Mercado Pago" oninput="toggleAjustesTipo()">
+          <input type="text" id="tc-banco" placeholder="ej: Santander, Mercado Pago" oninput="renderProductosBanco()">
         </div>
-        <div class="form-group" style="min-width:160px;flex:2" id="tc-tipo-wrap" style="display:none">
-          <label>Tipo</label>
-          <select id="tc-tipo" onchange="toggleAjustesTipo()">
-            <option value="">Seleccionar...</option>
-            <option value="credito">Tarjeta de crédito</option>
-            <option value="debito">Tarjeta de débito</option>
-            <option value="billetera">Billetera virtual</option>
-          </select>
-        </div>
-        <div class="form-group" style="min-width:140px;flex:2" id="tc-nombre-wrap" style="display:none">
-          <label id="tc-nombre-label">Red / Nombre</label>
-          <input type="text" id="tc-nombre" placeholder="ej: Visa">
-        </div>
-        <div class="form-group" style="min-width:110px;flex:1" id="tc-cierre-wrap" style="display:none">
-          <label>Cierre (día)</label>
-          <input type="number" id="tc-cierre" placeholder="ej: 15" min="1" max="31">
-        </div>
-        <div class="form-group" style="min-width:110px;flex:1" id="tc-limite-wrap" style="display:none">
-          <label>Límite (opcional)</label>
-          <input type="number" id="tc-limite" placeholder="$0">
-        </div>
-        <div class="form-group" style="align-self:flex-end" id="tc-btn-wrap" style="display:none">
-          <button class="btn-add" onclick="agregarMedioPago()">+ Agregar</button>
+        <!-- Paso 2: productos del banco -->
+        <div id="tc-productos-wrap" style="display:none">
+          <div style="font-size:0.7rem;font-weight:600;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px">¿Qué tenés de este banco?</div>
+          <div id="tc-productos-lista" style="display:flex;flex-direction:column;gap:10px"></div>
+          <button class="btn-add" onclick="agregarMedioPago()" style="margin-top:14px;width:100%">+ Agregar</button>
         </div>
       </div>
 
@@ -2534,77 +2517,131 @@ function saveTarjetas() {
   localStorage.setItem('gf_tarjetas', JSON.stringify(tarjetas));
 }
 
-function toggleAjustesTipo() {
+// Renderiza los checkboxes de productos para el banco ingresado
+function renderProductosBanco() {
   const banco = document.getElementById('tc-banco').value.trim();
-  const tipo  = document.getElementById('tc-tipo').value;
+  const wrap  = document.getElementById('tc-productos-wrap');
+  if (!banco) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
 
-  const tipoWrap   = document.getElementById('tc-tipo-wrap');
-  const nombreWrap = document.getElementById('tc-nombre-wrap');
-  const cierreWrap = document.getElementById('tc-cierre-wrap');
-  const limiteWrap = document.getElementById('tc-limite-wrap');
-  const btnWrap    = document.getElementById('tc-btn-wrap');
-  const nombreLabel = document.getElementById('tc-nombre-label');
+  document.getElementById('tc-productos-lista').innerHTML = `
+    <!-- Crédito Visa -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px 14px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.85rem;color:var(--text2);text-transform:none;letter-spacing:0;font-weight:600">
+        <input type="checkbox" id="tc-ch-visa" onchange="toggleProducto('visa')"
+          style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">
+        💳 Tarjeta de crédito Visa
+      </label>
+      <div id="tc-det-visa" style="display:none;margin-top:10px;display:none">
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <div class="form-group" style="min-width:100px;flex:1"><label>Cierre (día)</label><input class="edit-input" type="number" id="tc-cierre-visa" placeholder="ej: 15" min="1" max="31"></div>
+          <div class="form-group" style="min-width:110px;flex:1"><label>Límite (opcional)</label><input class="edit-input" type="number" id="tc-limite-visa" placeholder="$0"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Crédito Mastercard -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px 14px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.85rem;color:var(--text2);text-transform:none;letter-spacing:0;font-weight:600">
+        <input type="checkbox" id="tc-ch-master" onchange="toggleProducto('master')"
+          style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">
+        💳 Tarjeta de crédito Mastercard
+      </label>
+      <div id="tc-det-master" style="display:none">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+          <div class="form-group" style="min-width:100px;flex:1"><label>Cierre (día)</label><input class="edit-input" type="number" id="tc-cierre-master" placeholder="ej: 15" min="1" max="31"></div>
+          <div class="form-group" style="min-width:110px;flex:1"><label>Límite (opcional)</label><input class="edit-input" type="number" id="tc-limite-master" placeholder="$0"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Crédito American Express -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px 14px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.85rem;color:var(--text2);text-transform:none;letter-spacing:0;font-weight:600">
+        <input type="checkbox" id="tc-ch-amex" onchange="toggleProducto('amex')"
+          style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">
+        💳 Tarjeta de crédito American Express
+      </label>
+      <div id="tc-det-amex" style="display:none">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+          <div class="form-group" style="min-width:100px;flex:1"><label>Cierre (día)</label><input class="edit-input" type="number" id="tc-cierre-amex" placeholder="ej: 15" min="1" max="31"></div>
+          <div class="form-group" style="min-width:110px;flex:1"><label>Límite (opcional)</label><input class="edit-input" type="number" id="tc-limite-amex" placeholder="$0"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Débito -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px 14px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.85rem;color:var(--text2);text-transform:none;letter-spacing:0;font-weight:600">
+        <input type="checkbox" id="tc-ch-debito" onchange="toggleProducto('debito')"
+          style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">
+        🏦 Tarjeta de débito
+      </label>
+    </div>
+    <!-- Billetera -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px 14px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.85rem;color:var(--text2);text-transform:none;letter-spacing:0;font-weight:600">
+        <input type="checkbox" id="tc-ch-billetera"
+          style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">
+        📱 Billetera virtual / Cuenta
+      </label>
+    </div>
+  `;
+}
 
-  // Paso 1: si hay banco, mostrar selector de tipo
-  tipoWrap.style.display = banco ? 'flex' : 'none';
-
-  // Ocultar todo lo de abajo por defecto
-  nombreWrap.style.display = 'none';
-  cierreWrap.style.display = 'none';
-  limiteWrap.style.display = 'none';
-  btnWrap.style.display    = 'none';
-
-  if (!banco || !tipo) return;
-
-  // Paso 2: según tipo, mostrar campos extras
-  btnWrap.style.display = 'flex';
-
-  if (tipo === 'credito') {
-    nombreLabel.textContent = 'Red / Nombre';
-    document.getElementById('tc-nombre').placeholder = 'ej: Visa';
-    nombreWrap.style.display = 'flex';
-    cierreWrap.style.display = 'flex';
-    limiteWrap.style.display = 'flex';
-  } else if (tipo === 'debito') {
-    nombreLabel.textContent = 'Red / Nombre (opcional)';
-    document.getElementById('tc-nombre').placeholder = 'ej: Maestro';
-    nombreWrap.style.display = 'flex';
-  }
-  // billetera: solo banco, no necesita más campos
+function toggleProducto(key) {
+  const checked = document.getElementById('tc-ch-' + key).checked;
+  const det = document.getElementById('tc-det-' + key);
+  if (det) det.style.display = checked ? 'block' : 'none';
 }
 
 function agregarMedioPago() {
-  const banco  = document.getElementById('tc-banco').value.trim();
-  const tipo   = document.getElementById('tc-tipo').value;
-  const nombre = document.getElementById('tc-nombre').value.trim();
-  const cierre = parseInt(document.getElementById('tc-cierre').value) || 0;
-  const limite = parseFloat(document.getElementById('tc-limite').value) || 0;
-
+  const banco = document.getElementById('tc-banco').value.trim();
   if (!banco) { notify('Ingresá el banco o institución'); return; }
-  if (!tipo)  { notify('Seleccioná el tipo'); return; }
-  if (tipo === 'credito' && !nombre) { notify('Ingresá la red (ej: Visa)'); return; }
-  if (tipo === 'credito' && cierre && (cierre < 1 || cierre > 31)) { notify('Día de cierre inválido (1-31)'); return; }
 
-  // Generar etiqueta para mostrar en medios de pago
-  let label = '';
-  if (tipo === 'credito')   label = (nombre ? nombre + ' ' : '') + banco;
-  if (tipo === 'debito')    label = 'Débito ' + banco + (nombre ? ' (' + nombre + ')' : '');
-  if (tipo === 'billetera') label = banco;
+  const productos = [
+    { key: 'visa',     tipo: 'credito',   nombre: 'Visa' },
+    { key: 'master',   tipo: 'credito',   nombre: 'Mastercard' },
+    { key: 'amex',     tipo: 'credito',   nombre: 'American Express' },
+    { key: 'debito',   tipo: 'debito',    nombre: '' },
+    { key: 'billetera',tipo: 'billetera', nombre: '' },
+  ];
 
-  tarjetas.push({ id: Date.now(), tipo, banco, nombre, cierre, limite, label });
+  const seleccionados = productos.filter(p => document.getElementById('tc-ch-' + p.key)?.checked);
+  if (!seleccionados.length) { notify('Seleccioná al menos un producto'); return; }
+
+  // Validar cierres
+  for (const p of seleccionados) {
+    if (p.tipo === 'credito') {
+      const cierre = parseInt(document.getElementById('tc-cierre-' + p.key)?.value) || 0;
+      if (cierre && (cierre < 1 || cierre > 31)) { notify('Día de cierre inválido en ' + p.nombre); return; }
+    }
+  }
+
+  let agregados = 0;
+  seleccionados.forEach(p => {
+    const cierre = parseInt(document.getElementById('tc-cierre-' + p.key)?.value) || 0;
+    const limite = parseFloat(document.getElementById('tc-limite-' + p.key)?.value) || 0;
+
+    let label = '';
+    if (p.tipo === 'credito')   label = p.nombre + ' ' + banco;
+    if (p.tipo === 'debito')    label = 'Débito ' + banco;
+    if (p.tipo === 'billetera') label = banco;
+
+    // Evitar duplicados exactos
+    const existe = tarjetas.some(t => t.label === label);
+    if (!existe) {
+      tarjetas.push({ id: Date.now() + agregados, tipo: p.tipo, banco, nombre: p.nombre, cierre, limite, label });
+      agregados++;
+    }
+  });
+
   saveTarjetas();
 
-  // Reset form
-  document.getElementById('tc-banco').value  = '';
-  document.getElementById('tc-tipo').value   = '';
-  document.getElementById('tc-nombre').value = '';
-  document.getElementById('tc-cierre').value = '';
-  document.getElementById('tc-limite').value = '';
-  toggleAjustesTipo();
+  // Reset
+  document.getElementById('tc-banco').value = '';
+  document.getElementById('tc-productos-wrap').style.display = 'none';
 
   renderTarjetas();
   renderMedioPago();
-  notify('Medio de pago agregado');
+  notify(agregados + ' medio' + (agregados !== 1 ? 's' : '') + ' agregado' + (agregados !== 1 ? 's' : ''));
 }
 
 function toggleEditTarjeta(id) {
@@ -2628,7 +2665,7 @@ function saveEditTarjeta(id) {
   let label = '';
   if (tipo === 'credito')   label = (nombre ? nombre + ' ' : '') + banco;
   if (tipo === 'debito')    label = 'Débito ' + banco + (nombre ? ' (' + nombre + ')' : '');
-  if (tipo === 'billetera') label = banco || nombre;
+  if (tipo === 'billetera') label = banco || nombre || t.label;
 
   tarjetas[idx] = { ...t, banco, nombre, cierre, limite, label };
   saveTarjetas();
@@ -2672,7 +2709,7 @@ function renderTarjetas() {
         const tipo = t.tipo || 'credito';
         const detalle = tipo === 'credito'
           ? (t.cierre ? 'Cierre día ' + t.cierre : 'Sin fecha de cierre') + (t.limite > 0 ? ' · $' + t.limite.toLocaleString('es-AR') : '')
-          : tipo === 'debito' ? (t.nombre ? t.nombre : '—')
+          : tipo === 'debito' ? (t.nombre ? 'Red: ' + t.nombre : 'Sin red especificada')
           : '—';
         const label = t.label || t.nombre;
         return `
