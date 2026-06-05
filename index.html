@@ -1753,18 +1753,15 @@ tr:hover td { background: rgba(255,255,255,.035); }
       </select>
       <input type="text" id="g-cat-otro" placeholder="Nueva categoría..." style="display:none;margin-top:6px" onblur="saveNewCat('g-cat','g-cat-otro','gastos')">
     </div>
-    <div class="form-group">
+    <div class="form-group" id="g-medio-wrap">
       <label>Medio de Pago</label>
-      <select id="g-medio" onchange="toggleOtro('g-medio','g-medio-otro')">
-        <option value="">Seleccionar...</option>
-        <option>Efectivo</option>
-        <option>Débito</option>
-        <option>Crédito</option>
-        <option>Transferencia</option>
-        <option>Mercado Pago</option>
-        <option>Otro</option>
-      </select>
-      <input type="text" id="g-medio-otro" placeholder="Escribí el medio de pago..." style="display:none;margin-top:6px">
+      <div id="g-medio-container">
+        <!-- Se construye dinámicamente con renderMedioPago() -->
+        <select id="g-medio" onchange="toggleCuotasIfNeeded()">
+          <option value="">Seleccionar...</option>
+          <option>Efectivo</option>
+        </select>
+      </div>
     </div>
     <div class="form-group">
       <label>Monto Total ($)</label>
@@ -2111,31 +2108,44 @@ tr:hover td { background: rgba(255,255,255,.035); }
   <div style="max-width:900px;margin:0 auto;padding:2rem 1.5rem">
     <div class="page-title">Ajustes</div>
 
-    <!-- Tarjetas -->
+    <!-- Medios de pago -->
     <div class="card" style="margin-bottom:1.5rem">
-      <div class="card-title" style="margin-bottom:1rem">💳 Mis Tarjetas</div>
-      <p style="font-size:0.82rem;color:var(--text3);margin-bottom:1rem">Agregá tus tarjetas para usarlas como medio de pago y calcular cuotas automáticamente.</p>
+      <div class="card-title" style="margin-bottom:0.3rem">💳 Mis medios de pago</div>
+      <p style="font-size:0.82rem;color:var(--text3);margin-bottom:1.2rem">Agregá tus tarjetas, cuentas y billeteras para usarlas al registrar gastos.</p>
 
-      <!-- Form nueva tarjeta -->
+      <!-- Form nuevo medio -->
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:1.2rem">
-        <div class="form-group" style="min-width:180px;flex:2">
-          <label>Nombre de la tarjeta</label>
-          <input type="text" id="tc-nombre" placeholder="ej: Visa Galicia">
+        <div class="form-group" style="min-width:160px;flex:2">
+          <label>Tipo</label>
+          <select id="tc-tipo" onchange="toggleAjustesTipo()">
+            <option value="">Seleccionar...</option>
+            <option value="credito">Tarjeta de crédito</option>
+            <option value="debito">Tarjeta de débito</option>
+            <option value="billetera">Billetera virtual</option>
+          </select>
         </div>
-        <div class="form-group" style="min-width:120px;flex:1">
-          <label>Fecha de cierre (día)</label>
+        <div class="form-group" style="min-width:160px;flex:2" id="tc-banco-wrap" style="display:none">
+          <label id="tc-banco-label">Banco</label>
+          <input type="text" id="tc-banco" placeholder="ej: Galicia">
+        </div>
+        <div class="form-group" style="min-width:160px;flex:2" id="tc-nombre-wrap" style="display:none">
+          <label id="tc-nombre-label">Nombre / Red</label>
+          <input type="text" id="tc-nombre" placeholder="ej: Visa">
+        </div>
+        <div class="form-group" style="min-width:120px;flex:1" id="tc-cierre-wrap" style="display:none">
+          <label>Cierre (día)</label>
           <input type="number" id="tc-cierre" placeholder="ej: 15" min="1" max="31">
         </div>
-        <div class="form-group" style="min-width:140px;flex:1">
+        <div class="form-group" style="min-width:120px;flex:1" id="tc-limite-wrap" style="display:none">
           <label>Límite (opcional)</label>
           <input type="number" id="tc-limite" placeholder="$0">
         </div>
         <div class="form-group" style="align-self:flex-end">
-          <button class="btn-add" onclick="agregarTarjeta()">+ Agregar</button>
+          <button class="btn-add" onclick="agregarMedioPago()">+ Agregar</button>
         </div>
       </div>
 
-      <!-- Lista tarjetas -->
+      <!-- Lista medios -->
       <div id="tc-lista"></div>
     </div>
   </div>
@@ -2246,10 +2256,11 @@ function toggleCuotas() {
   const on = document.getElementById('g-cuota').checked;
   document.getElementById('g-ncuotas-wrap').style.display = on ? 'flex' : 'none';
   if (on) {
-    // Mostrar toggle solo si el medio seleccionado no es tarjeta registrada
     const medio = document.getElementById('g-medio').value;
-    const esTarjetaRegistrada = tarjetas.some(t => medio === 'Tarjeta: ' + t.nombre);
-    document.getElementById('g-cerro-wrap').style.display = esTarjetaRegistrada ? 'none' : 'flex';
+    const esCreditoConCierre = tarjetas.some(t =>
+      (t.tipo || 'credito') === 'credito' && t.cierre && medio === (t.label || t.nombre)
+    );
+    document.getElementById('g-cerro-wrap').style.display = esCreditoConCierre ? 'none' : 'flex';
   } else {
     document.getElementById('g-cerro-wrap').style.display = 'none';
   }
@@ -2285,21 +2296,19 @@ function addGasto() {
   const fecha = document.getElementById('g-fecha').value;
   const desc  = document.getElementById('g-desc').value.trim();
   const cat   = resolveOtro('g-cat', 'g-cat-otro');
-  const medio = resolveOtro('g-medio', 'g-medio-otro');
+  const medio = document.getElementById('g-medio')?.value || '';
   const monto = parseFloat(document.getElementById('g-monto').value);
   const cuota = document.getElementById('g-cuota').checked;
   const ncuotas = parseInt(document.getElementById('g-ncuotas').value) || 1;
-  // Si el medio es una tarjeta registrada, calcular offset automático por fecha de cierre
+  // Si el medio es una tarjeta de crédito registrada, calcular offset automático por fecha de cierre
   let offsetCuotas = 0;
   if (cuota) {
-    const tarjetaUsada = tarjetas.find(t => medio === 'Tarjeta: ' + t.nombre);
-    if (tarjetaUsada) {
-      // Calcular si ya cerró: comparar día de hoy con día de cierre
+    const tarjetaUsada = tarjetas.find(t =>
+      (t.tipo || 'credito') === 'credito' && medio === (t.label || t.nombre)
+    );
+    if (tarjetaUsada && tarjetaUsada.cierre) {
       const diaHoy = new Date().getDate();
-      const diaCierre = tarjetaUsada.cierre;
-      // Si hoy es posterior al cierre, la primera cuota va el próximo mes
-      offsetCuotas = diaHoy > diaCierre ? 1 : 0;
-      // Ocultar el toggle manual ya que se calcula solo
+      offsetCuotas = diaHoy > tarjetaUsada.cierre ? 1 : 0;
       document.getElementById('g-cerro-wrap').style.display = 'none';
     } else {
       const yacerro = document.querySelector('input[name="g-cuota-inicio"]:checked')?.value !== 'proximo';
@@ -2324,9 +2333,9 @@ function addGasto() {
   notify('Gasto agregado correctamente');
 
   // reset
-  ['g-desc','g-notas','g-cat-otro','g-medio-otro'].forEach(id => document.getElementById(id).value = '');
+  ['g-desc','g-notas','g-cat-otro'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('g-cat-otro').style.display = 'none';
-  document.getElementById('g-medio-otro').style.display = 'none';
+
   document.getElementById('g-monto').value = '';
   document.getElementById('g-cuota').checked = false;
   document.getElementById('g-ncuotas').value = '';
@@ -2359,6 +2368,19 @@ function populateFilters() {
   if (prevCat) fCat.value = prevCat;
 }
 
+// Construye el select de medio para la fila de edición
+function buildMedioSelect(id, medioActual) {
+  const opciones = ['Efectivo'];
+  tarjetas.filter(t => (t.tipo||'credito') === 'credito').forEach(t => opciones.push(t.label || t.nombre));
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('Débito ' + t.banco)));
+  tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.nombre));
+  // Si el medio actual no está en la lista, agregarlo
+  if (medioActual && !opciones.includes(medioActual)) opciones.push(medioActual);
+  return '<select class="edit-input" id="eg-medio-' + id + '" style="min-width:120px">' +
+    opciones.map(o => '<option value="' + o + '"' + (o === medioActual ? ' selected' : '') + '>' + o + '</option>').join('') +
+    '</select>';
+}
+
 function toggleEditGasto(id) {
   const row = document.getElementById('edit-g-' + id);
   if (!row) return;
@@ -2376,7 +2398,8 @@ function saveEditGasto(id) {
   const ncuotas = gastos[idx].ncuotas || 1;
   const montoXcuota = cuota ? +(monto / ncuotas).toFixed(2) : monto;
   const mes = MESES[parseInt(fecha.slice(5,7)) - 1];
-  gastos[idx] = { ...gastos[idx], fecha, desc, monto, montoXcuota, notas, mes };
+  const medio = document.getElementById('eg-medio-' + id)?.value || gastos[idx].medio;
+  gastos[idx] = { ...gastos[idx], fecha, desc, monto, montoXcuota, notas, mes, medio };
   save();
   notify('Gasto actualizado');
   renderGastosTable();
@@ -2416,7 +2439,8 @@ function renderGastosTable() {
         <tr id="edit-g-${g.id}" class="edit-row" style="display:none">
           <td><input class="edit-input" id="eg-fecha-${g.id}" type="date" value="${g.fecha}"></td>
           <td><input class="edit-input" id="eg-desc-${g.id}" type="text" value="${g.desc}"></td>
-          <td colspan="2" style="color:var(--text3);font-size:0.75rem">${g.cat}</td>
+          <td style="color:var(--text3);font-size:0.75rem">${g.cat}</td>
+          <td>${buildMedioSelect(g.id, g.medio)}</td>
           <td><input class="edit-input" id="eg-monto-${g.id}" type="number" value="${g.monto}" style="width:90px"></td>
           <td></td>
           <td><input class="edit-input" id="eg-notas-${g.id}" type="text" value="${g.notas || ''}"></td>
@@ -2501,26 +2525,117 @@ function renderOtrosPendientes() {
   </div>`;
 }
 
-// ---- TARJETAS ----
+// ---- MEDIOS DE PAGO ----
+// Estructura: { id, tipo: 'credito'|'debito'|'billetera', nombre, banco, cierre, limite }
+// Compatibilidad: registros viejos (solo {id,nombre,cierre,limite}) se tratan como crédito
 let tarjetas = JSON.parse(localStorage.getItem('gf_tarjetas') || '[]');
 
 function saveTarjetas() {
   localStorage.setItem('gf_tarjetas', JSON.stringify(tarjetas));
 }
 
-function agregarTarjeta() {
-  const nombre = document.getElementById('tc-nombre').value.trim();
-  const cierre = parseInt(document.getElementById('tc-cierre').value) || 0;
-  const limite = parseFloat(document.getElementById('tc-limite').value) || 0;
-  if (!nombre) { notify('Ingresá el nombre de la tarjeta'); return; }
-  if (!cierre || cierre < 1 || cierre > 31) { notify('Ingresá un día de cierre válido (1-31)'); return; }
-  tarjetas.push({ id: Date.now(), nombre, cierre, limite });
-  saveTarjetas();
+function toggleAjustesTipo() {
+  const tipo = document.getElementById('tc-tipo').value;
+  const bancoWrap  = document.getElementById('tc-banco-wrap');
+  const nombreWrap = document.getElementById('tc-nombre-wrap');
+  const cierreWrap = document.getElementById('tc-cierre-wrap');
+  const limiteWrap = document.getElementById('tc-limite-wrap');
+  const bancoLabel = document.getElementById('tc-banco-label');
+  const nombreLabel = document.getElementById('tc-nombre-label');
+
+  // Reset
+  bancoWrap.style.display  = 'none';
+  nombreWrap.style.display = 'none';
+  cierreWrap.style.display = 'none';
+  limiteWrap.style.display = 'none';
+  document.getElementById('tc-banco').value  = '';
   document.getElementById('tc-nombre').value = '';
   document.getElementById('tc-cierre').value = '';
   document.getElementById('tc-limite').value = '';
+
+  if (tipo === 'credito') {
+    bancoLabel.textContent  = 'Banco';
+    nombreLabel.textContent = 'Red / Nombre';
+    document.getElementById('tc-nombre').placeholder = 'ej: Visa';
+    bancoWrap.style.display  = 'flex';
+    nombreWrap.style.display = 'flex';
+    cierreWrap.style.display = 'flex';
+    limiteWrap.style.display = 'flex';
+  } else if (tipo === 'debito') {
+    bancoLabel.textContent  = 'Banco';
+    nombreLabel.textContent = 'Red / Nombre (opcional)';
+    document.getElementById('tc-nombre').placeholder = 'ej: Maestro';
+    bancoWrap.style.display  = 'flex';
+    nombreWrap.style.display = 'flex';
+  } else if (tipo === 'billetera') {
+    nombreLabel.textContent = 'Nombre de la billetera';
+    document.getElementById('tc-nombre').placeholder = 'ej: Mercado Pago';
+    nombreWrap.style.display = 'flex';
+  }
+}
+
+function agregarMedioPago() {
+  const tipo   = document.getElementById('tc-tipo').value;
+  const banco  = document.getElementById('tc-banco').value.trim();
+  const nombre = document.getElementById('tc-nombre').value.trim();
+  const cierre = parseInt(document.getElementById('tc-cierre').value) || 0;
+  const limite = parseFloat(document.getElementById('tc-limite').value) || 0;
+
+  if (!tipo) { notify('Seleccioná el tipo'); return; }
+  if ((tipo === 'credito' || tipo === 'debito') && !banco) { notify('Ingresá el banco'); return; }
+  if ((tipo === 'credito' || tipo === 'billetera') && !nombre) { notify('Ingresá el nombre'); return; }
+  if (tipo === 'credito' && (!cierre || cierre < 1 || cierre > 31)) { notify('Ingresá un día de cierre válido (1-31)'); return; }
+
+  // Generar etiqueta para mostrar en medios de pago
+  let label = '';
+  if (tipo === 'credito')  label = (nombre ? nombre + ' ' : '') + banco;
+  if (tipo === 'debito')   label = 'Débito ' + banco + (nombre ? ' (' + nombre + ')' : '');
+  if (tipo === 'billetera') label = nombre;
+
+  tarjetas.push({ id: Date.now(), tipo, banco, nombre, cierre, limite, label });
+  saveTarjetas();
+
+  // Reset form
+  document.getElementById('tc-tipo').value = '';
+  document.getElementById('tc-banco').value = '';
+  document.getElementById('tc-nombre').value = '';
+  document.getElementById('tc-cierre').value = '';
+  document.getElementById('tc-limite').value = '';
+  toggleAjustesTipo();
+
   renderTarjetas();
-  notify('Tarjeta agregada');
+  renderMedioPago();
+  notify('Medio de pago agregado');
+}
+
+function toggleEditTarjeta(id) {
+  const row = document.getElementById('tc-edit-' + id);
+  if (!row) return;
+  row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+
+function saveEditTarjeta(id) {
+  const idx = tarjetas.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  const t = tarjetas[idx];
+  const tipo = t.tipo || 'credito';
+
+  const banco  = document.getElementById('te-banco-' + id)?.value.trim()  || t.banco  || '';
+  const nombre = document.getElementById('te-nombre-' + id)?.value.trim() || t.nombre || '';
+  const cierre = parseInt(document.getElementById('te-cierre-' + id)?.value) || 0;
+  const limite = parseFloat(document.getElementById('te-limite-' + id)?.value) || 0;
+
+  // Recalcular label
+  let label = '';
+  if (tipo === 'credito')   label = (nombre ? nombre + ' ' : '') + banco;
+  if (tipo === 'debito')    label = 'Débito ' + banco + (nombre ? ' (' + nombre + ')' : '');
+  if (tipo === 'billetera') label = nombre;
+
+  tarjetas[idx] = { ...t, banco, nombre, cierre, limite, label };
+  saveTarjetas();
+  renderTarjetas();
+  renderMedioPago();
+  notify('Medio actualizado');
 }
 
 function eliminarTarjeta(id) {
@@ -2534,39 +2649,101 @@ function renderTarjetas() {
   const el = document.getElementById('tc-lista');
   if (!el) return;
   if (!tarjetas.length) {
-    el.innerHTML = '<div class="empty" style="padding:1rem">Sin tarjetas cargadas</div>';
+    el.innerHTML = '<div class="empty" style="padding:1rem">Sin medios de pago cargados</div>';
     return;
   }
+
+  const iconTipo = t => {
+    const tipo = t.tipo || 'credito';
+    if (tipo === 'debito')   return '🏦';
+    if (tipo === 'billetera') return '📱';
+    return '💳';
+  };
+  const labelTipo = t => {
+    const tipo = t.tipo || 'credito';
+    if (tipo === 'debito')   return 'Débito';
+    if (tipo === 'billetera') return 'Billetera';
+    return 'Crédito';
+  };
+
   el.innerHTML = `<table>
-    <thead><tr><th>Nombre</th><th>Cierre (día)</th><th>Límite</th><th></th></tr></thead>
+    <thead><tr><th>Tipo</th><th>Medio</th><th>Detalle</th><th></th></tr></thead>
     <tbody>
-      ${tarjetas.map(t => `
-        <tr>
-          <td><span class="badge badge-medio">${t.nombre}</span></td>
-          <td style="font-family:'DM Mono',monospace">Día ${t.cierre}</td>
-          <td style="font-family:'DM Mono',monospace">${t.limite > 0 ? '$' + t.limite.toLocaleString('es-AR') : '—'}</td>
-          <td><button class="btn-del" onclick="eliminarTarjeta(${t.id})">✕</button></td>
-        </tr>`).join('')}
+      ${tarjetas.map(t => {
+        const tipo = t.tipo || 'credito';
+        const detalle = tipo === 'credito'
+          ? (t.cierre ? 'Cierre día ' + t.cierre : '—') + (t.limite > 0 ? ' · $' + t.limite.toLocaleString('es-AR') : '')
+          : tipo === 'debito' ? (t.banco || '—')
+          : '—';
+        const label = t.label || t.nombre;
+        return `
+        <tr id="tc-row-${t.id}">
+          <td><span class="badge badge-cat">${iconTipo(t)} ${labelTipo(t)}</span></td>
+          <td><span class="badge badge-medio">${label}</span></td>
+          <td style="font-size:0.75rem;color:var(--text3)">${detalle}</td>
+          <td style="display:flex;gap:4px">
+            <button class="btn-edit" onclick="toggleEditTarjeta(${t.id})">✏</button>
+            <button class="btn-del"  onclick="eliminarTarjeta(${t.id})">✕</button>
+          </td>
+        </tr>
+        <tr id="tc-edit-${t.id}" class="edit-row" style="display:none">
+          <td colspan="4">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:4px 0">
+              ${(t.tipo||'credito') !== 'billetera' ? `<div class="form-group" style="min-width:130px;flex:2"><label>Banco</label><input class="edit-input" id="te-banco-${t.id}" type="text" value="${t.banco||''}"></div>` : ''}
+              <div class="form-group" style="min-width:130px;flex:2">
+                <label>${(t.tipo||'credito') === 'billetera' ? 'Nombre' : 'Red / Nombre'}</label>
+                <input class="edit-input" id="te-nombre-${t.id}" type="text" value="${t.nombre||''}">
+              </div>
+              ${(t.tipo||'credito') === 'credito' ? `<div class="form-group" style="min-width:100px;flex:1"><label>Cierre (día)</label><input class="edit-input" id="te-cierre-${t.id}" type="number" min="1" max="31" value="${t.cierre||''}"></div>` : ''}
+              ${(t.tipo||'credito') === 'credito' ? `<div class="form-group" style="min-width:110px;flex:1"><label>Límite</label><input class="edit-input" id="te-limite-${t.id}" type="number" value="${t.limite||''}"></div>` : ''}
+              <div class="form-group" style="align-self:flex-end">
+                <button class="btn-save" onclick="saveEditTarjeta(${t.id})">✓ Guardar</button>
+              </div>
+            </div>
+          </td>
+        </tr>`;
+      }).join('')}
     </tbody>
   </table>`;
 }
 
 // Reconstruir el select de medio de pago dinámicamente
-function renderMedioPago() {
+function renderMedioPago(extraMedio) {
+  const container = document.getElementById('g-medio-container');
+  if (!container) return;
+
+  const hayMedios = tarjetas.length > 0;
+
+  if (!hayMedios) {
+    container.innerHTML = `<div style="font-size:0.8rem;color:var(--accent3);background:rgba(245,184,46,0.08);border:1px solid rgba(245,184,46,0.2);border-radius:10px;padding:9px 12px;line-height:1.4">
+      ⚠ Primero agregá un medio de pago en <strong style="cursor:pointer;text-decoration:underline" onclick="showTab('ajustes')">Ajustes</strong>
+    </div>`;
+    return;
+  }
+
+  // Reconstruir select
+  if (!document.getElementById('g-medio')) {
+    container.innerHTML = '<select id="g-medio" onchange="toggleCuotasIfNeeded()"></select>';
+  }
   const sel = document.getElementById('g-medio');
-  if (!sel) return;
   const actual = sel.value;
-  // Opciones base
-  const base = ['Efectivo'];
-  // Billeteras y bancos de destinosGuardados
-  const bv = (destinosGuardados['Billetera Virtual'] || []).map(n => 'Billetera: ' + n);
-  const bn = (destinosGuardados['Banco'] || []).map(n => 'Banco: ' + n);
-  // Tarjetas
-  const tc = tarjetas.map(t => 'Tarjeta: ' + t.nombre);
-  const todas = [...base, ...bv, ...bn, ...tc, 'Otro'];
-  sel.innerHTML = todas.map(o => `<option value="${o}" ${o === actual ? 'selected' : ''}>${o}</option>`).join('');
-  // Asegurarse que el handler sigue funcionando
-  sel.onchange = () => toggleOtro('g-medio', 'g-medio-otro');
+
+  const opciones = ['Efectivo'];
+  tarjetas.filter(t => (t.tipo||'credito') === 'credito').forEach(t => opciones.push(t.label || t.nombre));
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('Débito ' + t.banco)));
+  tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.nombre));
+
+  // Si el gasto viejo tiene un medio que ya no está en la lista, lo agregamos como opción
+  if (extraMedio && !opciones.includes(extraMedio)) opciones.push(extraMedio);
+
+  sel.innerHTML = '<option value="">Seleccionar...</option>' +
+    opciones.map(o => `<option value="${o}" ${o === actual ? 'selected' : ''}>${o}</option>`).join('');
+  sel.onchange = () => toggleCuotasIfNeeded();
+}
+
+// Recalcular visibilidad del toggle de cuotas al cambiar el medio
+function toggleCuotasIfNeeded() {
+  if (document.getElementById('g-cuota').checked) toggleCuotas();
 }
 
 // ---- DESTINOS ----
