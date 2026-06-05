@@ -1847,6 +1847,23 @@ tr:hover td { background: rgba(255,255,255,.035); }
           <input type="number" id="i-sueldo" placeholder="0.00" min="0" step="0.01" style="flex:1">
         </div>
       </div>
+      <div class="form-group" style="min-width:160px;flex:2">
+        <label>Destino</label>
+        <select id="i-sueldo-destino" onchange="toggleDestinoDetalle('i-sueldo-destino','i-sueldo-destino-detalle')" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;width:100%">
+          <option value="">Seleccionar...</option>
+          <option value="Efectivo">Efectivo</option>
+          <option value="Billetera Virtual">Billetera Virtual</option>
+          <option value="Banco">Banco</option>
+        </select>
+        <div id="i-sueldo-destino-detalle" style="display:none;position:relative;margin-top:6px">
+          <input type="text" id="i-sueldo-destino-cual" placeholder="¿Cuál?" autocomplete="off"
+            oninput="filtrarDestinos('i-sueldo-destino','i-sueldo-destino-cual','i-sueldo-destino-list')"
+            onfocus="filtrarDestinos('i-sueldo-destino','i-sueldo-destino-cual','i-sueldo-destino-list')"
+            onblur="setTimeout(()=>{const l=document.getElementById('i-sueldo-destino-list');if(l)l.style.display='none'},200)"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none">
+          <div id="i-sueldo-destino-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;z-index:50;max-height:140px;overflow-y:auto;margin-top:3px"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Fila: Otros ingresos -->
@@ -1873,6 +1890,23 @@ tr:hover td { background: rgba(255,255,255,.035); }
         <div class="form-group" style="min-width:120px;flex:1">
           <label>Monto</label>
           <input type="number" id="i-otro-monto" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="form-group" style="min-width:140px;flex:1">
+          <label>Destino</label>
+          <select id="i-otro-destino" onchange="toggleDestinoDetalle('i-otro-destino','i-otro-destino-detalle')" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;width:100%">
+            <option value="">Seleccionar...</option>
+            <option value="Efectivo">Efectivo</option>
+            <option value="Billetera Virtual">Billetera Virtual</option>
+            <option value="Banco">Banco</option>
+          </select>
+          <div id="i-otro-destino-detalle" style="display:none;position:relative;margin-top:6px">
+            <input type="text" id="i-otro-destino-cual" placeholder="¿Cuál?" autocomplete="off"
+              oninput="filtrarDestinos('i-otro-destino','i-otro-destino-cual','i-otro-destino-list')"
+              onfocus="filtrarDestinos('i-otro-destino','i-otro-destino-cual','i-otro-destino-list')"
+              onblur="setTimeout(()=>{const l=document.getElementById('i-otro-destino-list');if(l)l.style.display='none'},200)"
+              style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none">
+            <div id="i-otro-destino-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;z-index:50;max-height:140px;overflow-y:auto;margin-top:3px"></div>
+          </div>
         </div>
         <div class="form-group" style="align-self:flex-end">
           <button class="btn-add" style="padding:9px 16px" onclick="agregarOtroIngreso()">+ Agregar</button>
@@ -2369,10 +2403,14 @@ function agregarOtroIngreso() {
     conceptosGuardados.push(nombre);
     saveConceptos();
   }
-  otrosPendientes.push({ id: Date.now(), nombre, moneda, monto });
+  const otroDestino = resolverDestino('i-otro-destino', 'i-otro-destino-detalle');
+  otrosPendientes.push({ id: Date.now(), nombre, moneda, monto, destino: otroDestino });
   document.getElementById('i-otro-nombre').value = '';
   document.getElementById('i-otro-monto').value = '';
   document.getElementById('i-otro-moneda').value = 'ARS';
+  document.getElementById('i-otro-destino').value = '';
+  document.getElementById('i-otro-destino-detalle').style.display = 'none';
+  document.getElementById('i-otro-destino-cual').value = '';
   renderOtrosPendientes();
   notify(`"${nombre}" agregado`);
 }
@@ -2397,11 +2435,66 @@ function renderOtrosPendientes() {
   </div>`;
 }
 
+// ---- DESTINOS ----
+// Guarda destinos usados por tipo: { "Billetera Virtual": ["Mercado Pago","Uala"], "Banco": ["Galicia"] }
+let destinosGuardados = JSON.parse(localStorage.getItem('gf_destinos') || '{}');
+
+function saveDestinos() {
+  localStorage.setItem('gf_destinos', JSON.stringify(destinosGuardados));
+}
+
+function toggleDestinoDetalle(selectId, detalleId) {
+  const val = document.getElementById(selectId).value;
+  const wrap = document.getElementById(detalleId);
+  wrap.style.display = (val === 'Billetera Virtual' || val === 'Banco') ? 'block' : 'none';
+  if (wrap.style.display === 'none') {
+    // limpiar input oculto
+    const inp = wrap.querySelector('input[type=text]');
+    if (inp) inp.value = '';
+  }
+}
+
+function filtrarDestinos(selectId, inputId, listId) {
+  const tipo = document.getElementById(selectId).value;
+  const val  = document.getElementById(inputId).value.toLowerCase();
+  const lista = document.getElementById(listId);
+  const opciones = (destinosGuardados[tipo] || []).filter(d => d.toLowerCase().includes(val));
+  if (!opciones.length) { lista.style.display = 'none'; return; }
+  lista.style.display = 'block';
+  lista.innerHTML = opciones.map(d =>
+    `<div onclick="seleccionarDestino('${inputId}','${listId}','${d.replace(/'/g,"&#39;")}')"
+      style="padding:8px 12px;cursor:pointer;font-size:0.82rem;color:var(--text2)"
+      onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background=''">${d}</div>`
+  ).join('');
+}
+
+function seleccionarDestino(inputId, listId, valor) {
+  document.getElementById(inputId).value = valor;
+  document.getElementById(listId).style.display = 'none';
+}
+
+function resolverDestino(selectId, detalleId) {
+  const tipo = document.getElementById(selectId).value;
+  if (!tipo) return '';
+  if (tipo === 'Efectivo') return 'Efectivo';
+  const cual = document.getElementById(detalleId).querySelector('input[type=text]')?.value.trim() || '';
+  if (cual) {
+    if (!destinosGuardados[tipo]) destinosGuardados[tipo] = [];
+    if (!destinosGuardados[tipo].includes(cual)) {
+      destinosGuardados[tipo].push(cual);
+      saveDestinos();
+    }
+    return `${tipo}: ${cual}`;
+  }
+  return tipo;
+}
+
 function addIngreso() {
   const año    = parseInt(document.getElementById('i-año').value);
   const mes    = document.getElementById('i-mes').value;
   const sueldo = parseFloat(document.getElementById('i-sueldo').value) || 0;
   const sueldoMoneda = document.getElementById('i-sueldo-moneda').value;
+  const sueldoDestino = resolverDestino('i-sueldo-destino', 'i-sueldo-destino-detalle');
   if (!año) { notify('Ingresá el año'); return; }
   if (sueldo <= 0 && otrosPendientes.length === 0) { notify('⚠ Ingresá al menos un monto'); return; }
   // Calcular totales por moneda (sueldo + otros pendientes)
@@ -2413,12 +2506,15 @@ function addIngreso() {
   });
   // Cada guardado es una fila nueva independiente
   const key = `${año}-${String(MESES.indexOf(mes)+1).padStart(2,'0')}-${Date.now()}`;
-  const rec = { key, año, mes, sueldo, sueldoMoneda, otros: [...otrosPendientes], totalARS, totalUSD, total: totalARS };
+  const rec = { key, año, mes, sueldo, sueldoMoneda, sueldoDestino, otros: [...otrosPendientes], totalARS, totalUSD, total: totalARS };
   ingresos.push(rec);
   save();
   otrosPendientes = [];
   renderOtrosPendientes();
   document.getElementById('i-sueldo').value = '';
+  document.getElementById('i-sueldo-destino').value = '';
+  document.getElementById('i-sueldo-destino-detalle').style.display = 'none';
+  document.getElementById('i-sueldo-destino-cual').value = '';
   document.getElementById('otros-form').style.display = 'none';
   notify('Ingreso guardado');
   renderIngresosTable();
@@ -2441,10 +2537,25 @@ function saveEditIngreso(uid) {
   if (idx < 0) return;
   const sueldo = parseFloat(document.getElementById('ei-sueldo-' + uid).value) || 0;
   const sueldoMoneda = document.getElementById('ei-smoneda-' + uid).value;
+  // Leer destino editado
+  const tipoDestino = document.getElementById('ei-destino-' + uid)?.value || '';
+  let sueldoDestino = '';
+  if (tipoDestino === 'Efectivo') {
+    sueldoDestino = 'Efectivo';
+  } else if (tipoDestino === 'Billetera Virtual' || tipoDestino === 'Banco') {
+    const cual = document.getElementById('ei-destino-cual-' + uid)?.value.trim() || '';
+    if (cual) {
+      if (!destinosGuardados[tipoDestino]) destinosGuardados[tipoDestino] = [];
+      if (!destinosGuardados[tipoDestino].includes(cual)) { destinosGuardados[tipoDestino].push(cual); saveDestinos(); }
+      sueldoDestino = tipoDestino + ': ' + cual;
+    } else {
+      sueldoDestino = tipoDestino;
+    }
+  }
   const otros = ingresos[idx].otros || [];
   const totalARS = (sueldoMoneda === 'ARS' ? sueldo : 0) + otros.filter(o => o.moneda === 'ARS').reduce((s, o) => s + o.monto, 0);
   const totalUSD = (sueldoMoneda === 'USD' ? sueldo : 0) + otros.filter(o => o.moneda === 'USD').reduce((s, o) => s + o.monto, 0);
-  ingresos[idx] = { ...ingresos[idx], sueldo, sueldoMoneda, totalARS, totalUSD, total: totalARS };
+  ingresos[idx] = { ...ingresos[idx], sueldo, sueldoMoneda, sueldoDestino, totalARS, totalUSD, total: totalARS };
   save();
   notify('Ingreso actualizado');
   renderIngresosTable();
@@ -2460,13 +2571,14 @@ function renderIngresosTable() {
     ? `<span style="color:var(--accent3);font-family:'DM Mono',monospace">u$s ${v.toLocaleString('es-AR')}</span>`
     : `<span class="monto">$${v.toLocaleString('es-AR')}</span>`;
   el.innerHTML = `<table>
-    <thead><tr><th>Año</th><th>Mes</th><th>Sueldo</th><th class="col-hide-mobile">Otros</th><th>Total ARS</th><th class="col-hide-mobile">Total USD</th><th></th></tr></thead>
+    <thead><tr><th>Año</th><th>Mes</th><th>Sueldo</th><th class="col-hide-mobile">Destino</th><th class="col-hide-mobile">Otros</th><th>Total ARS</th><th class="col-hide-mobile">Total USD</th><th></th></tr></thead>
     <tbody>
       ${list.map(i => {
         const otros = i.otros || [];
         const otrosHtml = otros.length
-          ? otros.map(o => `<div style="font-size:0.75rem;color:var(--text2)">${o.nombre}: ${o.moneda==='USD'?'u$s':'$'}${o.monto.toLocaleString('es-AR')}</div>`).join('')
+          ? otros.map(o => '<div style="font-size:0.75rem;color:var(--text2)">' + o.nombre + (o.destino ? ' → <span style="color:var(--accent4)">' + o.destino + '</span>' : '') + ': ' + (o.moneda==='USD'?'u$s':'$') + o.monto.toLocaleString('es-AR') + '</div>').join('')
           : (i.extra > 0 ? `<div style="font-size:0.75rem;color:var(--text2)">Extra: $${i.extra.toLocaleString('es-AR')}</div>` : '—');
+        const destinoHtml = i.sueldoDestino ? `<span class="badge badge-medio">${i.sueldoDestino}</span>` : '—';
         // uid: identificador seguro para IDs del DOM (sin caracteres problemáticos)
         const uid = i.uid || i.key;
         const safeUid = String(uid).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -2477,6 +2589,7 @@ function renderIngresosTable() {
           <td style="font-family:'DM Mono',monospace;color:var(--text2)">${i.año}</td>
           <td>${i.mes}</td>
           <td>${i.sueldo > 0 ? fmtVal(i.sueldo, i.sueldoMoneda || 'ARS') : '—'}</td>
+          <td class="col-hide-mobile">${destinoHtml}</td>
           <td class="col-hide-mobile">${otrosHtml}</td>
           <td style="color:var(--accent);font-family:'DM Mono',monospace;font-weight:600">${fmtARS(i.totalARS ?? i.total)}</td>
           <td class="col-hide-mobile" style="color:var(--accent3);font-family:'DM Mono',monospace;font-weight:600">${fmtUSD(i.totalUSD ?? 0)}</td>
@@ -2487,17 +2600,35 @@ function renderIngresosTable() {
         </tr>
         <tr id="edit-i-${safeUid}" class="edit-row" style="display:none">
           <td colspan="2" style="color:var(--text3);font-size:0.75rem">${i.mes} ${i.año}</td>
-          <td colspan="2">
-            <div style="display:flex;gap:5px;align-items:center">
-              <select id="ei-smoneda-${safeUid}" class="edit-input" style="width:80px">
+          <td>
+            <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+              <select id="ei-smoneda-${safeUid}" class="edit-input" style="width:72px">
                 <option value="ARS" ${(i.sueldoMoneda||'ARS')==='ARS'?'selected':''}>$ ARS</option>
                 <option value="USD" ${i.sueldoMoneda==='USD'?'selected':''}>u$s USD</option>
               </select>
-              <input class="edit-input" id="ei-sueldo-${safeUid}" type="number" value="${i.sueldo||0}" style="width:110px" placeholder="Sueldo">
+              <input class="edit-input" id="ei-sueldo-${safeUid}" type="number" value="${i.sueldo||0}" style="width:100px" placeholder="Sueldo">
+            </div>
+          </td>
+          <td>
+            <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+              <select id="ei-destino-${safeUid}" class="edit-input" style="width:130px" onchange="toggleDestinoDetalle('ei-destino-${safeUid}','ei-destino-det-${safeUid}')">
+                <option value="">Sin destino</option>
+                <option value="Efectivo" ${(i.sueldoDestino||'')=='Efectivo'?'selected':''}>Efectivo</option>
+                <option value="Billetera Virtual" ${(i.sueldoDestino||'').startsWith('Billetera')?'selected':''}>Billetera Virtual</option>
+                <option value="Banco" ${(i.sueldoDestino||'').startsWith('Banco')?'selected':''}>Banco</option>
+              </select>
+              <div id="ei-destino-det-${safeUid}" style="display:${(i.sueldoDestino||'').startsWith('Billetera') || (i.sueldoDestino||'').startsWith('Banco') ? 'block' : 'none'}">
+                <input type="text" id="ei-destino-cual-${safeUid}" class="edit-input" placeholder="¿Cuál?" style="width:100px"
+                  value="${i.sueldoDestino && i.sueldoDestino.includes(': ') ? i.sueldoDestino.split(': ')[1] : ''}"
+                  oninput="filtrarDestinos('ei-destino-${safeUid}','ei-destino-cual-${safeUid}','ei-destino-list-${safeUid}')"
+                  onfocus="filtrarDestinos('ei-destino-${safeUid}','ei-destino-cual-${safeUid}','ei-destino-list-${safeUid}')"
+                  onblur="setTimeout(()=>{const l=document.getElementById('ei-destino-list-${safeUid}');if(l)l.style.display='none'},200)">
+                <div id="ei-destino-list-${safeUid}" style="display:none;position:absolute;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;z-index:99;max-height:120px;overflow-y:auto;min-width:140px"></div>
+              </div>
             </div>
           </td>
           <td colspan="2">
-            ${(i.otros||[]).length ? '<div style="font-size:0.72rem;color:var(--text3)">Otros: ' + (i.otros||[]).map(o=> o.nombre + ' ' + (o.moneda==='USD'?'u$s':'$') + o.monto.toLocaleString('es-AR')).join(', ') + '</div>' : ''}
+            ${(i.otros||[]).length ? '<div style="font-size:0.72rem;color:var(--text3)">Otros: ' + (i.otros||[]).map(o=> o.nombre + ' ' + (o.moneda==='USD'?'u$s':'$') + o.monto.toLocaleString('es-AR') + (o.destino ? ' → ' + o.destino : '')).join(', ') + '</div>' : ''}
           </td>
           <td><button class="btn-save" onclick="saveEditIngreso('${safeUid}')">✓ Guardar</button></td>
         </tr>`;
