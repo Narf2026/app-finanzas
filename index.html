@@ -1774,6 +1774,19 @@ tr:hover td { background: rgba(255,255,255,.035); }
       <label>N° Cuotas</label>
       <input type="number" id="g-ncuotas" placeholder="ej: 6" min="2" max="60">
     </div>
+    <div class="form-group" id="g-cerro-wrap" style="display:none">
+      <label>¿Cuándo cae la 1ª cuota?</label>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:2px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--text2);cursor:pointer;text-transform:none;letter-spacing:0">
+          <input type="radio" name="g-cuota-inicio" id="g-cerro" value="este" checked style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer">
+          Este mes
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--text2);cursor:pointer;text-transform:none;letter-spacing:0">
+          <input type="radio" name="g-cuota-inicio" id="g-no-cerro" value="proximo" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer">
+          El mes que viene
+        </label>
+      </div>
+    </div>
     <div class="form-group">
       <label>Notas</label>
       <input type="text" id="g-notas" placeholder="Opcional">
@@ -2154,6 +2167,7 @@ function notify(msg) {
 function toggleCuotas() {
   const on = document.getElementById('g-cuota').checked;
   document.getElementById('g-ncuotas-wrap').style.display = on ? 'flex' : 'none';
+  document.getElementById('g-cerro-wrap').style.display = on ? 'flex' : 'none';
 }
 
 function toggleOtro(selectId, inputId) {
@@ -2190,6 +2204,8 @@ function addGasto() {
   const monto = parseFloat(document.getElementById('g-monto').value);
   const cuota = document.getElementById('g-cuota').checked;
   const ncuotas = parseInt(document.getElementById('g-ncuotas').value) || 1;
+  const yacerro = !cuota || document.querySelector('input[name="g-cuota-inicio"]:checked')?.value !== 'proximo';
+  const offsetCuotas = (cuota && !yacerro) ? 1 : 0;
   const notas = document.getElementById('g-notas').value.trim();
 
   if (!fecha || !desc || !cat || !monto || monto <= 0) {
@@ -2203,7 +2219,7 @@ function addGasto() {
   // Si la categoría es nueva, guardarla automáticamente
   autoSaveNewCat(cat, 'gastos');
 
-  gastos.push({ id: Date.now(), fecha, desc, cat, medio, monto, cuota, ncuotas: cuota ? ncuotas : 1, montoXcuota, mes, notas });
+  gastos.push({ id: Date.now(), fecha, desc, cat, medio, monto, cuota, ncuotas: cuota ? ncuotas : 1, montoXcuota, mes, notas, offsetCuotas });
   save();
   notify('Gasto agregado correctamente');
 
@@ -2215,6 +2231,9 @@ function addGasto() {
   document.getElementById('g-cuota').checked = false;
   document.getElementById('g-ncuotas').value = '';
   document.getElementById('g-ncuotas-wrap').style.display = 'none';
+  document.getElementById('g-cerro').checked = true;
+  document.getElementById('g-cerro-wrap').style.display = 'none';
+  document.querySelector('input[name="g-cuota-inicio"][value="este"]').checked = true;
   document.getElementById('g-cat').value = '';
   document.getElementById('g-medio').value = '';
   renderGastosTable();
@@ -2565,9 +2584,10 @@ function gastosDelMes(ym) {
     } else {
       // Cuota: calcular qué cuotas caen en ym
       const [fy, fm, fd] = g.fecha.split('-').map(Number);
+      const off = g.offsetCuotas || 0;
       for (let n = 0; n < g.ncuotas; n++) {
-        // Mes en que cae la cuota n (0-indexed)
-        let cy = fy, cm = fm + n;
+        // Mes en que cae la cuota n (0-indexed), con offset si la tarjeta no cerró
+        let cy = fy, cm = fm + off + n;
         while (cm > 12) { cm -= 12; cy++; }
         const cuotaYm = `${cy}-${String(cm).padStart(2, '0')}`;
         if (cuotaYm === ym) items.push({ monto: g.montoXcuota, cat: g.cat });
