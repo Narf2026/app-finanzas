@@ -1737,7 +1737,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
   <div class="form-grid">
     <div class="form-group">
       <label>Fecha</label>
-      <input type="date" id="g-fecha">
+      <input type="date" id="g-fecha" onchange="toggleCuotasIfNeeded()">
     </div>
     <div class="form-group">
       <label>Descripción</label>
@@ -1853,19 +1853,11 @@ tr:hover td { background: rgba(255,255,255,.035); }
       </div>
       <div class="form-group" style="min-width:160px;flex:2">
         <label>Destino</label>
-        <select id="i-sueldo-destino" onchange="toggleDestinoDetalle('i-sueldo-destino','i-sueldo-destino-detalle')" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;width:100%">
-          <option value="">Seleccionar...</option>
-          <option value="Efectivo">Efectivo</option>
-          <option value="Billetera Virtual">Billetera Virtual</option>
-          <option value="Banco">Banco</option>
-        </select>
-        <div id="i-sueldo-destino-detalle" style="display:none;position:relative;margin-top:6px">
-          <input type="text" id="i-sueldo-destino-cual" placeholder="¿Cuál?" autocomplete="off"
-            oninput="filtrarDestinos('i-sueldo-destino','i-sueldo-destino-cual','i-sueldo-destino-list')"
-            onfocus="filtrarDestinos('i-sueldo-destino','i-sueldo-destino-cual','i-sueldo-destino-list')"
-            onblur="setTimeout(()=>{const l=document.getElementById('i-sueldo-destino-list');if(l)l.style.display='none'},200)"
-            style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none">
-          <div id="i-sueldo-destino-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;z-index:50;max-height:140px;overflow-y:auto;margin-top:3px"></div>
+        <div id="i-sueldo-destino-container">
+          <select id="i-sueldo-destino" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;width:100%">
+            <option value="">Seleccionar...</option>
+            <option value="Efectivo">Efectivo</option>
+          </select>
         </div>
       </div>
     </div>
@@ -1897,19 +1889,11 @@ tr:hover td { background: rgba(255,255,255,.035); }
         </div>
         <div class="form-group" style="min-width:140px;flex:1">
           <label>Destino</label>
-          <select id="i-otro-destino" onchange="toggleDestinoDetalle('i-otro-destino','i-otro-destino-detalle')" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;width:100%">
-            <option value="">Seleccionar...</option>
-            <option value="Efectivo">Efectivo</option>
-            <option value="Billetera Virtual">Billetera Virtual</option>
-            <option value="Banco">Banco</option>
-          </select>
-          <div id="i-otro-destino-detalle" style="display:none;position:relative;margin-top:6px">
-            <input type="text" id="i-otro-destino-cual" placeholder="¿Cuál?" autocomplete="off"
-              oninput="filtrarDestinos('i-otro-destino','i-otro-destino-cual','i-otro-destino-list')"
-              onfocus="filtrarDestinos('i-otro-destino','i-otro-destino-cual','i-otro-destino-list')"
-              onblur="setTimeout(()=>{const l=document.getElementById('i-otro-destino-list');if(l)l.style.display='none'},200)"
-              style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none">
-            <div id="i-otro-destino-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;z-index:50;max-height:140px;overflow-y:auto;margin-top:3px"></div>
+          <div id="i-otro-destino-container">
+            <select id="i-otro-destino" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;width:100%">
+              <option value="">Seleccionar...</option>
+              <option value="Efectivo">Efectivo</option>
+            </select>
           </div>
         </div>
         <div class="form-group" style="align-self:flex-end">
@@ -2219,7 +2203,7 @@ function showTab(tab) {
   if (btn) btn.classList.add('active');
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'gastos') { renderGastosTable(); populateFilters(); }
-  if (tab === 'ingresos') renderIngresosTable();
+  if (tab === 'ingresos') { renderIngresosTable(); renderDestinosIngreso(); }
   if (tab === 'cuotas') renderCuotasTable();
   if (tab === 'ahorro') renderAhorroTable();
   if (tab === 'pendientes') renderPendientesTab();
@@ -2240,10 +2224,17 @@ function toggleCuotas() {
   document.getElementById('g-ncuotas-wrap').style.display = on ? 'flex' : 'none';
   if (on) {
     const medio = document.getElementById('g-medio').value;
+    const fecha = document.getElementById('g-fecha').value; // YYYY-MM-DD
+    const mesGasto = fecha ? fecha.slice(0, 7) : null;
+    const mesActual = new Date().toISOString().slice(0, 7);
+    const esGastoPasado = mesGasto && mesGasto < mesActual;
     const esCreditoConCierre = tarjetas.some(t =>
       (t.tipo || 'credito') === 'credito' && t.cierre && medio === (t.label || t.nombre)
     );
-    document.getElementById('g-cerro-wrap').style.display = esCreditoConCierre ? 'none' : 'flex';
+    // Ocultar la pregunta si: el gasto es de un mes pasado (ya sabemos el offset),
+    // o si es tarjeta con cierre (se calcula automático)
+    document.getElementById('g-cerro-wrap').style.display =
+      (esGastoPasado || esCreditoConCierre) ? 'none' : 'flex';
   } else {
     document.getElementById('g-cerro-wrap').style.display = 'none';
   }
@@ -2283,17 +2274,25 @@ function addGasto() {
   const monto = parseFloat(document.getElementById('g-monto').value);
   const cuota = document.getElementById('g-cuota').checked;
   const ncuotas = parseInt(document.getElementById('g-ncuotas').value) || 1;
-  // Si el medio es una tarjeta de crédito registrada, calcular offset automático por fecha de cierre
+  // Calcular offset: cuántos meses entre la fecha del gasto y la 1ª cuota
   let offsetCuotas = 0;
   if (cuota) {
+    const mesGasto  = fecha.slice(0, 7); // YYYY-MM
+    const mesActual = new Date().toISOString().slice(0, 7);
+    const esGastoPasado = mesGasto < mesActual;
     const tarjetaUsada = tarjetas.find(t =>
       (t.tipo || 'credito') === 'credito' && medio === (t.label || t.nombre)
     );
-    if (tarjetaUsada && tarjetaUsada.cierre) {
-      const diaHoy = new Date().getDate();
-      offsetCuotas = diaHoy > tarjetaUsada.cierre ? 1 : 0;
-      document.getElementById('g-cerro-wrap').style.display = 'none';
+    if (esGastoPasado) {
+      // Gasto anterior: la 1ª cuota cayó en el mes siguiente al del gasto
+      // (comportamiento estándar de tarjeta de crédito)
+      offsetCuotas = 1;
+    } else if (tarjetaUsada && tarjetaUsada.cierre) {
+      // Gasto de este mes con tarjeta con fecha de cierre
+      const diaGasto = parseInt(fecha.slice(8, 10));
+      offsetCuotas = diaGasto > tarjetaUsada.cierre ? 1 : 0;
     } else {
+      // Gasto de este mes sin tarjeta con cierre → preguntar
       const yacerro = document.querySelector('input[name="g-cuota-inicio"]:checked')?.value !== 'proximo';
       offsetCuotas = yacerro ? 0 : 1;
     }
@@ -2476,14 +2475,12 @@ function agregarOtroIngreso() {
     conceptosGuardados.push(nombre);
     saveConceptos();
   }
-  const otroDestino = resolverDestino('i-otro-destino', 'i-otro-destino-detalle');
+  const otroDestino = resolverDestino('i-otro-destino');
   otrosPendientes.push({ id: Date.now(), nombre, moneda, monto, destino: otroDestino });
   document.getElementById('i-otro-nombre').value = '';
   document.getElementById('i-otro-monto').value = '';
   document.getElementById('i-otro-moneda').value = 'ARS';
   document.getElementById('i-otro-destino').value = '';
-  document.getElementById('i-otro-destino-detalle').style.display = 'none';
-  document.getElementById('i-otro-destino-cual').value = '';
   renderOtrosPendientes();
   notify(`"${nombre}" agregado`);
 }
@@ -2641,6 +2638,7 @@ function agregarMedioPago() {
 
   renderTarjetas();
   renderMedioPago();
+  renderDestinosIngreso();
   notify(agregados + ' medio' + (agregados !== 1 ? 's' : '') + ' agregado' + (agregados !== 1 ? 's' : ''));
 }
 
@@ -2671,6 +2669,7 @@ function saveEditTarjeta(id) {
   saveTarjetas();
   renderTarjetas();
   renderMedioPago();
+  renderDestinosIngreso();
   notify('Medio actualizado');
 }
 
@@ -2679,6 +2678,7 @@ function eliminarTarjeta(id) {
   saveTarjetas();
   renderTarjetas();
   renderMedioPago();
+  renderDestinosIngreso();
 }
 
 function renderTarjetas() {
@@ -2821,20 +2821,27 @@ function seleccionarDestino(inputId, listId, valor) {
   document.getElementById(listId).style.display = 'none';
 }
 
-function resolverDestino(selectId, detalleId) {
-  const tipo = document.getElementById(selectId).value;
-  if (!tipo) return '';
-  if (tipo === 'Efectivo') return 'Efectivo';
-  const cual = document.getElementById(detalleId).querySelector('input[type=text]')?.value.trim() || '';
-  if (cual) {
-    if (!destinosGuardados[tipo]) destinosGuardados[tipo] = [];
-    if (!destinosGuardados[tipo].includes(cual)) {
-      destinosGuardados[tipo].push(cual);
-      saveDestinos();
-    }
-    return `${tipo}: ${cual}`;
-  }
-  return tipo;
+function resolverDestino(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return '';
+  return sel.value || '';
+}
+
+function renderDestinosIngreso() {
+  // Construir opciones: Efectivo + medios de pago de Ajustes (billetera y débito/banco, no crédito)
+  const opciones = ['Efectivo'];
+  tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.banco || t.nombre));
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('Débito ' + t.banco)));
+  tarjetas.filter(t => (t.tipo || 'credito') === 'credito').forEach(t => opciones.push(t.label || t.nombre));
+
+  const opcionesHTML = '<option value="">Seleccionar...</option>' +
+    opciones.map(o => `<option value="${o}">${o}</option>`).join('');
+
+  const selSueldo = document.getElementById('i-sueldo-destino');
+  if (selSueldo) selSueldo.innerHTML = opcionesHTML;
+
+  const selOtro = document.getElementById('i-otro-destino');
+  if (selOtro) selOtro.innerHTML = opcionesHTML;
 }
 
 function addIngreso() {
@@ -2842,7 +2849,7 @@ function addIngreso() {
   const mes    = document.getElementById('i-mes').value;
   const sueldo = parseFloat(document.getElementById('i-sueldo').value) || 0;
   const sueldoMoneda = document.getElementById('i-sueldo-moneda').value;
-  const sueldoDestino = resolverDestino('i-sueldo-destino', 'i-sueldo-destino-detalle');
+  const sueldoDestino = resolverDestino('i-sueldo-destino');
   if (!año) { notify('Ingresá el año'); return; }
   if (sueldo <= 0 && otrosPendientes.length === 0) { notify('⚠ Ingresá al menos un monto'); return; }
   // Calcular totales por moneda (sueldo + otros pendientes)
@@ -2861,8 +2868,6 @@ function addIngreso() {
   renderOtrosPendientes();
   document.getElementById('i-sueldo').value = '';
   document.getElementById('i-sueldo-destino').value = '';
-  document.getElementById('i-sueldo-destino-detalle').style.display = 'none';
-  document.getElementById('i-sueldo-destino-cual').value = '';
   document.getElementById('otros-form').style.display = 'none';
   notify('Ingreso guardado');
   renderIngresosTable();
@@ -2885,21 +2890,8 @@ function saveEditIngreso(uid) {
   if (idx < 0) return;
   const sueldo = parseFloat(document.getElementById('ei-sueldo-' + uid).value) || 0;
   const sueldoMoneda = document.getElementById('ei-smoneda-' + uid).value;
-  // Leer destino editado
-  const tipoDestino = document.getElementById('ei-destino-' + uid)?.value || '';
-  let sueldoDestino = '';
-  if (tipoDestino === 'Efectivo') {
-    sueldoDestino = 'Efectivo';
-  } else if (tipoDestino === 'Billetera Virtual' || tipoDestino === 'Banco') {
-    const cual = document.getElementById('ei-destino-cual-' + uid)?.value.trim() || '';
-    if (cual) {
-      if (!destinosGuardados[tipoDestino]) destinosGuardados[tipoDestino] = [];
-      if (!destinosGuardados[tipoDestino].includes(cual)) { destinosGuardados[tipoDestino].push(cual); saveDestinos(); }
-      sueldoDestino = tipoDestino + ': ' + cual;
-    } else {
-      sueldoDestino = tipoDestino;
-    }
-  }
+  // Leer destino editado directamente del select
+  const sueldoDestino = document.getElementById('ei-destino-' + uid)?.value || '';
   const otros = ingresos[idx].otros || [];
   const totalARS = (sueldoMoneda === 'ARS' ? sueldo : 0) + otros.filter(o => o.moneda === 'ARS').reduce((s, o) => s + o.monto, 0);
   const totalUSD = (sueldoMoneda === 'USD' ? sueldo : 0) + otros.filter(o => o.moneda === 'USD').reduce((s, o) => s + o.monto, 0);
@@ -2959,20 +2951,14 @@ function renderIngresosTable() {
           </td>
           <td>
             <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
-              <select id="ei-destino-${safeUid}" class="edit-input" style="width:130px" onchange="toggleDestinoDetalle('ei-destino-${safeUid}','ei-destino-det-${safeUid}')">
+              <select id="ei-destino-${safeUid}" class="edit-input" style="width:180px">
                 <option value="">Sin destino</option>
-                <option value="Efectivo" ${(i.sueldoDestino||'')=='Efectivo'?'selected':''}>Efectivo</option>
-                <option value="Billetera Virtual" ${(i.sueldoDestino||'').startsWith('Billetera')?'selected':''}>Billetera Virtual</option>
-                <option value="Banco" ${(i.sueldoDestino||'').startsWith('Banco')?'selected':''}>Banco</option>
+                <option value="Efectivo" ${(i.sueldoDestino||'')==='Efectivo'?'selected':''}>Efectivo</option>
+                ${tarjetas.filter(t=>t.tipo==='billetera').map(t=>`<option value="${t.label||t.banco||t.nombre}" ${(i.sueldoDestino||'')===(t.label||t.banco||t.nombre)?'selected':''}>${t.label||t.banco||t.nombre}</option>`).join('')}
+                ${tarjetas.filter(t=>t.tipo==='debito').map(t=>`<option value="${t.label||('Débito '+t.banco)}" ${(i.sueldoDestino||'')===(t.label||('Débito '+t.banco))?'selected':''}>${t.label||('Débito '+t.banco)}</option>`).join('')}
+                ${tarjetas.filter(t=>(t.tipo||'credito')==='credito').map(t=>`<option value="${t.label||t.nombre}" ${(i.sueldoDestino||'')===(t.label||t.nombre)?'selected':''}>${t.label||t.nombre}</option>`).join('')}
+                ${(i.sueldoDestino && i.sueldoDestino !== 'Efectivo' && !tarjetas.some(t=>(t.label||t.banco||t.nombre)===i.sueldoDestino || (t.label||('Débito '+t.banco))===i.sueldoDestino)) ? `<option value="${i.sueldoDestino}" selected>${i.sueldoDestino}</option>` : ''}
               </select>
-              <div id="ei-destino-det-${safeUid}" style="display:${(i.sueldoDestino||'').startsWith('Billetera') || (i.sueldoDestino||'').startsWith('Banco') ? 'block' : 'none'}">
-                <input type="text" id="ei-destino-cual-${safeUid}" class="edit-input" placeholder="¿Cuál?" style="width:100px"
-                  value="${i.sueldoDestino && i.sueldoDestino.includes(': ') ? i.sueldoDestino.split(': ')[1] : ''}"
-                  oninput="filtrarDestinos('ei-destino-${safeUid}','ei-destino-cual-${safeUid}','ei-destino-list-${safeUid}')"
-                  onfocus="filtrarDestinos('ei-destino-${safeUid}','ei-destino-cual-${safeUid}','ei-destino-list-${safeUid}')"
-                  onblur="setTimeout(()=>{const l=document.getElementById('ei-destino-list-${safeUid}');if(l)l.style.display='none'},200)">
-                <div id="ei-destino-list-${safeUid}" style="display:none;position:absolute;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;z-index:99;max-height:120px;overflow-y:auto;min-width:140px"></div>
-              </div>
             </div>
           </td>
           <td colspan="2">
@@ -4228,6 +4214,7 @@ async function renderAdminPanel() {
 document.getElementById('g-fecha').value = new Date().toISOString().slice(0,7) + '-' + String(new Date().getDate()).padStart(2,'0');
 initCatSelects();
 renderMedioPago();
+renderDestinosIngreso();
 // renderDashboard() se llama desde onAuthStateChanged cuando el usuario inicia sesión
 window.renderDashboard = renderDashboard;
 </script>
