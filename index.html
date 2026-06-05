@@ -2545,23 +2545,51 @@ function renderSaldoInicial() {
     el.innerHTML = '<div class="empty" style="padding:0.5rem">Primero agrega tus medios de pago arriba.</div>';
     return;
   }
-  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px">' +
-    cuentas.map(c => {
-      const val = saldosIniciales[c.label] || 0;
-      const icon = c.tipo === 'efectivo' ? '💵' : c.tipo === 'billetera' ? '📱' : '🏦';
-      const safeId = 'si-' + c.label.replace(/[^a-zA-Z0-9]/g,'_');
-      const safeLabel = c.label.replace(/'/g, "\'");
-      return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
-        '<span style="min-width:180px;font-size:0.85rem;color:var(--text2)">' + icon + ' ' + c.label + '</span>' +
-        '<div style="display:flex;align-items:center;gap:6px">' +
-        '<span style="font-size:0.82rem;color:var(--text3)">$</span>' +
-        '<input type="number" min="0" step="0.01" placeholder="0" value="' + (val > 0 ? val : '') + '" id="' + safeId + '" class="edit-input" style="width:140px" onchange="guardarSaldoInicial('' + safeLabel + '', this.value)">' +
-        '</div>' +
-        (val > 0 ? '<span style="font-size:0.75rem;color:var(--accent);font-family:'DM Mono',monospace">$' + val.toLocaleString('es-AR') + '</span>' : '') +
-        '</div>';
-    }).join('') +
-    '</div>' +
-    '<p style="font-size:0.75rem;color:var(--text3);margin-top:12px">Los cambios se guardan automaticamente al salir del campo.</p>';
+  // Construir con DOM para evitar problemas de escape en strings
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px';
+  cuentas.forEach(c => {
+    const val = saldosIniciales[c.label] || 0;
+    const icon = c.tipo === 'efectivo' ? '💵' : c.tipo === 'billetera' ? '📱' : '🏦';
+    const safeId = 'si-' + c.label.replace(/[^a-zA-Z0-9]/g, '_');
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:12px;flex-wrap:wrap';
+    const lbl = document.createElement('span');
+    lbl.style.cssText = 'min-width:180px;font-size:0.85rem;color:var(--text2)';
+    lbl.textContent = icon + ' ' + c.label;
+    const inputWrap = document.createElement('div');
+    inputWrap.style.cssText = 'display:flex;align-items:center;gap:6px';
+    const prefix = document.createElement('span');
+    prefix.style.cssText = 'font-size:0.82rem;color:var(--text3)';
+    prefix.textContent = '$';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.step = '0.01';
+    input.placeholder = '0';
+    input.id = safeId;
+    input.className = 'edit-input';
+    input.style.width = '140px';
+    if (val > 0) input.value = val;
+    input.addEventListener('change', function() { guardarSaldoInicial(c.label, this.value); });
+    inputWrap.appendChild(prefix);
+    inputWrap.appendChild(input);
+    row.appendChild(lbl);
+    row.appendChild(inputWrap);
+    if (val > 0) {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'font-size:0.75rem;color:var(--accent);font-family:monospace';
+      badge.textContent = '$' + val.toLocaleString('es-AR');
+      row.appendChild(badge);
+    }
+    wrap.appendChild(row);
+  });
+  const hint = document.createElement('p');
+  hint.style.cssText = 'font-size:0.75rem;color:var(--text3);margin-top:12px';
+  hint.textContent = 'Los cambios se guardan automaticamente al salir del campo.';
+  el.innerHTML = '';
+  el.appendChild(wrap);
+  el.appendChild(hint);
 }
 
 function guardarSaldoInicial(label, valor) {
@@ -3571,7 +3599,7 @@ function _renderSaldoPanel(ym) {
     if (f.v === 0) return;
     html += '<div><div style="display:flex;justify-content:space-between;align-items:center">' +
       '<span style="font-size:0.82rem;color:var(--text2)">' + f.label + '</span>' +
-      '<span style="font-family:'DM Mono',monospace;font-size:0.85rem;color:' + f.color + '">' + f.signo + ' ' + fmt(f.v) + '</span>' +
+      '<span style="font-family:monospace;font-size:0.85rem;color:' + f.color + '">' + f.signo + ' ' + fmt(f.v) + '</span>' +
       '</div>' + barra(f.v, f.color) + '</div>';
   });
   html += '</div>';
