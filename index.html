@@ -2828,11 +2828,10 @@ function resolverDestino(selectId) {
 }
 
 function renderDestinosIngreso() {
-  // Construir opciones: Efectivo + medios de pago de Ajustes (billetera y débito/banco, no crédito)
+  // Solo Efectivo + billeteras virtuales + débito (no crédito, no almacena dinero)
   const opciones = ['Efectivo'];
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.banco || t.nombre));
   tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('Débito ' + t.banco)));
-  tarjetas.filter(t => (t.tipo || 'credito') === 'credito').forEach(t => opciones.push(t.label || t.nombre));
 
   const opcionesHTML = '<option value="">Seleccionar...</option>' +
     opciones.map(o => `<option value="${o}">${o}</option>`).join('');
@@ -2956,8 +2955,7 @@ function renderIngresosTable() {
                 <option value="Efectivo" ${(i.sueldoDestino||'')==='Efectivo'?'selected':''}>Efectivo</option>
                 ${tarjetas.filter(t=>t.tipo==='billetera').map(t=>`<option value="${t.label||t.banco||t.nombre}" ${(i.sueldoDestino||'')===(t.label||t.banco||t.nombre)?'selected':''}>${t.label||t.banco||t.nombre}</option>`).join('')}
                 ${tarjetas.filter(t=>t.tipo==='debito').map(t=>`<option value="${t.label||('Débito '+t.banco)}" ${(i.sueldoDestino||'')===(t.label||('Débito '+t.banco))?'selected':''}>${t.label||('Débito '+t.banco)}</option>`).join('')}
-                ${tarjetas.filter(t=>(t.tipo||'credito')==='credito').map(t=>`<option value="${t.label||t.nombre}" ${(i.sueldoDestino||'')===(t.label||t.nombre)?'selected':''}>${t.label||t.nombre}</option>`).join('')}
-                ${(i.sueldoDestino && i.sueldoDestino !== 'Efectivo' && !tarjetas.some(t=>(t.label||t.banco||t.nombre)===i.sueldoDestino || (t.label||('Débito '+t.banco))===i.sueldoDestino)) ? `<option value="${i.sueldoDestino}" selected>${i.sueldoDestino}</option>` : ''}
+                ${(i.sueldoDestino && i.sueldoDestino !== 'Efectivo' && !tarjetas.some(t=>t.tipo!=='credito' && ((t.label||t.banco||t.nombre)===i.sueldoDestino || (t.label||('Débito '+t.banco))===i.sueldoDestino))) ? `<option value="${i.sueldoDestino}" selected>${i.sueldoDestino}</option>` : ''}
               </select>
             </div>
           </td>
