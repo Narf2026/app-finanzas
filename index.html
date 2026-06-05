@@ -1674,7 +1674,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
 
     <!-- AHORRO -->
     <div class="card green expandable" onclick="toggleCardPanel('panel-ahorro')">
-      <div class="label">Ahorro del mes <span class="expand-icon" id="icon-panel-ahorro">▾</span></div>
+      <div class="label">Ahorro acumulado <span class="expand-icon" id="icon-panel-ahorro">▾</span></div>
       <div class="value" id="d-ahorro">$0</div>
     </div>
 
@@ -1699,7 +1699,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
   </div>
 
   <div class="card-panel" id="panel-ahorro" style="display:none">
-    <div class="panel-title">🏦 Ahorro del mes + acumulado por categoría</div>
+    <div class="panel-title">🏦 Ahorro acumulado total por categoría</div>
     <div id="panel-ahorro-body"></div>
   </div>
 
@@ -2115,6 +2115,16 @@ tr:hover td { background: rgba(255,255,255,.035); }
       <!-- Lista medios -->
       <div id="tc-lista"></div>
     </div>
+
+    <!-- Saldo inicial por cuenta -->
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-title" style="margin-bottom:0.3rem">💰 Saldo inicial por cuenta</div>
+      <p style="font-size:0.82rem;color:var(--text3);margin-bottom:1.2rem">
+        Ingresá cuánto tenías en cada cuenta <strong style="color:var(--text2)">antes de empezar a usar la app</strong>. Se suma al balance general sin contar como ingreso mensual.
+      </p>
+      <div id="saldo-inicial-lista"></div>
+    </div>
+
   </div>
 </section>
 
@@ -2175,7 +2185,7 @@ async function save() {
   if (!uid) return;
   try {
     await window._fbSetDoc(window._fbDoc(window._fbDb, 'usuarios', uid), {
-      gastos, ingresos, ahorros, updatedAt: new Date().toISOString()
+      gastos, ingresos, ahorros, saldosIniciales, updatedAt: new Date().toISOString()
     });
   } catch(e) { console.error('Error guardando:', e); }
 }
@@ -2185,11 +2195,12 @@ window.loadUserData = async function(uid) {
     const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid));
     if (snap.exists()) {
       const d = snap.data();
-      gastos   = d.gastos   || [];
-      ingresos = d.ingresos || [];
-      ahorros  = d.ahorros  || [];
+      gastos          = d.gastos          || [];
+      ingresos        = d.ingresos        || [];
+      ahorros         = d.ahorros         || [];
+      saldosIniciales = d.saldosIniciales  || {};
     } else {
-      gastos = []; ingresos = []; ahorros = [];
+      gastos = []; ingresos = []; ahorros = []; saldosIniciales = {};
     }
   } catch(e) { console.error('Error cargando:', e); }
 };
@@ -2208,7 +2219,7 @@ function showTab(tab) {
   if (tab === 'ahorro') renderAhorroTable();
   if (tab === 'pendientes') renderPendientesTab();
   if (tab === 'admin') renderAdminPanel();
-  if (tab === 'ajustes') renderTarjetas();
+  if (tab === 'ajustes') { renderTarjetas(); renderSaldoInicial(); }
   if (tab === 'gastos') renderMedioPago();
 }
 
@@ -2510,6 +2521,61 @@ function renderOtrosPendientes() {
 // Compatibilidad: registros viejos (solo {id,nombre,cierre,limite}) se tratan como crédito
 let tarjetas = JSON.parse(localStorage.getItem('gf_tarjetas') || '[]');
 
+// ---- SALDOS INICIALES ----
+// { [label]: monto } — cuanto habia en cada cuenta antes de empezar a usar la app
+let saldosIniciales = {};
+
+function saveSaldosIniciales() {
+  const uid = window._currentUser?.uid;
+  if (!uid) return;
+  window._fbSetDoc(window._fbDoc(window._fbDb, 'usuarios', uid), {
+    gastos, ingresos, ahorros, saldosIniciales, updatedAt: new Date().toISOString()
+  }).catch(e => console.error('Error guardando saldos iniciales:', e));
+}
+
+function renderSaldoInicial() {
+  const el = document.getElementById('saldo-inicial-lista');
+  if (!el) return;
+  const cuentas = [
+    { label: 'Efectivo', tipo: 'efectivo' },
+    ...tarjetas.filter(t => t.tipo === 'billetera').map(t => ({ label: t.label || t.banco || t.nombre, tipo: 'billetera' })),
+    ...tarjetas.filter(t => t.tipo === 'debito').map(t => ({ label: t.label || ('Debito ' + t.banco), tipo: 'debito' })),
+  ];
+  if (!cuentas.length) {
+    el.innerHTML = '<div class="empty" style="padding:0.5rem">Primero agrega tus medios de pago arriba.</div>';
+    return;
+  }
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px">' +
+    cuentas.map(c => {
+      const val = saldosIniciales[c.label] || 0;
+      const icon = c.tipo === 'efectivo' ? '💵' : c.tipo === 'billetera' ? '📱' : '🏦';
+      const safeId = 'si-' + c.label.replace(/[^a-zA-Z0-9]/g,'_');
+      const safeLabel = c.label.replace(/'/g, "\'");
+      return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+        '<span style="min-width:180px;font-size:0.85rem;color:var(--text2)">' + icon + ' ' + c.label + '</span>' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+        '<span style="font-size:0.82rem;color:var(--text3)">$</span>' +
+        '<input type="number" min="0" step="0.01" placeholder="0" value="' + (val > 0 ? val : '') + '" id="' + safeId + '" class="edit-input" style="width:140px" onchange="guardarSaldoInicial('' + safeLabel + '', this.value)">' +
+        '</div>' +
+        (val > 0 ? '<span style="font-size:0.75rem;color:var(--accent);font-family:'DM Mono',monospace">$' + val.toLocaleString('es-AR') + '</span>' : '') +
+        '</div>';
+    }).join('') +
+    '</div>' +
+    '<p style="font-size:0.75rem;color:var(--text3);margin-top:12px">Los cambios se guardan automaticamente al salir del campo.</p>';
+}
+
+function guardarSaldoInicial(label, valor) {
+  const monto = parseFloat(valor) || 0;
+  if (monto > 0) {
+    saldosIniciales[label] = monto;
+  } else {
+    delete saldosIniciales[label];
+  }
+  saveSaldosIniciales();
+  renderSaldoInicial();
+  notify('Saldo inicial guardado');
+}
+
 function saveTarjetas() {
   localStorage.setItem('gf_tarjetas', JSON.stringify(tarjetas));
 }
@@ -2639,6 +2705,7 @@ function agregarMedioPago() {
   renderTarjetas();
   renderMedioPago();
   renderDestinosIngreso();
+  renderSaldoInicial();
   notify(agregados + ' medio' + (agregados !== 1 ? 's' : '') + ' agregado' + (agregados !== 1 ? 's' : ''));
 }
 
@@ -2670,6 +2737,7 @@ function saveEditTarjeta(id) {
   renderTarjetas();
   renderMedioPago();
   renderDestinosIngreso();
+  renderSaldoInicial();
   notify('Medio actualizado');
 }
 
@@ -2679,6 +2747,7 @@ function eliminarTarjeta(id) {
   renderTarjetas();
   renderMedioPago();
   renderDestinosIngreso();
+  renderSaldoInicial();
 }
 
 function renderTarjetas() {
@@ -3088,13 +3157,40 @@ function renderDashboard() {
   const ingM = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym);
   const ahorrosM = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym);
   const totalIngreso = ingM.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
-  const totalAhorro = ahorrosM.reduce((s, a) => s + a.monto, 0);
-  const saldo = totalIngreso - totalGasto - totalAhorro;
+  const totalAhorroMes = ahorrosM.reduce((s, a) => s + a.monto, 0);
+
+  // Saldo ACUMULATIVO: todos los ingresos historicos + saldos iniciales - todos los gastos - todo el ahorro
+  const totalIngresosHistorico = ingresos.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
+  const totalGastosHistorico = (() => {
+    // Sumar todos los gastos normales + todas las cuotas que ya cayeron hasta hoy
+    const hoy = new Date().toISOString().slice(0,7);
+    let total = 0;
+    gastos.forEach(g => {
+      if (!g.cuota) {
+        total += g.monto;
+      } else {
+        // Cuotas: solo las que ya cayeron hasta el mes actual
+        const [fy, fm] = g.fecha.split('-').map(Number);
+        const off = g.offsetCuotas || 0;
+        for (let n = 0; n < g.ncuotas; n++) {
+          let cy = fy, cm = fm + off + n;
+          while (cm > 12) { cm -= 12; cy++; }
+          const cuotaYm = cy + '-' + String(cm).padStart(2,'0');
+          if (cuotaYm <= hoy) total += g.montoXcuota;
+        }
+      }
+    });
+    return total;
+  })();
+  const totalAhorroAcumulado = ahorros.reduce((s, a) => s + a.monto, 0);
+  const totalSaldoInicial = Object.values(saldosIniciales || {}).reduce((s, v) => s + v, 0);
+  const saldo = totalIngresosHistorico + totalSaldoInicial - totalGastosHistorico - totalAhorroAcumulado;
 
   document.getElementById('d-gasto').textContent = '$' + totalGasto.toLocaleString('es-AR');
   document.getElementById('d-ingreso').textContent = '$' + totalIngreso.toLocaleString('es-AR');
   document.getElementById('d-saldo').textContent = '$' + saldo.toLocaleString('es-AR');
-  document.getElementById('d-ahorro').textContent = '$' + totalAhorro.toLocaleString('es-AR');
+  document.getElementById('d-ahorro').textContent = '$' + totalAhorroAcumulado.toLocaleString('es-AR');
+  const totalAhorro = totalAhorroMes; // para compatibilidad con el resto del codigo del mes
   const nTx = gastosNormalesM.length + cuotasEnMes.length;
   document.getElementById('d-gastos-n').textContent = nTx + ' transacciones' + (cuotasEnMes.length ? ` (${cuotasEnMes.length} en cuotas)` : '');
   document.getElementById('d-cuotas').textContent = gastos.filter(g => g.cuota).length;
@@ -3116,8 +3212,14 @@ function renderDashboard() {
 
   // Saldo sub label
   const subEl = document.getElementById('d-saldo-sub');
-  if (totalAhorro > 0) subEl.textContent = `ingreso − gastos − ahorro`;
-  else subEl.textContent = `ingreso − gastos`;
+  if (totalSaldoInicial > 0 && totalAhorroAcumulado > 0)
+    subEl.textContent = 'acumulado total (con saldo inicial y ahorro)';
+  else if (totalSaldoInicial > 0)
+    subEl.textContent = 'acumulado total (con saldo inicial)';
+  else if (totalAhorroAcumulado > 0)
+    subEl.textContent = 'acumulado total (con ahorro)';
+  else
+    subEl.textContent = 'acumulado total';
 
   // Saldo color
   const saldoEl = document.getElementById('d-saldo');
@@ -3428,55 +3530,61 @@ function _renderSaldoPanel(ym) {
   const fmt = v => '$' + Math.abs(v).toLocaleString('es-AR');
   const el = document.getElementById('panel-saldo-body');
 
-  const totalGasto   = gastosDelMes(ym).reduce((s,x) => s+x.monto, 0);
-  const ingM         = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym);
-  const totalIngreso = ingM.reduce((s,i) => s+(i.totalARS ?? i.total ?? 0), 0);
-  const ahorrosMes   = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym);
-  const totalAhorro  = ahorrosMes.reduce((s,a) => s+a.monto, 0);
-  const saldo        = totalIngreso - totalGasto - totalAhorro;
+  // Totales acumulados historicos
+  const totalIngresosAcum = ingresos.reduce((s,i) => s+(i.totalARS ?? i.total ?? 0), 0);
+  const totalGastosAcum = (() => {
+    const hoy = new Date().toISOString().slice(0,7);
+    let total = 0;
+    gastos.forEach(g => {
+      if (!g.cuota) { total += g.monto; }
+      else {
+        const [fy, fm] = g.fecha.split('-').map(Number);
+        const off = g.offsetCuotas || 0;
+        for (let n = 0; n < g.ncuotas; n++) {
+          let cy = fy, cm = fm + off + n;
+          while (cm > 12) { cm -= 12; cy++; }
+          if ((cy + '-' + String(cm).padStart(2,'0')) <= hoy) total += g.montoXcuota;
+        }
+      }
+    });
+    return total;
+  })();
+  const totalAhorroAcum = ahorros.reduce((s,a) => s+a.monto, 0);
+  const totalSaldoIni   = Object.values(saldosIniciales || {}).reduce((s,v) => s+v, 0);
+  const saldo           = totalIngresosAcum + totalSaldoIni - totalGastosAcum - totalAhorroAcum;
 
-  // Barras de composición
-  const maxVal = Math.max(totalIngreso, 1);
+  const maxVal = Math.max(totalIngresosAcum + totalSaldoIni, 1);
   function barra(v, color) {
     const pct = Math.min((v / maxVal * 100), 100).toFixed(1);
-    return `<div class="bar-track" style="height:8px;margin-top:4px"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>`;
+    return '<div class="bar-track" style="height:8px;margin-top:4px"><div class="bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>';
   }
 
   const filas = [
-    { label: '💵 Ingreso del mes',   v: totalIngreso, color: 'var(--accent)',  signo: '+' },
-    { label: '💸 Gasto del mes',     v: totalGasto,   color: 'var(--accent2)', signo: '−' },
-    { label: '🏦 Ahorro separado',   v: totalAhorro,  color: 'var(--accent4)', signo: '−' },
+    { label: '💵 Ingresos acumulados', v: totalIngresosAcum, color: 'var(--accent)',  signo: '+' },
+    { label: '🏁 Saldo inicial',        v: totalSaldoIni,     color: 'var(--accent3)', signo: '+' },
+    { label: '💸 Gastos acumulados',    v: totalGastosAcum,   color: 'var(--accent2)', signo: '−' },
+    { label: '🏦 Ahorro acumulado',     v: totalAhorroAcum,   color: 'var(--accent4)', signo: '−' },
   ];
 
   let html = '<div style="padding:1rem 1.4rem;display:flex;flex-direction:column;gap:12px">';
   filas.forEach(f => {
     if (f.v === 0) return;
-    html += `<div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:0.82rem;color:var(--text2)">${f.label}</span>
-        <span style="font-family:'DM Mono',monospace;font-size:0.85rem;color:${f.color}">${f.signo} ${fmt(f.v)}</span>
-      </div>
-      ${barra(f.v, f.color)}
-    </div>`;
+    html += '<div><div style="display:flex;justify-content:space-between;align-items:center">' +
+      '<span style="font-size:0.82rem;color:var(--text2)">' + f.label + '</span>' +
+      '<span style="font-family:'DM Mono',monospace;font-size:0.85rem;color:' + f.color + '">' + f.signo + ' ' + fmt(f.v) + '</span>' +
+      '</div>' + barra(f.v, f.color) + '</div>';
   });
   html += '</div>';
 
-  // Línea divisoria y resultado
   const saldoColor = saldo >= 0 ? 'var(--accent)' : 'var(--accent2)';
-  const saldoLabel = saldo >= 0 ? '✓ Disponible' : '⚠ Déficit';
-  html += `<div class="panel-total" style="border-top:2px solid var(--border)">
-    <span>${saldoLabel}</span>
-    <span style="color:${saldoColor};font-size:1rem">${saldo < 0 ? '−' : ''}${fmt(saldo)}</span>
-  </div>`;
-
-  // Si hay ingreso 0 mostrar aviso
-  if (totalIngreso === 0) {
-    html = '<div class="panel-empty">No hay ingresos registrados para este mes.<br>Cargalos en la pestaña Ingresos.</div>';
-  }
+  const saldoLabel = saldo >= 0 ? '✓ Saldo disponible total' : '⚠ Déficit acumulado';
+  html += '<div class="panel-total" style="border-top:2px solid var(--border)">' +
+    '<span>' + saldoLabel + '</span>' +
+    '<span style="color:' + saldoColor + ';font-size:1rem">' + (saldo < 0 ? '−' : '') + fmt(saldo) + '</span>' +
+    '</div>';
 
   el.innerHTML = html;
 }
-
 function _renderCuotasPanel() {
   const fmt = v => '$' + v.toLocaleString('es-AR');
   const el = document.getElementById('panel-cuotas-body');
@@ -4213,6 +4321,7 @@ document.getElementById('g-fecha').value = new Date().toISOString().slice(0,7) +
 initCatSelects();
 renderMedioPago();
 renderDestinosIngreso();
+renderSaldoInicial();
 // renderDashboard() se llama desde onAuthStateChanged cuando el usuario inicia sesión
 window.renderDashboard = renderDashboard;
 </script>
