@@ -1453,6 +1453,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
 .app-nav .nav-save { color: #ffd166; }
 .app-nav .nav-more { color: #b6c2d1; }
 .app-nav .nav-admin { color: #c084fc; }
+.app-nav .nav-ajustes { color: #94a3b8; }
 @media (min-width: 701px) {
   .app-nav button {
     display: inline-flex;
@@ -1584,6 +1585,12 @@ tr:hover td { background: rgba(255,255,255,.035); }
         <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg>
       </span>
       <span class="nav-text">Más</span>
+    </button>
+    <button onclick="showTab('ajustes')" aria-label="Ajustes">
+      <span class="nav-icon nav-ajustes" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </span>
+      <span class="nav-text">Ajustes</span>
     </button>
     <button id="btn-admin" onclick="showTab('admin')" style="display:none" aria-label="Admin">
       <span class="nav-icon nav-admin" aria-hidden="true">
@@ -2099,6 +2106,41 @@ tr:hover td { background: rgba(255,255,255,.035); }
 
 </main>
 
+<!-- AJUSTES -->
+<section id="tab-ajustes">
+  <div style="max-width:900px;margin:0 auto;padding:2rem 1.5rem">
+    <div class="page-title">Ajustes</div>
+
+    <!-- Tarjetas -->
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-title" style="margin-bottom:1rem">💳 Mis Tarjetas</div>
+      <p style="font-size:0.82rem;color:var(--text3);margin-bottom:1rem">Agregá tus tarjetas para usarlas como medio de pago y calcular cuotas automáticamente.</p>
+
+      <!-- Form nueva tarjeta -->
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:1.2rem">
+        <div class="form-group" style="min-width:180px;flex:2">
+          <label>Nombre de la tarjeta</label>
+          <input type="text" id="tc-nombre" placeholder="ej: Visa Galicia">
+        </div>
+        <div class="form-group" style="min-width:120px;flex:1">
+          <label>Fecha de cierre (día)</label>
+          <input type="number" id="tc-cierre" placeholder="ej: 15" min="1" max="31">
+        </div>
+        <div class="form-group" style="min-width:140px;flex:1">
+          <label>Límite (opcional)</label>
+          <input type="number" id="tc-limite" placeholder="$0">
+        </div>
+        <div class="form-group" style="align-self:flex-end">
+          <button class="btn-add" onclick="agregarTarjeta()">+ Agregar</button>
+        </div>
+      </div>
+
+      <!-- Lista tarjetas -->
+      <div id="tc-lista"></div>
+    </div>
+  </div>
+</section>
+
 <!-- ADMIN -->
 <section id="tab-admin">
   <div style="max-width:1100px;margin:0 auto;padding:2rem 1.5rem">
@@ -2189,6 +2231,8 @@ function showTab(tab) {
   if (tab === 'ahorro') renderAhorroTable();
   if (tab === 'pendientes') renderPendientesTab();
   if (tab === 'admin') renderAdminPanel();
+  if (tab === 'ajustes') renderTarjetas();
+  if (tab === 'gastos') renderMedioPago();
 }
 
 function notify(msg) {
@@ -2201,7 +2245,14 @@ function notify(msg) {
 function toggleCuotas() {
   const on = document.getElementById('g-cuota').checked;
   document.getElementById('g-ncuotas-wrap').style.display = on ? 'flex' : 'none';
-  document.getElementById('g-cerro-wrap').style.display = on ? 'flex' : 'none';
+  if (on) {
+    // Mostrar toggle solo si el medio seleccionado no es tarjeta registrada
+    const medio = document.getElementById('g-medio').value;
+    const esTarjetaRegistrada = tarjetas.some(t => medio === 'Tarjeta: ' + t.nombre);
+    document.getElementById('g-cerro-wrap').style.display = esTarjetaRegistrada ? 'none' : 'flex';
+  } else {
+    document.getElementById('g-cerro-wrap').style.display = 'none';
+  }
 }
 
 function toggleOtro(selectId, inputId) {
@@ -2238,8 +2289,23 @@ function addGasto() {
   const monto = parseFloat(document.getElementById('g-monto').value);
   const cuota = document.getElementById('g-cuota').checked;
   const ncuotas = parseInt(document.getElementById('g-ncuotas').value) || 1;
-  const yacerro = !cuota || document.querySelector('input[name="g-cuota-inicio"]:checked')?.value !== 'proximo';
-  const offsetCuotas = (cuota && !yacerro) ? 1 : 0;
+  // Si el medio es una tarjeta registrada, calcular offset automático por fecha de cierre
+  let offsetCuotas = 0;
+  if (cuota) {
+    const tarjetaUsada = tarjetas.find(t => medio === 'Tarjeta: ' + t.nombre);
+    if (tarjetaUsada) {
+      // Calcular si ya cerró: comparar día de hoy con día de cierre
+      const diaHoy = new Date().getDate();
+      const diaCierre = tarjetaUsada.cierre;
+      // Si hoy es posterior al cierre, la primera cuota va el próximo mes
+      offsetCuotas = diaHoy > diaCierre ? 1 : 0;
+      // Ocultar el toggle manual ya que se calcula solo
+      document.getElementById('g-cerro-wrap').style.display = 'none';
+    } else {
+      const yacerro = document.querySelector('input[name="g-cuota-inicio"]:checked')?.value !== 'proximo';
+      offsetCuotas = yacerro ? 0 : 1;
+    }
+  }
   const notas = document.getElementById('g-notas').value.trim();
 
   if (!fecha || !desc || !cat || !monto || monto <= 0) {
@@ -2435,12 +2501,81 @@ function renderOtrosPendientes() {
   </div>`;
 }
 
+// ---- TARJETAS ----
+let tarjetas = JSON.parse(localStorage.getItem('gf_tarjetas') || '[]');
+
+function saveTarjetas() {
+  localStorage.setItem('gf_tarjetas', JSON.stringify(tarjetas));
+}
+
+function agregarTarjeta() {
+  const nombre = document.getElementById('tc-nombre').value.trim();
+  const cierre = parseInt(document.getElementById('tc-cierre').value) || 0;
+  const limite = parseFloat(document.getElementById('tc-limite').value) || 0;
+  if (!nombre) { notify('Ingresá el nombre de la tarjeta'); return; }
+  if (!cierre || cierre < 1 || cierre > 31) { notify('Ingresá un día de cierre válido (1-31)'); return; }
+  tarjetas.push({ id: Date.now(), nombre, cierre, limite });
+  saveTarjetas();
+  document.getElementById('tc-nombre').value = '';
+  document.getElementById('tc-cierre').value = '';
+  document.getElementById('tc-limite').value = '';
+  renderTarjetas();
+  notify('Tarjeta agregada');
+}
+
+function eliminarTarjeta(id) {
+  tarjetas = tarjetas.filter(t => t.id !== id);
+  saveTarjetas();
+  renderTarjetas();
+  renderMedioPago();
+}
+
+function renderTarjetas() {
+  const el = document.getElementById('tc-lista');
+  if (!el) return;
+  if (!tarjetas.length) {
+    el.innerHTML = '<div class="empty" style="padding:1rem">Sin tarjetas cargadas</div>';
+    return;
+  }
+  el.innerHTML = `<table>
+    <thead><tr><th>Nombre</th><th>Cierre (día)</th><th>Límite</th><th></th></tr></thead>
+    <tbody>
+      ${tarjetas.map(t => `
+        <tr>
+          <td><span class="badge badge-medio">${t.nombre}</span></td>
+          <td style="font-family:'DM Mono',monospace">Día ${t.cierre}</td>
+          <td style="font-family:'DM Mono',monospace">${t.limite > 0 ? '$' + t.limite.toLocaleString('es-AR') : '—'}</td>
+          <td><button class="btn-del" onclick="eliminarTarjeta(${t.id})">✕</button></td>
+        </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+// Reconstruir el select de medio de pago dinámicamente
+function renderMedioPago() {
+  const sel = document.getElementById('g-medio');
+  if (!sel) return;
+  const actual = sel.value;
+  // Opciones base
+  const base = ['Efectivo'];
+  // Billeteras y bancos de destinosGuardados
+  const bv = (destinosGuardados['Billetera Virtual'] || []).map(n => 'Billetera: ' + n);
+  const bn = (destinosGuardados['Banco'] || []).map(n => 'Banco: ' + n);
+  // Tarjetas
+  const tc = tarjetas.map(t => 'Tarjeta: ' + t.nombre);
+  const todas = [...base, ...bv, ...bn, ...tc, 'Otro'];
+  sel.innerHTML = todas.map(o => `<option value="${o}" ${o === actual ? 'selected' : ''}>${o}</option>`).join('');
+  // Asegurarse que el handler sigue funcionando
+  sel.onchange = () => toggleOtro('g-medio', 'g-medio-otro');
+}
+
 // ---- DESTINOS ----
 // Guarda destinos usados por tipo: { "Billetera Virtual": ["Mercado Pago","Uala"], "Banco": ["Galicia"] }
 let destinosGuardados = JSON.parse(localStorage.getItem('gf_destinos') || '{}');
 
 function saveDestinos() {
   localStorage.setItem('gf_destinos', JSON.stringify(destinosGuardados));
+  renderMedioPago();
 }
 
 function toggleDestinoDetalle(selectId, detalleId) {
@@ -2647,9 +2782,13 @@ function renderCuotasTable() {
   const today = new Date();
 
   const rows = cuotaGastos.map(g => {
-    const fechaInicio = new Date(g.fecha + 'T12:00:00');
+    const [fy2, fm2] = g.fecha.split('-').map(Number);
+    const off2 = g.offsetCuotas || 0;
+    let sy2 = fy2, sm2 = fm2 + off2;
+    while (sm2 > 12) { sm2 -= 12; sy2++; }
+    const fechaInicio = new Date(sy2, sm2 - 1, 1);
     const mesesPasados = Math.floor((today - fechaInicio) / (1000*60*60*24*30));
-    const cuotaActual = Math.min(mesesPasados + 1, g.ncuotas);
+    const cuotaActual = Math.min(Math.max(mesesPasados + 1, 0), g.ncuotas);
     const restantes = g.ncuotas - cuotaActual;
     const adeudado = restantes * g.montoXcuota;
     totalAdeudado += adeudado;
@@ -2766,8 +2905,13 @@ function renderDashboard() {
   const today = new Date();
   const totalAdeudado = gastos.filter(g => g.cuota).reduce((s, g) => {
     const [fy, fm] = g.fecha.split('-').map(Number);
-    const mesesPasados = Math.floor((today - new Date(fy, fm-1, 1)) / (1000*60*60*24*30));
-    const restantes = g.ncuotas - Math.min(mesesPasados + 1, g.ncuotas);
+    const off = g.offsetCuotas || 0;
+    let sy = fy, sm = fm + off;
+    while (sm > 12) { sm -= 12; sy++; }
+    const todayYm = today.getFullYear() * 12 + today.getMonth();
+    const startYm = sy * 12 + (sm - 1);
+    const mesesPasados = todayYm - startYm;
+    const restantes = g.ncuotas - Math.min(Math.max(mesesPasados + 1, 0), g.ncuotas);
     return s + restantes * g.montoXcuota;
   }, 0);
   const subCuotas = document.getElementById('d-cuotas-sub');
@@ -2992,12 +3136,12 @@ function renderCardPanel(tipo) {
     ingM.forEach(i => {
       if (i.sueldo > 0) {
         const moneda = i.sueldoMoneda || 'ARS';
-        const label = moneda === 'USD' ? 'u$s' : '$';
         const val = moneda === 'USD'
           ? `<span style="color:var(--accent3);font-family:'DM Mono',monospace">u$s ${i.sueldo.toLocaleString('es-AR')}</span>`
           : `<span style="font-family:'DM Mono',monospace;color:var(--accent)">${fmt(i.sueldo)}</span>`;
+        const dest = i.sueldoDestino ? `<span style="font-size:0.68rem;color:var(--accent3);margin-left:5px">→ ${i.sueldoDestino}</span>` : '';
         html += `<tr>
-          <td>💼 Sueldo / Salario</td>
+          <td>💼 Sueldo / Salario${dest}</td>
           <td style="text-align:right">${val}</td>
         </tr>`;
         if (moneda === 'ARS') total += i.sueldo;
@@ -3006,8 +3150,9 @@ function renderCardPanel(tipo) {
         const val = o.moneda === 'USD'
           ? `<span style="color:var(--accent3);font-family:'DM Mono',monospace">u$s ${o.monto.toLocaleString('es-AR')}</span>`
           : `<span style="font-family:'DM Mono',monospace;color:var(--accent)">${fmt(o.monto)}</span>`;
+        const dest = o.destino ? `<span style="font-size:0.68rem;color:var(--accent3);margin-left:5px">→ ${o.destino}</span>` : '';
         html += `<tr>
-          <td>✦ ${o.nombre}</td>
+          <td>✦ ${o.nombre}${dest}</td>
           <td style="text-align:right">${val}</td>
         </tr>`;
         if (o.moneda === 'ARS') total += o.monto;
@@ -3150,12 +3295,16 @@ function _renderCuotasPanel() {
 
   const rows = cuotaGastos.map(g => {
     const [fy, fm] = g.fecha.split('-').map(Number);
-    const mesesDesde = (wy - fy) * 12 + (wm - fm);
-    const cuotaActual = Math.min(mesesDesde + 1, g.ncuotas);
+    const off = g.offsetCuotas || 0;
+    // Mes real de inicio de la 1ª cuota (con offset)
+    let sy = fy, sm = fm + off;
+    while (sm > 12) { sm -= 12; sy++; }
+    const mesesDesde = (wy - sy) * 12 + (wm - sm);
+    const cuotaActual = Math.min(Math.max(mesesDesde + 1, 0), g.ncuotas);
     const restantes   = g.ncuotas - cuotaActual;
     const adeudado    = restantes * g.montoXcuota;
-    // Mes en que termina
-    let ey = fy, em = fm + g.ncuotas - 1;
+    // Mes en que termina (desde la 1ª cuota real)
+    let ey = sy, em = sm + g.ncuotas - 1;
     while (em > 12) { em -= 12; ey++; }
     const finLabel = MESES[em-1].slice(0,3) + ' ' + ey;
     return { g, cuotaActual, restantes, adeudado, finLabel, activa: restantes > 0 };
@@ -3175,7 +3324,7 @@ function _renderCuotasPanel() {
       html += `<tr>
         <td>
           <div style="font-size:0.82rem;font-weight:600;color:var(--text)">${r.g.desc}</div>
-          <div style="font-size:0.7rem;color:var(--text3);margin-top:2px">${r.g.cat} · termina ${r.finLabel}</div>
+          <div style="font-size:0.7rem;color:var(--text3);margin-top:2px">${r.g.cat}${r.g.medio ? ' · <span style="color:var(--accent3)">' + r.g.medio + '</span>' : ''} · termina ${r.finLabel}</div>
           <div class="bar-track" style="margin-top:5px;width:100px">
             <div class="bar-fill" style="width:${pct}%;background:var(--accent4)"></div>
           </div>
@@ -3865,6 +4014,7 @@ async function renderAdminPanel() {
 // ---- INIT ----
 document.getElementById('g-fecha').value = new Date().toISOString().slice(0,7) + '-' + String(new Date().getDate()).padStart(2,'0');
 initCatSelects();
+renderMedioPago();
 // renderDashboard() se llama desde onAuthStateChanged cuando el usuario inicia sesión
 window.renderDashboard = renderDashboard;
 </script>
