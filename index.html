@@ -1984,6 +1984,15 @@ tr:hover td { background: rgba(255,255,255,.035); }
       <input type="text" id="a-tipo-otro" placeholder="Nueva categoría..." style="display:none;margin-top:6px" onblur="saveNewCat('a-tipo','a-tipo-otro','ahorro')">
     </div>
     <div class="form-group">
+      <label>Origen (de dónde sale)</label>
+      <div id="a-origen-container">
+        <select id="a-origen" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;width:100%">
+          <option value="">Seleccionar...</option>
+          <option value="Efectivo">Efectivo</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
       <label>Notas</label>
       <input type="text" id="a-notas" placeholder="Opcional">
     </div>
@@ -2185,7 +2194,7 @@ async function save() {
   if (!uid) return;
   try {
     await window._fbSetDoc(window._fbDoc(window._fbDb, 'usuarios', uid), {
-      gastos, ingresos, ahorros, saldosIniciales, updatedAt: new Date().toISOString()
+      gastos, ingresos, ahorros, saldosIniciales, tarjetas, updatedAt: new Date().toISOString()
     });
   } catch(e) { console.error('Error guardando:', e); }
 }
@@ -2199,10 +2208,20 @@ window.loadUserData = async function(uid) {
       ingresos        = d.ingresos        || [];
       ahorros         = d.ahorros         || [];
       saldosIniciales = d.saldosIniciales  || {};
+      // Cargar tarjetas desde Firestore; si no hay, usar localStorage como fallback
+      if (d.tarjetas && d.tarjetas.length > 0) {
+        tarjetas = d.tarjetas;
+        localStorage.setItem('gf_tarjetas', JSON.stringify(tarjetas));
+      }
     } else {
       gastos = []; ingresos = []; ahorros = []; saldosIniciales = {};
     }
   } catch(e) { console.error('Error cargando:', e); }
+  // Refrescar todos los selects que dependen de tarjetas
+  renderMedioPago();
+  renderDestinosIngreso();
+  renderOrigenAhorro();
+  renderSaldoInicial();
 };
 
 // ---- UI ----
@@ -2216,7 +2235,7 @@ function showTab(tab) {
   if (tab === 'gastos') { renderGastosTable(); populateFilters(); }
   if (tab === 'ingresos') { renderIngresosTable(); renderDestinosIngreso(); }
   if (tab === 'cuotas') renderCuotasTable();
-  if (tab === 'ahorro') renderAhorroTable();
+  if (tab === 'ahorro') { renderAhorroTable(); renderOrigenAhorro(); }
   if (tab === 'pendientes') renderPendientesTab();
   if (tab === 'admin') renderAdminPanel();
   if (tab === 'ajustes') { renderTarjetas(); renderSaldoInicial(); }
@@ -2529,7 +2548,7 @@ function saveSaldosIniciales() {
   const uid = window._currentUser?.uid;
   if (!uid) return;
   window._fbSetDoc(window._fbDoc(window._fbDb, 'usuarios', uid), {
-    gastos, ingresos, ahorros, saldosIniciales, updatedAt: new Date().toISOString()
+    gastos, ingresos, ahorros, saldosIniciales, tarjetas, updatedAt: new Date().toISOString()
   }).catch(e => console.error('Error guardando saldos iniciales:', e));
 }
 
@@ -2606,6 +2625,7 @@ function guardarSaldoInicial(label, valor) {
 
 function saveTarjetas() {
   localStorage.setItem('gf_tarjetas', JSON.stringify(tarjetas));
+  save(); // sincronizar con Firestore
 }
 
 // Renderiza los checkboxes de productos para el banco ingresado
@@ -2733,6 +2753,7 @@ function agregarMedioPago() {
   renderTarjetas();
   renderMedioPago();
   renderDestinosIngreso();
+  renderOrigenAhorro();
   renderSaldoInicial();
   notify(agregados + ' medio' + (agregados !== 1 ? 's' : '') + ' agregado' + (agregados !== 1 ? 's' : ''));
 }
@@ -2765,6 +2786,7 @@ function saveEditTarjeta(id) {
   renderTarjetas();
   renderMedioPago();
   renderDestinosIngreso();
+  renderOrigenAhorro();
   renderSaldoInicial();
   notify('Medio actualizado');
 }
@@ -2775,6 +2797,7 @@ function eliminarTarjeta(id) {
   renderTarjetas();
   renderMedioPago();
   renderDestinosIngreso();
+  renderOrigenAhorro();
   renderSaldoInicial();
 }
 
@@ -2938,6 +2961,16 @@ function renderDestinosIngreso() {
 
   const selOtro = document.getElementById('i-otro-destino');
   if (selOtro) selOtro.innerHTML = opcionesHTML;
+}
+
+function renderOrigenAhorro() {
+  const sel = document.getElementById('a-origen');
+  if (!sel) return;
+  const opciones = ['Efectivo'];
+  tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.banco || t.nombre));
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('Débito ' + t.banco)));
+  sel.innerHTML = '<option value="">Seleccionar...</option>' +
+    opciones.map(o => `<option value="${o}">${o}</option>`).join('');
 }
 
 function addIngreso() {
@@ -3707,6 +3740,7 @@ function addAhorro() {
   const monto = parseFloat(document.getElementById('a-monto').value);
   const moneda = document.getElementById('a-moneda').value;
   const tipo  = resolveOtro('a-tipo', 'a-tipo-otro');
+  const origen = document.getElementById('a-origen')?.value || '';
   const notas = document.getElementById('a-notas').value.trim();
   if (!año || !monto || monto <= 0) { notify('⚠ Completá año y monto'); return; }
   autoSaveNewCat(tipo, 'ahorro');
@@ -3714,7 +3748,7 @@ function addAhorro() {
   const mesNum = String(MESES.indexOf(mes)+1).padStart(2,'0');
   const ymBase = `${año}-${mesNum}`;
   const key = `${ymBase}-${moneda}-${Date.now()}`;
-  const rec = { key, ymBase, año, mes, monto, moneda, tipo, notas };
+  const rec = { key, ymBase, año, mes, monto, moneda, tipo, origen, notas };
   ahorros.push(rec);
   save();
   notify('Ahorro guardado');
@@ -3723,6 +3757,7 @@ function addAhorro() {
   document.getElementById('a-tipo').value = '';
   document.getElementById('a-tipo-otro').value = '';
   document.getElementById('a-tipo-otro').style.display = 'none';
+  if (document.getElementById('a-origen')) document.getElementById('a-origen').value = '';
   renderAhorroTable();
 }
 
@@ -3766,12 +3801,14 @@ function toggleEditAhorro(key) {
 function saveEditAhorro(key) {
   const idx = ahorros.findIndex(a => a.key === key);
   if (idx < 0) return;
+  const ek = key.replace(/[^a-zA-Z0-9_-]/g,'_');
   const monto = parseFloat(document.getElementById('ea-monto-' + key).value);
   const notas = document.getElementById('ea-notas-' + key).value.trim();
   const tipo  = document.getElementById('ea-tipo-' + key).value.trim();
+  const origen = document.getElementById('ea-origen-' + ek)?.value || ahorros[idx].origen || '';
   if (!monto || monto <= 0) { notify('⚠ Monto inválido'); return; }
   const rendimientos = ahorros[idx].rendimientos || 0;
-  ahorros[idx] = { ...ahorros[idx], monto: monto + rendimientos, notas, tipo };
+  ahorros[idx] = { ...ahorros[idx], monto: monto + rendimientos, notas, tipo, origen };
   save();
   notify('Ahorro actualizado');
   renderAhorroTable();
@@ -3804,7 +3841,7 @@ function renderAhorroTable() {
   const maxMonto = Math.max(...list.map(a => a.monto), 1);
 
   el.innerHTML = `<table>
-    <thead><tr><th>Año</th><th>Mes</th><th>Moneda</th><th>Saldo actual</th><th class="col-hide-mobile">Rendimientos</th><th class="col-hide-mobile">Dónde</th><th class="col-hide-mobile">Evolución</th><th class="col-hide-mobile">Notas</th><th></th></tr></thead>
+    <thead><tr><th>Año</th><th>Mes</th><th>Moneda</th><th>Saldo actual</th><th class="col-hide-mobile">Rendimientos</th><th class="col-hide-mobile">Origen</th><th class="col-hide-mobile">Dónde</th><th class="col-hide-mobile">Evolución</th><th class="col-hide-mobile">Notas</th><th></th></tr></thead>
     <tbody>
       ${list.map(a => {
         const moneda = a.moneda || 'ARS';
@@ -3821,6 +3858,9 @@ function renderAhorroTable() {
           : `<span style="color:var(--text3);font-size:0.78rem">—</span>`;
         const safeKey = a.key.replace(/'/g, "\'");
         const ek = a.key.replace(/[^a-zA-Z0-9_-]/g,'_');
+        const origenHtml = a.origen
+          ? `<span class="badge badge-medio">${a.origen}</span>`
+          : `<span style="color:var(--text3);font-size:0.78rem">—</span>`;
         return `
         <tr>
           <td style="font-family:'DM Mono',monospace;color:var(--text2)">${a.año}</td>
@@ -3839,6 +3879,7 @@ function renderAhorroTable() {
               <button class="btn-add" style="padding:4px 12px;font-size:0.75rem;border-radius:7px" onclick="agregarRendimiento('${safeKey}')">✓</button>
             </div>
           </td>
+          <td>${origenHtml}</td>
           <td>${a.tipo ? `<span class="badge badge-cat">${a.tipo}</span>` : '—'}</td>
           <td style="width:100px">
             <div class="bar-track"><div class="bar-fill" style="width:${(a.monto/maxMonto*100).toFixed(1)}%;background:${color}"></div></div>
@@ -3853,6 +3894,15 @@ function renderAhorroTable() {
           <td colspan="2" style="color:var(--text3);font-size:0.75rem">${a.mes} ${a.año} · ${moneda}</td>
           <td><input class="edit-input" id="ea-monto-${a.key}" type="number" value="${montoBase}" placeholder="Monto base"></td>
           <td style="color:var(--text3);font-size:0.72rem">Rendimientos: ${rend > 0 ? s+rend.toLocaleString('es-AR') : '—'}</td>
+          <td>
+            <select id="ea-origen-${ek}" class="edit-input" style="min-width:130px">
+              <option value="">Sin origen</option>
+              <option value="Efectivo" ${(a.origen||'')==='Efectivo'?'selected':''}>Efectivo</option>
+              ${tarjetas.filter(t=>t.tipo==='billetera').map(t=>`<option value="${t.label||t.banco||t.nombre}" ${(a.origen||'')===(t.label||t.banco||t.nombre)?'selected':''}>${t.label||t.banco||t.nombre}</option>`).join('')}
+              ${tarjetas.filter(t=>t.tipo==='debito').map(t=>`<option value="${t.label||('Débito '+t.banco)}" ${(a.origen||'')===(t.label||('Débito '+t.banco))?'selected':''}>${t.label||('Débito '+t.banco)}</option>`).join('')}
+              ${(a.origen && a.origen !== 'Efectivo' && !tarjetas.some(t=>t.tipo!=='credito'&&((t.label||t.banco||t.nombre)===a.origen||(t.label||('Débito '+t.banco))===a.origen))) ? `<option value="${a.origen}" selected>${a.origen}</option>` : ''}
+            </select>
+          </td>
           <td><input class="edit-input" id="ea-tipo-${a.key}" type="text" value="${a.tipo||''}" placeholder="Dónde guardás"></td>
           <td colspan="2"><input class="edit-input" id="ea-notas-${a.key}" type="text" value="${a.notas||''}" placeholder="Notas"></td>
           <td><button class="btn-save" onclick="saveEditAhorro('${a.key}')">✓ Guardar</button></td>
@@ -4349,6 +4399,7 @@ document.getElementById('g-fecha').value = new Date().toISOString().slice(0,7) +
 initCatSelects();
 renderMedioPago();
 renderDestinosIngreso();
+renderOrigenAhorro();
 renderSaldoInicial();
 // renderDashboard() se llama desde onAuthStateChanged cuando el usuario inicia sesión
 window.renderDashboard = renderDashboard;
