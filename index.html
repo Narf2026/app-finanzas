@@ -315,6 +315,11 @@ onAuthStateChanged(auth, async (user) => {
     font-size: 0.68rem;
     font-weight: 600;
     letter-spacing: 0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+    vertical-align: middle;
   }
   .badge-cat {
     background: rgba(116,185,255,0.12);
@@ -1216,11 +1221,12 @@ tr:hover td { background: rgba(255,255,255,.035); }
     justify-content: center; display: flex;
   }
 
-  /* ── TABLAS: sin scroll horizontal, columnas ocultas ── */
+  /* ── TABLAS ── */
   .col-hide-mobile { display: none !important; }
   .table-wrap {
     border-radius: 18px;
-    overflow: hidden;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     width: 100%;
   }
   .table-wrap > div:first-child,
@@ -1234,33 +1240,56 @@ tr:hover td { background: rgba(255,255,255,.035); }
     min-height: 36px !important; font-size: .72rem !important;
     padding: 6px 10px !important; flex: 1 1 120px;
   }
-  /* Tablas: ancho 100%, sin scroll */
-  table { width: 100% !important; min-width: 0 !important; table-layout: fixed; border-collapse: collapse; }
-  th { padding: 8px 10px; font-size: .62rem; }
-  td { padding: 9px 10px; font-size: .76rem; vertical-align: top; word-break: break-word; }
-  /* Primera columna compacta */
-  table td:first-child { white-space: nowrap; font-size: .7rem; }
-  /* Botones de acción: columna angosta */
-  table td:last-child { width: 60px; white-space: nowrap; }
+  /* Tablas: auto layout, sin forzar anchos fijos */
+  table { width: 100%; min-width: 0; table-layout: auto; border-collapse: collapse; }
+  th { padding: 7px 8px; font-size: .6rem; white-space: nowrap; }
+  td { padding: 8px 8px; font-size: .74rem; vertical-align: middle; }
+  /* Columnas ocultas ya eliminadas con col-hide-mobile */
+  /* Botones: columna angosta y sin wrap */
+  td[style*="display:flex"] { width: 58px !important; padding: 6px 6px !important; gap: 3px !important; flex-wrap: nowrap !important; }
+  .btn-edit, .btn-del { padding: 4px 6px; font-size: .68rem; }
+
+  /* Badges: texto corto, sin partir */
+  .badge {
+    font-size: .6rem !important;
+    padding: 2px 6px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90px;
+    display: inline-block;
+  }
+
+  /* ── TABLA GASTOS: scroll horizontal suave ── */
+  #tab-gastos .table-wrap,
+  #tab-ahorro .table-wrap,
+  #tab-ingresos .table-wrap { overflow-x: auto; }
+  #tab-gastos table,
+  #tab-ahorro table,
+  #tab-ingresos table { min-width: 340px; }
 
   /* ── PANEL EXPANDIBLE ── */
-  .panel-table { table-layout: fixed !important; width: 100% !important; }
-  .panel-table td { padding: 8px 8px; font-size: .74rem; vertical-align: middle; }
-  .panel-table td:first-child { width: 55px; font-size: .66rem; color: var(--text2); line-height: 1.3; }
-  .panel-table td:nth-child(2) { overflow: hidden; text-overflow: ellipsis; }
-  .panel-table td:nth-child(3) { width: 80px; }
-  .panel-table .badge {
-    font-size: .58rem; padding: 2px 5px; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis; display: block; max-width: 76px;
-  }
-  .panel-table td:last-child { width: 72px; text-align: right; font-size: .72rem; white-space: nowrap; }
+  .panel-table { table-layout: auto; width: 100%; }
+  .panel-table td { padding: 7px 8px; font-size: .73rem; vertical-align: middle; }
+  .panel-table td:first-child { font-size: .66rem; color: var(--text2); line-height: 1.3; white-space: nowrap; }
+  .panel-table td:last-child { text-align: right; font-size: .72rem; white-space: nowrap; }
+  .panel-table .badge { font-size: .58rem; padding: 2px 5px; max-width: 80px; }
   .panel-section { padding: .4rem .8rem .3rem; font-size: .6rem; }
   .panel-total { padding: .65rem .9rem; }
   .panel-total span:last-child { font-size: .8rem; }
 
+  /* ── CUOTAS EN DASHBOARD: layout de 3 columnas legible ── */
+  #dash-cuotas-body table { table-layout: auto; min-width: 0; }
+  #dash-cuotas-body td { font-size: .72rem; padding: 7px 6px; vertical-align: top; }
+  #dash-cuotas-body td:first-child { min-width: 0; max-width: 55vw; }
+  #dash-cuotas-body td:nth-child(2) { white-space: nowrap; text-align: center; width: 52px; }
+  #dash-cuotas-body td:nth-child(3) { white-space: nowrap; text-align: right; width: auto; }
+  /* Texto de "termina" y "restantes" no superpuesto */
+  #dash-cuotas-body .bar-track { width: 80px; }
+
   /* ── AJUSTES: tabla de tarjetas ── */
-  #tc-lista table { table-layout: fixed; }
-  #tc-lista table td:nth-child(4) { width: 64px; }
+  #tc-lista table { table-layout: auto; }
+  #tc-lista td:last-child { width: 58px; }
 
   /* ── PENDIENTES ── */
   .p-item { border-radius: 16px; padding: .8rem .9rem; gap: .7rem; }
@@ -2103,7 +2132,7 @@ async function save() {
   if (!uid) return;
   try {
     await window._fbSetDoc(window._fbDoc(window._fbDb, 'usuarios', uid), {
-      gastos, ingresos, ahorros, saldosIniciales, tarjetas, updatedAt: new Date().toISOString()
+      gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, updatedAt: new Date().toISOString()
     });
   } catch(e) { console.error('Error guardando:', e); }
 }
@@ -2122,8 +2151,25 @@ window.loadUserData = async function(uid) {
         tarjetas = d.tarjetas;
         localStorage.setItem('gf_tarjetas', JSON.stringify(tarjetas));
       }
+      // Cargar pendientes desde Firestore; si no hay, migrar desde localStorage
+      if (d.pendientes && d.pendientes.length > 0) {
+        pendientes = d.pendientes;
+      } else {
+        // Migración: si hay datos en localStorage, subirlos a Firestore
+        const local = JSON.parse(localStorage.getItem('gf_pendientes') || '[]');
+        if (local.length > 0) {
+          pendientes = local;
+          save(); // subir a Firestore
+        } else {
+          pendientes = [];
+        }
+      }
     } else {
       gastos = []; ingresos = []; ahorros = []; saldosIniciales = {};
+      // Migración desde localStorage si existe
+      const local = JSON.parse(localStorage.getItem('gf_pendientes') || '[]');
+      pendientes = local;
+      if (local.length > 0) save();
     }
   } catch(e) { console.error('Error cargando:', e); }
   // Refrescar todos los selects que dependen de tarjetas
@@ -2338,7 +2384,7 @@ function renderGastosTable() {
 
   el.innerHTML = `<table>
     <thead><tr>
-      <th>Fecha</th><th>Descripción</th><th>Categoría</th>
+      <th>Fecha</th><th>Descripción</th><th class="col-hide-mobile">Categoría</th>
       <th class="col-hide-mobile">Medio</th><th>Monto</th><th class="col-hide-mobile">Cuotas</th><th class="col-hide-mobile">Notas</th><th></th>
     </tr></thead>
     <tbody>
@@ -2346,7 +2392,7 @@ function renderGastosTable() {
         <tr>
           <td style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--text2);white-space:nowrap">${g.fecha}</td>
           <td>${g.desc}</td>
-          <td><span class="badge badge-cat">${g.cat}</span></td>
+          <td class="col-hide-mobile"><span class="badge badge-cat">${g.cat}</span></td>
           <td class="col-hide-mobile"><span class="badge badge-medio">${g.medio || '—'}</span></td>
           <td class="monto" style="white-space:nowrap">$${g.monto.toLocaleString('es-AR')}</td>
           <td class="col-hide-mobile">${g.cuota ? `<span class="badge badge-cuota">${g.ncuotas}x $${g.montoXcuota.toLocaleString('es-AR')}</span>` : '—'}</td>
@@ -3587,23 +3633,21 @@ function renderDashCuotas() {
       const pct = (r.adeudado / maxAdeudado * 100).toFixed(0);
       const mono = "font-family:'DM Mono',monospace";
       html += '<tr>' +
-        '<td>' +
-          '<div style="font-size:0.82rem;font-weight:600;color:var(--text)">' + r.g.desc + '</div>' +
-          '<div style="font-size:0.7rem;color:var(--text3);margin-top:2px">' + r.g.cat +
-            (r.g.medio ? ' · <span style="color:var(--accent3)">' + r.g.medio + '</span>' : '') +
-            ' · termina ' + r.finLabel +
-          '</div>' +
-          '<div class="bar-track" style="margin-top:5px;width:120px">' +
+        '<td style="min-width:0">' +
+          '<div style="font-size:0.82rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw">' + r.g.desc + '</div>' +
+          '<div style="font-size:0.68rem;color:var(--text3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw">' + r.g.cat + (r.g.medio ? ' · <span style="color:var(--accent3)">' + r.g.medio + '</span>' : '') + '</div>' +
+          '<div style="font-size:0.66rem;color:var(--text3)">hasta ' + r.finLabel + '</div>' +
+          '<div class="bar-track" style="margin-top:4px;width:70px">' +
             '<div class="bar-fill" style="width:' + pct + '%;background:var(--accent4)"></div>' +
           '</div>' +
         '</td>' +
-        '<td style="text-align:center;white-space:nowrap">' +
-          '<span style="' + mono + ';font-size:0.78rem;color:var(--text2)">' + r.cuotaActual + '/' + r.g.ncuotas + '</span>' +
-          '<div style="font-size:0.68rem;color:var(--text3)">' + r.restantes + ' restantes</div>' +
+        '<td style="text-align:center;white-space:nowrap;width:48px">' +
+          '<span style="' + mono + ';font-size:0.75rem;color:var(--text2)">' + r.cuotaActual + '/' + r.g.ncuotas + '</span>' +
+          '<div style="font-size:0.62rem;color:var(--text3)">' + r.restantes + ' rest.</div>' +
         '</td>' +
         '<td style="text-align:right;white-space:nowrap">' +
-          '<div style="' + mono + ';font-size:0.78rem;color:var(--accent2)">' + fmt(r.g.montoXcuota) + '/mes</div>' +
-          '<div style="' + mono + ';font-size:0.72rem;color:var(--text3)">total ' + fmt(r.adeudado) + '</div>' +
+          '<div style="' + mono + ';font-size:0.75rem;color:var(--accent2)">' + fmt(r.g.montoXcuota) + '/mes</div>' +
+          '<div style="' + mono + ';font-size:0.68rem;color:var(--text3)">' + fmt(r.adeudado) + '</div>' +
         '</td>' +
       '</tr>';
     });
@@ -3734,7 +3778,7 @@ function renderAhorroTable() {
   const maxMonto = Math.max(...list.map(a => a.monto), 1);
 
   el.innerHTML = `<table>
-    <thead><tr><th>Año</th><th>Mes</th><th>Moneda</th><th>Saldo actual</th><th class="col-hide-mobile">Rendimientos</th><th class="col-hide-mobile">Origen</th><th class="col-hide-mobile">Dónde</th><th class="col-hide-mobile">Evolución</th><th class="col-hide-mobile">Notas</th><th></th></tr></thead>
+    <thead><tr><th>Período</th><th>Detalle</th><th>Saldo</th><th class="col-hide-mobile">Rendimientos</th><th class="col-hide-mobile">Origen</th><th class="col-hide-mobile">Evolución</th><th class="col-hide-mobile">Notas</th><th></th></tr></thead>
     <tbody>
       ${list.map(a => {
         const moneda = a.moneda || 'ARS';
@@ -3756,11 +3800,17 @@ function renderAhorroTable() {
           : `<span style="color:var(--text3);font-size:0.78rem">—</span>`;
         return `
         <tr>
-          <td style="font-family:'DM Mono',monospace;color:var(--text2)">${a.año}</td>
-          <td>${a.mes}</td>
-          <td>${badge}</td>
-          <td style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${s}${a.monto.toLocaleString('es-AR')}</td>
+          <td style="white-space:nowrap">
+            <div style="font-family:'DM Mono',monospace;color:var(--text2);font-size:0.82rem">${a.mes}</div>
+            <div style="font-family:'DM Mono',monospace;color:var(--text3);font-size:0.7rem">${a.año}</div>
+          </td>
           <td>
+            <div>${badge}</div>
+            ${a.tipo ? '<div style="font-size:0.7rem;color:var(--text3);margin-top:3px">' + a.tipo + '</div>' : ''}
+            ${a.origen ? '<div style="font-size:0.7rem;color:var(--text3)">→ ' + a.origen + '</div>' : ''}
+          </td>
+          <td style="font-family:'DM Mono',monospace;color:${color};font-weight:600;white-space:nowrap">${s}${a.monto.toLocaleString('es-AR')}</td>
+          <td class="col-hide-mobile">
             ${rendLabel}
             <div style="margin-top:5px;display:flex;align-items:center;gap:5px">
               <button class="btn-export" style="padding:3px 9px;font-size:0.7rem;border-color:rgba(168,255,220,0.3);color:#a8ffdc" onclick="toggleRendInput('${safeKey}')">+ Rendimiento</button>
@@ -3772,12 +3822,11 @@ function renderAhorroTable() {
               <button class="btn-add" style="padding:4px 12px;font-size:0.75rem;border-radius:7px" onclick="agregarRendimiento('${safeKey}')">✓</button>
             </div>
           </td>
-          <td>${origenHtml}</td>
-          <td>${a.tipo ? `<span class="badge badge-cat">${a.tipo}</span>` : '—'}</td>
-          <td style="width:100px">
-            <div class="bar-track"><div class="bar-fill" style="width:${(a.monto/maxMonto*100).toFixed(1)}%;background:${color}"></div></div>
+          <td class="col-hide-mobile">${origenHtml}</td>
+          <td class="col-hide-mobile">
+            <div class="bar-track" style="width:80px"><div class="bar-fill" style="width:${(a.monto/maxMonto*100).toFixed(1)}%;background:${color}"></div></div>
           </td>
-          <td style="color:var(--text3);font-size:0.78rem">${a.notas || '—'}</td>
+          <td class="col-hide-mobile" style="color:var(--text3);font-size:0.78rem">${a.notas || '—'}</td>
           <td style="display:flex;gap:4px">
             <button class="btn-edit" onclick="toggleEditAhorro('${safeKey}')">✏</button>
             <button class="btn-del" onclick="deleteAhorro('${safeKey}')">✕</button>
@@ -3961,6 +4010,7 @@ let pendienteFiltro = 'todos';
 
 function savePendientes() {
   localStorage.setItem('gf_pendientes', JSON.stringify(pendientes));
+  save(); // sincronizar con Firestore
 }
 
 function addPendiente() {
