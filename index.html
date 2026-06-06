@@ -1568,23 +1568,18 @@ tr:hover td { background: rgba(255,255,255,.035); }
       </span>
       <span class="nav-text">Ingresos</span>
     </button>
-    <button onclick="showTab('cuotas')" aria-label="Cuotas">
-      <span class="nav-icon nav-card" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.2"/><path d="M3.5 9.5h17"/><path d="M7 14.5h4"/></svg>
-      </span>
-      <span class="nav-text">Cuotas</span>
-    </button>
+
     <button onclick="showTab('ahorro')" aria-label="Ahorro">
       <span class="nav-icon nav-save" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M7.2 11.2c-.9-.4-1.7-1.1-1.7-2.2 0-1.6 1.5-2.8 3.5-2.8h5.2c2.9 0 5.3 2.3 5.3 5.2v2.1c0 2.5-2 4.5-4.5 4.5h-.7l-.8 2h-3l-.8-2H8.2c-2.6 0-4.7-2.1-4.7-4.7v-.2c0-1 .8-1.9 1.8-1.9h1.9Z"/><path d="M14.7 9.4h.1"/><path d="M8.5 6.2V4.5c0-.8.7-1.4 1.5-1.1 1 .4 1.8 1.1 2.2 2"/></svg>
       </span>
       <span class="nav-text">Ahorro</span>
     </button>
-    <button onclick="showTab('pendientes')" aria-label="Más">
+    <button onclick="showTab('pendientes')" aria-label="Memo">
       <span class="nav-icon nav-more" aria-hidden="true">
         <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg>
       </span>
-      <span class="nav-text">Más</span>
+      <span class="nav-text">Memo</span>
     </button>
     <button onclick="showTab('ajustes')" aria-label="Ajustes">
       <span class="nav-icon nav-ajustes" aria-hidden="true">
@@ -1679,8 +1674,8 @@ tr:hover td { background: rgba(255,255,255,.035); }
     </div>
 
     <!-- CUOTAS -->
-    <div class="card blue expandable" onclick="toggleCardPanel('panel-cuotas')">
-      <div class="label">Cuotas activas <span class="expand-icon" id="icon-panel-cuotas">▾</span></div>
+    <div class="card blue" style="cursor:pointer" onclick="document.getElementById('dash-cuotas-body').scrollIntoView({behavior:'smooth',block:'start'})">
+      <div class="label">Cuotas activas</div>
       <div class="value" id="d-cuotas">0</div>
       <div class="sub" id="d-cuotas-sub"></div>
     </div>
@@ -1708,11 +1703,6 @@ tr:hover td { background: rgba(255,255,255,.035); }
     <div id="panel-saldo-body"></div>
   </div>
 
-  <div class="card-panel" id="panel-cuotas" style="display:none">
-    <div class="panel-title">📅 Detalle de cuotas activas</div>
-    <div id="panel-cuotas-body"></div>
-  </div>
-
   <div class="dash-grid">
     <div class="chart-box">
       <h3>Gasto por Categoría</h3>
@@ -1725,6 +1715,21 @@ tr:hover td { background: rgba(255,255,255,.035); }
       <div id="monthly-bars"></div>
     </div>
   </div>
+
+  <!-- CUOTAS - seccion permanente -->
+  <div style="max-width:900px;margin:1.5rem auto 0;padding:0 1rem">
+    <div class="chart-box" style="padding:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.2rem 0.8rem">
+        <h3 style="margin:0">📅 Cuotas activas</h3>
+        <div style="display:flex;gap:12px;font-family:'DM Mono',monospace;font-size:0.78rem">
+          <span style="color:var(--text3)">activas: <span id="dc-activas" style="color:var(--accent4);font-weight:600">0</span></span>
+          <span style="color:var(--text3)">adeudado: <span id="dc-total" style="color:var(--accent2);font-weight:600">$0</span></span>
+        </div>
+      </div>
+      <div id="dash-cuotas-body" style="padding:0 0.4rem 0.8rem"></div>
+    </div>
+  </div>
+
 </section>
 
 <!-- GASTOS -->
@@ -1917,29 +1922,6 @@ tr:hover td { background: rgba(255,255,255,.035); }
   </div>
 </section>
 
-<!-- CUOTAS -->
-<section id="tab-cuotas">
-  <div class="page-title">
-    Seguimiento de Cuotas
-    <small>GASTOS EN CUOTAS ACTIVOS</small>
-  </div>
-
-  <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))">
-    <div class="card red">
-      <div class="label">Total Adeudado</div>
-      <div class="value" id="c-total">$0</div>
-    </div>
-    <div class="card blue">
-      <div class="label">Cuotas Activas</div>
-      <div class="value" id="c-activas">0</div>
-    </div>
-  </div>
-
-  <div class="table-wrap">
-    <div class="table-header"><h3>DETALLE DE CUOTAS</h3></div>
-    <div id="cuotas-table-body"></div>
-  </div>
-</section>
 
 <!-- AHORRO -->
 <section id="tab-ahorro">
@@ -2030,7 +2012,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
 <!-- PENDIENTES -->
 <section id="tab-pendientes">
   <div class="page-title">
-    Lista de Pendientes
+    Memo
     <small>RECORDATORIO PERSONAL — NO AFECTA TUS REGISTROS</small>
   </div>
 
@@ -2234,7 +2216,6 @@ function showTab(tab) {
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'gastos') { renderGastosTable(); populateFilters(); }
   if (tab === 'ingresos') { renderIngresosTable(); renderDestinosIngreso(); }
-  if (tab === 'cuotas') renderCuotasTable();
   if (tab === 'ahorro') { renderAhorroTable(); renderOrigenAhorro(); }
   if (tab === 'pendientes') renderPendientesTab();
   if (tab === 'admin') renderAdminPanel();
@@ -3099,52 +3080,6 @@ function renderIngresosTable() {
 }
 
 // ---- CUOTAS ----
-function renderCuotasTable() {
-  const cuotaGastos = gastos.filter(g => g.cuota);
-  const el = document.getElementById('cuotas-table-body');
-  document.getElementById('c-activas').textContent = cuotaGastos.length;
-
-  let totalAdeudado = 0;
-  const today = new Date();
-
-  const rows = cuotaGastos.map(g => {
-    const [fy2, fm2] = g.fecha.split('-').map(Number);
-    const off2 = g.offsetCuotas || 0;
-    let sy2 = fy2, sm2 = fm2 + off2;
-    while (sm2 > 12) { sm2 -= 12; sy2++; }
-    const fechaInicio = new Date(sy2, sm2 - 1, 1);
-    const mesesPasados = Math.floor((today - fechaInicio) / (1000*60*60*24*30));
-    const cuotaActual = Math.min(Math.max(mesesPasados + 1, 0), g.ncuotas);
-    const restantes = g.ncuotas - cuotaActual;
-    const adeudado = restantes * g.montoXcuota;
-    totalAdeudado += adeudado;
-    const activo = restantes > 0;
-    return { g, cuotaActual, restantes, adeudado, activo };
-  });
-
-  document.getElementById('c-total').textContent = '$' + totalAdeudado.toLocaleString('es-AR');
-
-  if (!rows.length) { el.innerHTML = '<div class="empty"><div class="icon">📅</div>Sin gastos en cuotas</div>'; return; }
-
-  el.innerHTML = `<table>
-    <thead><tr>
-      <th>Descripción</th><th class="col-hide-mobile">Categoría</th><th>Monto x Cuota</th>
-      <th class="col-hide-mobile">Cuota Actual</th><th class="col-hide-mobile">Restantes</th><th class="col-hide-mobile">Adeudado</th><th>Estado</th>
-    </tr></thead>
-    <tbody>
-      ${rows.map(r => `<tr>
-        <td>${r.g.desc}</td>
-        <td class="col-hide-mobile"><span class="badge badge-cat">${r.g.cat}</span></td>
-        <td class="monto" style="white-space:nowrap">$${r.g.montoXcuota.toLocaleString('es-AR')}</td>
-        <td class="col-hide-mobile" style="font-family:'DM Mono',monospace;text-align:center">${r.cuotaActual}/${r.g.ncuotas}</td>
-        <td class="col-hide-mobile" style="font-family:'DM Mono',monospace;color:var(--text2);text-align:center">${r.restantes}</td>
-        <td class="col-hide-mobile" style="font-family:'DM Mono',monospace;color:var(--accent2)">$${r.adeudado.toLocaleString('es-AR')}</td>
-        <td><span class="status-badge ${r.activo ? 'status-active' : 'status-paid'}">${r.activo ? '● Activa' : '✓ Pagada'}</span></td>
-      </tr>`).join('')}
-    </tbody>
-  </table>`;
-}
-
 // ---- DASHBOARD ----
 function buildDashMonths() {
   const all = [...new Set(
@@ -3271,6 +3206,8 @@ function renderDashboard() {
   }, 0);
   const subCuotas = document.getElementById('d-cuotas-sub');
   if (subCuotas) subCuotas.textContent = totalAdeudado > 0 ? '$' + totalAdeudado.toLocaleString('es-AR') + ' adeudado' : 'todo pago';
+
+  renderDashCuotas();
 
   // Saldo sub label
   const subEl = document.getElementById('d-saldo-sub');
@@ -3404,7 +3341,7 @@ function renderDashboard() {
     </svg>`;
 
   // Cerrar paneles al cambiar de mes
-  ['panel-gasto','panel-ingreso','panel-ahorro','panel-saldo','panel-cuotas'].forEach(id => {
+  ['panel-gasto','panel-ingreso','panel-ahorro','panel-saldo'].forEach(id => {
     const p = document.getElementById(id);
     if (p && p.style.display !== 'none') {
       renderCardPanel(id.replace('panel-',''));
@@ -3418,7 +3355,7 @@ function toggleCardPanel(panelId) {
   const isOpen = panel.style.display !== 'none';
 
   // Cerrar todos
-  ['panel-gasto','panel-ingreso','panel-ahorro','panel-saldo','panel-cuotas'].forEach(id => {
+  ['panel-gasto','panel-ingreso','panel-ahorro','panel-saldo'].forEach(id => {
     document.getElementById(id).style.display = 'none';
     const ic = document.getElementById('icon-' + id);
     if (ic) ic.classList.remove('open');
@@ -3436,7 +3373,6 @@ function renderCardPanel(tipo) {
   const fmt = v => '$' + v.toLocaleString('es-AR');
 
   if (tipo === 'saldo')  { _renderSaldoPanel(ym); return; }
-  if (tipo === 'cuotas') { _renderCuotasPanel();  return; }
 
   if (tipo === 'gasto') {
     const el = document.getElementById('panel-gasto-body');
@@ -3662,15 +3598,13 @@ function _renderSaldoPanel(ym) {
 
   el.innerHTML = html;
 }
-function _renderCuotasPanel() {
+function renderDashCuotas() {
   const fmt = v => '$' + v.toLocaleString('es-AR');
-  const el = document.getElementById('panel-cuotas-body');
+  const el = document.getElementById('dash-cuotas-body');
+  if (!el) return;
   const cuotaGastos = gastos.filter(g => g.cuota);
 
-  if (!cuotaGastos.length) {
-    el.innerHTML = '<div class="panel-empty">Sin gastos en cuotas registrados</div>'; return;
-  }
-
+  // Actualizar contadores del header
   const today = new Date();
   const ym = selectedDashMonth;
   const [wy, wm] = ym.split('-').map(Number);
@@ -3678,74 +3612,77 @@ function _renderCuotasPanel() {
   const rows = cuotaGastos.map(g => {
     const [fy, fm] = g.fecha.split('-').map(Number);
     const off = g.offsetCuotas || 0;
-    // Mes real de inicio de la 1ª cuota (con offset)
     let sy = fy, sm = fm + off;
     while (sm > 12) { sm -= 12; sy++; }
     const mesesDesde = (wy - sy) * 12 + (wm - sm);
     const cuotaActual = Math.min(Math.max(mesesDesde + 1, 0), g.ncuotas);
     const restantes   = g.ncuotas - cuotaActual;
     const adeudado    = restantes * g.montoXcuota;
-    // Mes en que termina (desde la 1ª cuota real)
     let ey = sy, em = sm + g.ncuotas - 1;
     while (em > 12) { em -= 12; ey++; }
     const finLabel = MESES[em-1].slice(0,3) + ' ' + ey;
     return { g, cuotaActual, restantes, adeudado, finLabel, activa: restantes > 0 };
   }).sort((a,b) => b.adeudado - a.adeudado);
 
-  const totalAdeudado = rows.reduce((s,r) => s+r.adeudado, 0);
   const activas = rows.filter(r => r.activa);
   const pagas   = rows.filter(r => !r.activa);
+  const totalAdeudado = rows.reduce((s,r) => s + r.adeudado, 0);
   const maxAdeudado = Math.max(...rows.map(r => r.adeudado), 1);
+
+  const dcActivas = document.getElementById('dc-activas');
+  const dcTotal   = document.getElementById('dc-total');
+  if (dcActivas) dcActivas.textContent = activas.length;
+  if (dcTotal)   dcTotal.textContent   = totalAdeudado > 0 ? fmt(totalAdeudado) : 'todo pago';
+
+  if (!cuotaGastos.length) {
+    el.innerHTML = '<div class="panel-empty" style="padding:1rem 1.2rem">Sin gastos en cuotas registrados</div>';
+    return;
+  }
 
   let html = '<table class="panel-table">';
 
   if (activas.length) {
-    html += `<tr><td colspan="6" class="panel-section">Activas (${activas.length})</td></tr>`;
+    html += '<tr><td colspan="3" class="panel-section">Activas (' + activas.length + ')</td></tr>';
     activas.forEach(r => {
       const pct = (r.adeudado / maxAdeudado * 100).toFixed(0);
-      html += `<tr>
-        <td>
-          <div style="font-size:0.82rem;font-weight:600;color:var(--text)">${r.g.desc}</div>
-          <div style="font-size:0.7rem;color:var(--text3);margin-top:2px">${r.g.cat}${r.g.medio ? ' · <span style="color:var(--accent3)">' + r.g.medio + '</span>' : ''} · termina ${r.finLabel}</div>
-          <div class="bar-track" style="margin-top:5px;width:100px">
-            <div class="bar-fill" style="width:${pct}%;background:var(--accent4)"></div>
-          </div>
-        </td>
-        <td style="text-align:center;white-space:nowrap">
-          <span style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--text2)">${r.cuotaActual}/${r.g.ncuotas}</span>
-          <div style="font-size:0.68rem;color:var(--text3)">${r.restantes} restantes</div>
-        </td>
-        <td style="text-align:right;white-space:nowrap">
-          <div style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--accent2)">${fmt(r.g.montoXcuota)}/mes</div>
-          <div style="font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--text3)">total ${fmt(r.adeudado)}</div>
-        </td>
-      </tr>`;
+      const mono = "font-family:'DM Mono',monospace";
+      html += '<tr>' +
+        '<td>' +
+          '<div style="font-size:0.82rem;font-weight:600;color:var(--text)">' + r.g.desc + '</div>' +
+          '<div style="font-size:0.7rem;color:var(--text3);margin-top:2px">' + r.g.cat +
+            (r.g.medio ? ' · <span style="color:var(--accent3)">' + r.g.medio + '</span>' : '') +
+            ' · termina ' + r.finLabel +
+          '</div>' +
+          '<div class="bar-track" style="margin-top:5px;width:120px">' +
+            '<div class="bar-fill" style="width:' + pct + '%;background:var(--accent4)"></div>' +
+          '</div>' +
+        '</td>' +
+        '<td style="text-align:center;white-space:nowrap">' +
+          '<span style="' + mono + ';font-size:0.78rem;color:var(--text2)">' + r.cuotaActual + '/' + r.g.ncuotas + '</span>' +
+          '<div style="font-size:0.68rem;color:var(--text3)">' + r.restantes + ' restantes</div>' +
+        '</td>' +
+        '<td style="text-align:right;white-space:nowrap">' +
+          '<div style="' + mono + ';font-size:0.78rem;color:var(--accent2)">' + fmt(r.g.montoXcuota) + '/mes</div>' +
+          '<div style="' + mono + ';font-size:0.72rem;color:var(--text3)">total ' + fmt(r.adeudado) + '</div>' +
+        '</td>' +
+      '</tr>';
     });
   }
 
   if (pagas.length) {
-    html += `<tr><td colspan="6" class="panel-section">Pagadas (${pagas.length})</td></tr>`;
+    html += '<tr><td colspan="3" class="panel-section">Pagadas (' + pagas.length + ')</td></tr>';
+    const mono = "font-family:'DM Mono',monospace";
     pagas.forEach(r => {
-      html += `<tr style="opacity:0.45">
-        <td>
-          <div style="font-size:0.82rem;text-decoration:line-through;color:var(--text3)">${r.g.desc}</div>
-          <div style="font-size:0.7rem;color:var(--text3)">${r.g.cat}</div>
-        </td>
-        <td style="text-align:center">
-          <span style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--text3)">${r.g.ncuotas}/${r.g.ncuotas} ✓</span>
-        </td>
-        <td style="text-align:right;font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text3)">${fmt(r.g.monto)} total</td>
-      </tr>`;
+      html += '<tr style="opacity:0.45">' +
+        '<td><div style="font-size:0.82rem;text-decoration:line-through;color:var(--text3)">' + r.g.desc + '</div>' +
+          '<div style="font-size:0.7rem;color:var(--text3)">' + r.g.cat + '</div></td>' +
+        '<td style="text-align:center"><span style="' + mono + ';font-size:0.78rem;color:var(--text3)">' + r.g.ncuotas + '/' + r.g.ncuotas + ' ✓</span></td>' +
+        '<td style="text-align:right;' + mono + ';font-size:0.75rem;color:var(--text3)">' + fmt(r.g.monto) + ' total</td>' +
+      '</tr>';
     });
   }
 
-  html += `</table>`;
-  if (totalAdeudado > 0) {
-    html += `<div class="panel-total">
-      <span>Total adeudado</span>
-      <span style="color:var(--accent2)">${fmt(totalAdeudado)}</span>
-    </div>`;
-  }
+  html += '</table>';
   el.innerHTML = html;
 }
 
