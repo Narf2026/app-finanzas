@@ -3020,7 +3020,7 @@ function renderIngresosTable() {
     ? `<span style="color:var(--accent3);font-family:'DM Mono',monospace">u$s ${v.toLocaleString('es-AR')}</span>`
     : `<span class="monto">$${v.toLocaleString('es-AR')}</span>`;
   el.innerHTML = `<table>
-    <thead><tr><th>Año</th><th>Mes</th><th>Sueldo</th><th class="col-hide-mobile">Destino</th><th class="col-hide-mobile">Otros</th><th>Total ARS</th><th class="col-hide-mobile">Total USD</th><th></th></tr></thead>
+    <thead><tr><th>Período</th><th>Detalle</th><th class="col-hide-mobile">Destino</th><th class="col-hide-mobile">Otros</th><th>Total ARS</th><th class="col-hide-mobile">Total USD</th><th></th></tr></thead>
     <tbody>
       ${list.map(i => {
         const otros = i.otros || [];
@@ -3033,14 +3033,22 @@ function renderIngresosTable() {
         const safeUid = String(uid).replace(/[^a-zA-Z0-9_-]/g, '_');
         // Asegurar que el registro tenga uid persistente
         if (!i.uid) i.uid = safeUid;
+        const tipoLabel = i.sueldo > 0
+          ? '<div style="font-size:0.8rem;color:var(--text2)">💼 Ingreso: ' + fmtVal(i.sueldo, i.sueldoMoneda||'ARS') + '</div>'
+          : '';
+        const otrosMobile = otros.length
+          ? otros.map(o => '<div style="font-size:0.75rem;color:var(--text2)">✦ ' + o.nombre + ': ' + (o.moneda==='USD' ? '<span style="color:var(--accent3)">u$s ' : '<span>$') + o.monto.toLocaleString('es-AR') + '</span></div>').join('')
+          : '';
         return `
         <tr>
-          <td style="font-family:'DM Mono',monospace;color:var(--text2)">${i.año}</td>
-          <td>${i.mes}</td>
-          <td>${i.sueldo > 0 ? fmtVal(i.sueldo, i.sueldoMoneda || 'ARS') : '—'}</td>
+          <td style="white-space:nowrap">
+            <div style="font-family:'DM Mono',monospace;color:var(--text2);font-size:0.82rem">${i.mes}</div>
+            <div style="font-family:'DM Mono',monospace;color:var(--text3);font-size:0.72rem">${i.año}</div>
+          </td>
+          <td>${tipoLabel}${otrosMobile}</td>
           <td class="col-hide-mobile">${destinoHtml}</td>
           <td class="col-hide-mobile">${otrosHtml}</td>
-          <td style="color:var(--accent);font-family:'DM Mono',monospace;font-weight:600">${fmtARS(i.totalARS ?? i.total)}</td>
+          <td style="color:var(--accent);font-family:'DM Mono',monospace;font-weight:600;white-space:nowrap">${fmtARS(i.totalARS ?? i.total)}</td>
           <td class="col-hide-mobile" style="color:var(--accent3);font-family:'DM Mono',monospace;font-weight:600">${fmtUSD(i.totalUSD ?? 0)}</td>
           <td style="display:flex;gap:4px">
             <button class="btn-edit" onclick="toggleEditIngreso('${safeUid}')">✏</button>
