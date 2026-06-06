@@ -1060,15 +1060,15 @@ tr:hover td { background: rgba(255,255,255,.035); }
    ============================================= */
 
 @media (max-width: 700px) {
-  /* Base */
+  /* ── BASE ── */
   body { font-size: 13px; -webkit-text-size-adjust: 100%; }
+  *, *::before, *::after { box-sizing: border-box; }
 
   /* ── HEADER ── */
   header {
     height: auto;
     min-height: 60px;
-    padding: 20px 16px 10px;
-    padding-top: max(36px, calc(16px + env(safe-area-inset-top, 0px)));
+    padding: max(36px, calc(16px + env(safe-area-inset-top,0px))) 16px 10px;
     border-bottom: none;
     justify-content: space-between;
     gap: 8px;
@@ -1076,41 +1076,25 @@ tr:hover td { background: rgba(255,255,255,.035); }
     top: 0;
     z-index: 100;
   }
-  .logo {
-    font-size: 1.3rem;
-    white-space: nowrap;
-    gap: 6px;
-  }
+  .logo { font-size: 1.3rem; white-space: nowrap; gap: 6px; }
   .logo span { display: none; }
-  .logo img {
-    width: 30px !important;
-    height: 30px !important;
-    margin-right: 4px !important;
-  }
-  .data-btns {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
+  .logo img { width: 30px !important; height: 30px !important; margin-right: 4px !important; }
+  .data-btns { display: flex; align-items: center; gap: 6px; }
   .user-bar span { display: none; }
   .btn-export, .btn-import { display: none; }
   .btn-logout {
-    min-height: 32px;
-    border-radius: 999px;
-    padding: 4px 12px;
-    font-size: .7rem;
+    min-height: 32px; border-radius: 999px;
+    padding: 4px 12px; font-size: .7rem;
     background: rgba(255,255,255,.06);
   }
 
   /* ── NAV PILL BOTTOM ── */
   nav {
     position: fixed;
-    left: 4px;
-    right: 4px;
-    bottom: 6px;
+    left: 4px; right: 4px; bottom: 6px;
     border-radius: 22px;
     border: 1px solid rgba(255,255,255,.10);
-    background: rgba(6, 12, 22, .90);
+    background: rgba(6,12,22,.90);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     box-shadow: 0 8px 32px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.07);
@@ -1122,134 +1106,99 @@ tr:hover td { background: rgba(255,255,255,.035); }
     overflow: hidden;
   }
   nav button {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    font-size: .57rem;
-    font-weight: 600;
-    padding: 5px 2px;
-    border-radius: 14px;
-    letter-spacing: 0;
-    color: rgba(182,194,209,.55);
-    background: transparent;
-    border: none;
-    transition: color .2s;
-    min-width: 0;
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 3px; font-size: .57rem; font-weight: 600;
+    padding: 5px 2px; border-radius: 14px;
+    letter-spacing: 0; color: rgba(182,194,209,.55);
+    background: transparent; border: none; transition: color .2s;
   }
-  nav button span.nav-icon {
-    font-size: 1.22rem;
-    line-height: 1;
-  }
-  nav button.active {
-    color: var(--accent);
-    background: rgba(24,212,123,.10);
-    border-radius: 14px;
-  }
+  nav button span.nav-icon { font-size: 1.22rem; line-height: 1; }
+  nav button.active { color: var(--accent); background: rgba(24,212,123,.10); }
   nav button.nav-add {
-    flex: 0 0 52px;
-    height: 44px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, #ff4f5e, #d93545);
-    color: #fff;
-    box-shadow: 0 4px 16px rgba(255,79,94,.35);
-    border: 1px solid rgba(255,255,255,.2);
-    font-size: .6rem;
-    gap: 2px;
+    flex: 0 0 52px; height: 44px; border-radius: 16px;
+    background: linear-gradient(135deg,#ff4f5e,#d93545);
+    color: #fff; box-shadow: 0 4px 16px rgba(255,79,94,.35);
+    border: 1px solid rgba(255,255,255,.2); font-size: .6rem; gap: 2px;
   }
   nav button.nav-add .nav-icon { font-size: 1.3rem; }
   nav button.nav-add .nav-text { display: block; font-size: .52rem; }
-  nav button.nav-ingreso {
-    color: var(--accent);
-    font-weight: 700;
-  }
+  nav button.nav-ingreso { color: var(--accent); font-weight: 700; }
   nav button.nav-ingreso span.nav-icon { font-size: 1.3rem; }
 
   /* ── MAIN ── */
   main {
-    padding: .75rem 1rem calc(90px + env(safe-area-inset-bottom));
+    padding: .75rem .85rem calc(90px + env(safe-area-inset-bottom));
     max-width: 100%;
+    width: 100%;
+    overflow-x: hidden;
   }
 
   /* ── PAGE TITLE ── */
-  .page-title {
-    font-size: 1.55rem;
-    margin: 6px 0 14px;
-    line-height: 1.1;
-  }
-  .page-title small {
-    font-size: .62rem;
-    margin-top: 5px;
-    letter-spacing: .8px;
-  }
+  .page-title { font-size: 1.45rem; margin: 6px 0 12px; line-height: 1.1; }
+  .page-title small { font-size: .62rem; margin-top: 5px; letter-spacing: .8px; }
 
   /* ── MES SELECTOR ── */
   .month-sel {
-    display: flex;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    gap: 7px;
-    padding-bottom: 8px;
-    margin-bottom: 1rem;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
+    display: flex; overflow-x: auto; flex-wrap: nowrap;
+    gap: 7px; padding-bottom: 8px; margin-bottom: 1rem;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
   }
   .month-sel::-webkit-scrollbar { display: none; }
   .month-btn {
-    flex: 0 0 auto;
-    border-radius: 999px;
-    padding: 6px 14px;
-    font-size: .68rem;
-    background: rgba(255,255,255,.05);
-    white-space: nowrap;
+    flex: 0 0 auto; border-radius: 999px; padding: 6px 14px;
+    font-size: .68rem; background: rgba(255,255,255,.05); white-space: nowrap;
   }
-  .month-btn.active {
-    background: rgba(24,212,123,.14);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
+  .month-btn.active { background: rgba(24,212,123,.14); border-color: var(--accent); color: var(--accent); }
 
-  /* ── CARDS 2 COLUMNAS ── */
+  /* ── CARDS: 2 columnas siempre ── */
   .cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 10px;
-    margin-bottom: 1rem;
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    gap: 10px; margin-bottom: 1rem;
+    width: 100%;
   }
-  /* Cards anidadas también 2 columnas */
   .cards .cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
     max-width: 100% !important;
   }
-  .card {
-    border-radius: 20px;
-    padding: .95rem 1rem;
-    min-height: 110px;
-  }
-  .card .label { font-size: .62rem; line-height: 1.25; margin-bottom: .5rem; }
-  .card .value { font-size: 1.18rem; line-height: 1.1; word-break: break-word; }
-  .card .sub { font-size: .63rem; margin-top: 3px; }
-  /* 3ra card full width SOLO si es la última (3 cards total) */
-  .cards .card:nth-child(3):last-child {
-    grid-column: span 2;
-    min-height: 100px;
-  }
+  .card { border-radius: 18px; padding: .85rem .9rem; min-height: 100px; width: 100%; }
+  .card .label { font-size: .6rem; line-height: 1.3; margin-bottom: .45rem; }
+  .card .value { font-size: 1.1rem; line-height: 1.1; word-break: break-all; }
+  .card .sub { font-size: .6rem; margin-top: 3px; }
+  /* 5 cards → última full width */
+  .cards .card:nth-child(5):last-child { grid-column: span 2; min-height: 88px; }
+  /* 3 cards → última full width */
+  .cards .card:nth-child(3):last-child { grid-column: span 2; min-height: 88px; }
+
+  /* ── CARD PANELS EXPANDIBLES ── */
+  .card-panel { border-radius: 18px; overflow: hidden; width: 100%; }
+  .panel-title { font-size: .78rem; padding: .8rem 1rem .6rem; }
 
   /* ── DASHBOARD GRID ── */
-  .dash-grid { grid-template-columns: 1fr; gap: 12px; margin-top: .9rem; }
-  .chart-box { border-radius: 22px; padding: 1.1rem; }
-  .chart-box h3 { margin-bottom: .9rem; }
+  .dash-grid { grid-template-columns: 1fr !important; gap: 12px; margin-top: .9rem; width: 100%; }
+  .chart-box { border-radius: 18px; padding: 1rem; width: 100%; overflow: hidden; }
+  .chart-box h3 { font-size: .78rem; margin-bottom: .8rem; }
+  /* SVG del gráfico: responsivo */
+  #monthly-bars svg { width: 100% !important; height: auto !important; }
 
-  /* ── FORMULARIOS ── */
+  /* ── SECCIÓN CUOTAS EN DASHBOARD ── */
+  #tab-dashboard > div[style*="max-width:900px"] {
+    padding: 0 !important;
+    margin-top: 1rem !important;
+  }
+  #dash-cuotas-body { padding: 0 !important; }
+
+  /* ── FORMULARIOS: 1 columna ── */
   .form-grid, .ingreso-grid {
     grid-template-columns: 1fr !important;
-    border-radius: 22px;
-    padding: 1rem 1rem;
-    gap: .85rem;
+    border-radius: 18px;
+    padding: .9rem;
+    gap: .8rem;
     margin-bottom: 1rem;
+    width: 100%;
   }
+  .form-group { width: 100%; }
   .form-group label { font-size: .64rem; }
-  /* Inputs touch-friendly */
   input, select,
   .form-group input, .form-group select,
   .filter-row select, .filter-row input,
@@ -1258,117 +1207,95 @@ tr:hover td { background: rgba(255,255,255,.035); }
     font-size: .88rem !important;
     border-radius: 14px !important;
     padding: 10px 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
   .btn-add {
-    width: 100%;
-    min-height: 48px;
-    border-radius: 18px;
-    font-size: .88rem;
-    justify-content: center;
+    width: 100%; min-height: 48px;
+    border-radius: 18px; font-size: .88rem;
+    justify-content: center; display: flex;
   }
 
-  /* ── TABLAS → SCROLL HORIZONTAL ── */
+  /* ── TABLAS: sin scroll horizontal, columnas ocultas ── */
+  .col-hide-mobile { display: none !important; }
   .table-wrap {
-    border-radius: 20px;
+    border-radius: 18px;
     overflow: hidden;
+    width: 100%;
   }
   .table-wrap > div:first-child,
   .table-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    padding: .85rem 1rem;
+    flex-direction: column; align-items: flex-start;
+    gap: 8px; padding: .8rem 1rem;
     border-bottom-color: rgba(255,255,255,.07);
   }
-  .filter-row { flex-wrap: wrap; gap: 6px; }
+  .filter-row { flex-wrap: wrap; gap: 6px; width: 100%; }
   .filter-row select, .filter-row input {
-    min-height: 36px !important;
-    font-size: .72rem !important;
-    padding: 6px 10px !important;
+    min-height: 36px !important; font-size: .72rem !important;
+    padding: 6px 10px !important; flex: 1 1 120px;
   }
-  /* Scroll horizontal en tablas */
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  table:not(.panel-table) { min-width: 560px; }
-  th { padding: 9px 12px; font-size: .64rem; }
-  td { padding: 10px 12px; font-size: .78rem; }
-  /* Fecha no se parte */
-  table:not(.panel-table) td:first-child { white-space: nowrap; font-size: .72rem; }
-  /* Columnas ocultas en mobile */
-  .col-hide-mobile { display: none; }
-  /* Tablas con menos columnas → menos min-width necesario */
-  table:not(.panel-table) { min-width: 300px; }
+  /* Tablas: ancho 100%, sin scroll */
+  table { width: 100% !important; min-width: 0 !important; table-layout: fixed; border-collapse: collapse; }
+  th { padding: 8px 10px; font-size: .62rem; }
+  td { padding: 9px 10px; font-size: .76rem; vertical-align: top; word-break: break-word; }
+  /* Primera columna compacta */
+  table td:first-child { white-space: nowrap; font-size: .7rem; }
+  /* Botones de acción: columna angosta */
+  table td:last-child { width: 60px; white-space: nowrap; }
+
+  /* ── PANEL EXPANDIBLE ── */
+  .panel-table { table-layout: fixed !important; width: 100% !important; }
+  .panel-table td { padding: 8px 8px; font-size: .74rem; vertical-align: middle; }
+  .panel-table td:first-child { width: 55px; font-size: .66rem; color: var(--text2); line-height: 1.3; }
+  .panel-table td:nth-child(2) { overflow: hidden; text-overflow: ellipsis; }
+  .panel-table td:nth-child(3) { width: 80px; }
+  .panel-table .badge {
+    font-size: .58rem; padding: 2px 5px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; display: block; max-width: 76px;
+  }
+  .panel-table td:last-child { width: 72px; text-align: right; font-size: .72rem; white-space: nowrap; }
+  .panel-section { padding: .4rem .8rem .3rem; font-size: .6rem; }
+  .panel-total { padding: .65rem .9rem; }
+  .panel-total span:last-child { font-size: .8rem; }
+
+  /* ── AJUSTES: tabla de tarjetas ── */
+  #tc-lista table { table-layout: fixed; }
+  #tc-lista table td:nth-child(4) { width: 64px; }
 
   /* ── PENDIENTES ── */
-  .p-item { border-radius: 18px; padding: .85rem 1rem; gap: .75rem; }
-  .p-desc { font-size: .84rem; }
-  .card-panel { border-radius: 20px; overflow: hidden; }
-
-  /* ── PANEL EXPANDIBLE — sin desborde en mobile ── */
-  .panel-table { table-layout: fixed; width: 100%; }
-  .panel-table td { padding: 8px 10px; font-size: .75rem; vertical-align: middle; }
-  /* Fecha */
-  .panel-table td:first-child {
-    width: 58px;
-    font-size: .67rem;
-    color: var(--text2);
-    word-break: break-word;
-    line-height: 1.3;
-  }
-  /* Descripción */
-  .panel-table td:nth-child(2) {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  /* Badge categoría */
-  .panel-table td:nth-child(3) { width: 82px; }
-  .panel-table .badge {
-    font-size: .58rem;
-    padding: 2px 6px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: block;
-    max-width: 78px;
-  }
-  /* Monto */
-  .panel-table td:last-child {
-    width: 74px;
-    text-align: right;
-    font-size: .73rem;
-    white-space: nowrap;
-  }
-  .panel-section { padding: .45rem .85rem .3rem; font-size: .6rem; }
-  .panel-total { padding: .7rem 1rem; }
-  .panel-total span:last-child { font-size: .82rem; }
+  .p-item { border-radius: 16px; padding: .8rem .9rem; gap: .7rem; }
+  .p-desc { font-size: .83rem; }
 
   /* ── NOTIF & MODAL ── */
   .notif {
     bottom: calc(80px + env(safe-area-inset-bottom));
-    right: 1rem;
-    left: 1rem;
-    justify-content: center;
-    border-radius: 16px;
+    right: .85rem; left: .85rem;
+    justify-content: center; border-radius: 16px;
   }
-  .modal { padding: 1.4rem; border-radius: 22px; }
+  .modal { padding: 1.2rem; border-radius: 20px; max-width: calc(100vw - 2rem); }
 
-  /* ── OTROS FORMS ── */
+  /* ── MISC ── */
   #otros-form > div { flex-direction: column; }
   .cuota-toggle label { font-size: .82rem; }
+  [style*="display:flex;gap:1rem;flex-wrap:wrap"] { flex-direction: column; }
 
-  /* ── INGRESOS inline form ── */
-  [style*="display:flex;gap:1rem;flex-wrap:wrap"] {
-    flex-direction: column;
+  /* Botones de edición en tablas */
+  .btn-edit, .btn-del {
+    padding: 4px 7px;
+    font-size: .7rem;
   }
+  td[style*="display:flex"] { gap: 3px !important; }
 }
 
 /* ── 380px breakpoint ── */
 @media (max-width: 380px) {
-  main { padding-left: .75rem; padding-right: .75rem; }
-  .card { padding: .8rem; min-height: 100px; }
-  .card .value { font-size: 1.05rem; }
+  main { padding-left: .65rem; padding-right: .65rem; }
+  .card { padding: .75rem; min-height: 90px; }
+  .card .value { font-size: 1rem; }
   nav button { font-size: .52rem; }
-  nav button.nav-add { flex: 0 0 48px; }
+  nav button.nav-add { flex: 0 0 46px; }
+  th { padding: 7px 8px; font-size: .6rem; }
+  td { padding: 8px 8px; font-size: .72rem; }
 }
 
 
@@ -3033,11 +2960,16 @@ function renderIngresosTable() {
         const safeUid = String(uid).replace(/[^a-zA-Z0-9_-]/g, '_');
         // Asegurar que el registro tenga uid persistente
         if (!i.uid) i.uid = safeUid;
+        // Detalle mobile: tipo + destino (sin monto, va en Total ARS)
+        const destinoIcono = i.sueldoDestino
+          ? (i.sueldoDestino === 'Efectivo' ? '💵' : tarjetas.find(t=>t.tipo==='billetera'&&(t.label||t.banco||t.nombre)===i.sueldoDestino) ? '📱' : '🏦')
+          : '💵';
         const tipoLabel = i.sueldo > 0
-          ? '<div style="font-size:0.8rem;color:var(--text2)">💼 Ingreso: ' + fmtVal(i.sueldo, i.sueldoMoneda||'ARS') + '</div>'
+          ? '<div style="font-size:0.8rem;color:var(--text2)">💼 Ingreso</div>' +
+            '<div style="font-size:0.72rem;color:var(--text3);margin-top:2px">' + destinoIcono + ' ' + (i.sueldoDestino || 'Efectivo') + '</div>'
           : '';
         const otrosMobile = otros.length
-          ? otros.map(o => '<div style="font-size:0.75rem;color:var(--text2)">✦ ' + o.nombre + ': ' + (o.moneda==='USD' ? '<span style="color:var(--accent3)">u$s ' : '<span>$') + o.monto.toLocaleString('es-AR') + '</span></div>').join('')
+          ? otros.map(o => '<div style="font-size:0.75rem;color:var(--text2);margin-top:3px">✦ ' + o.nombre + (o.destino ? ' <span style="color:var(--text3)">→ ' + o.destino + '</span>' : '') + '</div>').join('')
           : '';
         return `
         <tr>
