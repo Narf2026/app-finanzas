@@ -2356,7 +2356,7 @@ function addGasto() {
   document.getElementById('g-cerro-wrap').style.display = 'none';
   document.querySelector('input[name="g-cuota-inicio"][value="este"]').checked = true;
   document.getElementById('g-cat').value = '';
-  document.getElementById('g-medio').value = '';
+  document.getElementById('g-medio').value = 'Efectivo';
   renderGastosTable();
   populateFilters();
 }
@@ -2872,16 +2872,7 @@ function renderMedioPago(extraMedio) {
   const container = document.getElementById('g-medio-container');
   if (!container) return;
 
-  const hayMedios = tarjetas.length > 0;
-
-  if (!hayMedios) {
-    container.innerHTML = `<div style="font-size:0.8rem;color:var(--accent3);background:rgba(245,184,46,0.08);border:1px solid rgba(245,184,46,0.2);border-radius:10px;padding:9px 12px;line-height:1.4">
-      ⚠ Primero agregá un medio de pago en <strong style="cursor:pointer;text-decoration:underline" onclick="showTab('ajustes')">Ajustes</strong>
-    </div>`;
-    return;
-  }
-
-  // Reconstruir select
+  // Reconstruir select si no existe
   if (!document.getElementById('g-medio')) {
     container.innerHTML = '<select id="g-medio" onchange="toggleCuotasIfNeeded()"></select>';
   }
@@ -2896,8 +2887,8 @@ function renderMedioPago(extraMedio) {
   // Si el gasto viejo tiene un medio que ya no está en la lista, lo agregamos como opción
   if (extraMedio && !opciones.includes(extraMedio)) opciones.push(extraMedio);
 
-  sel.innerHTML = '<option value="">Seleccionar...</option>' +
-    opciones.map(o => `<option value="${o}" ${o === actual ? 'selected' : ''}>${o}</option>`).join('');
+  const valorActual = actual || 'Efectivo';
+  sel.innerHTML = opciones.map(o => '<option value="' + o + '"' + (o === valorActual ? ' selected' : '') + '>' + o + '</option>').join('');
   sel.onchange = () => toggleCuotasIfNeeded();
 }
 
@@ -2953,38 +2944,19 @@ function resolverDestino(selectId) {
 
 function renderDestinosIngreso() {
   // Solo Efectivo + billeteras virtuales + débito (no crédito, no almacena dinero)
-  const hayExtras = tarjetas.some(t => t.tipo === 'billetera' || t.tipo === 'debito');
-
-  // Aviso informativo si no hay billeteras/débito configuradas
-  const containerSueldo = document.getElementById('i-sueldo-destino-container');
-  const containerOtro   = document.getElementById('i-otro-destino-container');
-  const avisoHtml = '<div style="font-size:0.8rem;color:var(--accent3);background:rgba(245,184,46,0.08);border:1px solid rgba(245,184,46,0.2);border-radius:10px;padding:9px 12px;line-height:1.4">' +
-    '⚠ Agregá billeteras o cuentas en <strong style="cursor:pointer;text-decoration:underline" onclick="showTab(\'ajustes\')">Ajustes</strong> para elegir destino' +
-    '</div>';
-
-  if (!hayExtras) {
-    if (containerSueldo) containerSueldo.innerHTML = avisoHtml;
-    if (containerOtro)   containerOtro.innerHTML   = avisoHtml;
-    return;
-  }
-
   const opciones = ['Efectivo'];
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.banco || t.nombre));
   tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('Débito ' + t.banco)));
 
-  const opcionesHTML = '<option value="">Seleccionar...</option>' +
-    opciones.map(o => '<option value="' + o + '">' + o + '</option>').join('');
-
-  // Restaurar select si estaba reemplazado por el aviso
-  if (containerSueldo && !document.getElementById('i-sueldo-destino')) {
-    containerSueldo.innerHTML = '<select id="i-sueldo-destino" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'Sora\',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;width:100%"></select>';
-  }
-  if (containerOtro && !document.getElementById('i-otro-destino')) {
-    containerOtro.innerHTML = '<select id="i-otro-destino" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'Sora\',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;width:100%"></select>';
-  }
+  const opcionesHTML = opciones.map(o => '<option value="' + o + '"' + (o === 'Efectivo' ? ' selected' : '') + '>' + o + '</option>').join('');
 
   const selSueldo = document.getElementById('i-sueldo-destino');
-  if (selSueldo) selSueldo.innerHTML = opcionesHTML;
+  if (selSueldo && !selSueldo.value) selSueldo.innerHTML = opcionesHTML;
+  else if (selSueldo) {
+    const prev = selSueldo.value;
+    selSueldo.innerHTML = opcionesHTML;
+    if (prev) selSueldo.value = prev;
+  }
 
   const selOtro = document.getElementById('i-otro-destino');
   if (selOtro) selOtro.innerHTML = opcionesHTML;
