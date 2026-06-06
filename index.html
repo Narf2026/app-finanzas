@@ -2098,41 +2098,220 @@ tr:hover td { background: rgba(255,255,255,.035); }
 
 <!-- AJUSTES -->
 <section id="tab-ajustes">
-  <div style="max-width:900px;margin:0 auto;padding:2rem 1.5rem">
-    <div class="page-title">Ajustes</div>
+  <div style="max-width:860px;margin:0 auto;padding:2rem 1.5rem">
 
-    <!-- Medios de pago -->
-    <div class="card" style="margin-bottom:1.5rem">
-      <div class="card-title" style="margin-bottom:0.3rem">💳 Mis medios de pago</div>
-      <p style="font-size:0.82rem;color:var(--text3);margin-bottom:1.2rem">Agregá tus tarjetas, cuentas y billeteras para usarlas al registrar gastos.</p>
+    <div class="page-title">
+      Configuración
+      <small>HACÉ ESTO UNA VEZ ANTES DE EMPEZAR</small>
+    </div>
 
-      <!-- Form nuevo medio -->
-      <div style="margin-bottom:1.2rem">
-        <!-- Paso 1: banco -->
-        <div class="form-group" style="max-width:320px;margin-bottom:12px">
-          <label>Banco / Institución</label>
-          <input type="text" id="tc-banco" placeholder="ej: Santander, Mercado Pago" oninput="renderProductosBanco()">
+    <!-- ══════════════════════════════════════
+         BANNER ONBOARDING
+         Visible hasta que ambos pasos estén OK
+    ═══════════════════════════════════════ -->
+    <div id="ajustes-banner" style="
+      background: linear-gradient(135deg, rgba(24,212,123,0.09), rgba(59,130,246,0.07));
+      border: 1px solid rgba(24,212,123,0.22);
+      border-radius: 20px;
+      padding: 1.4rem 1.6rem;
+      margin-bottom: 2rem;
+      display: flex;
+      gap: 1.2rem;
+      align-items: flex-start;
+    ">
+      <div style="font-size:2rem;line-height:1;flex-shrink:0;margin-top:2px">👋</div>
+      <div style="flex:1">
+        <div style="font-size:0.97rem;font-weight:700;color:var(--text);margin-bottom:0.4rem">
+          ¡Bienvenido! Configurá tu perfil financiero
         </div>
-        <!-- Paso 2: productos del banco -->
-        <div id="tc-productos-wrap" style="display:none">
-          <div style="font-size:0.7rem;font-weight:600;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px">¿Qué tenés de este banco?</div>
-          <div id="tc-productos-lista" style="display:flex;flex-direction:column;gap:10px"></div>
-          <button class="btn-add" onclick="agregarMedioPago()" style="margin-top:14px;width:100%">+ Agregar</button>
+        <div style="font-size:0.81rem;color:var(--text2);line-height:1.65;margin-bottom:1.1rem">
+          Para que el <strong style="color:var(--accent)">saldo del Dashboard</strong> sea correcto,
+          completá los dos pasos de abajo. Solo lleva 2 minutos y lo hacés una sola vez.
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+
+          <!-- Paso 1 -->
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span id="check-paso1" style="
+              width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
+              background:rgba(24,212,123,0.14);border:1.5px solid rgba(24,212,123,0.5);
+              display:inline-flex;align-items:center;justify-content:center;
+              font-size:0.72rem;font-weight:700;color:var(--accent);
+              transition:all 0.3s
+            ">1</span>
+            <div style="font-size:0.81rem;color:var(--text2);line-height:1.5">
+              <strong style="color:var(--text)">Agregá tus cuentas y tarjetas</strong><br>
+              <span style="color:var(--text3)">Efectivo, débito, crédito, billeteras virtuales (Mercado Pago, Ualá, etc.)</span>
+            </div>
+          </div>
+
+          <!-- Paso 2 -->
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span id="check-paso2" style="
+              width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
+              background:rgba(59,130,246,0.12);border:1.5px solid rgba(59,130,246,0.35);
+              display:inline-flex;align-items:center;justify-content:center;
+              font-size:0.72rem;font-weight:700;color:var(--accent4);
+              transition:all 0.3s
+            ">2</span>
+            <div style="font-size:0.81rem;color:var(--text2);line-height:1.5">
+              <strong style="color:var(--text)">Ingresá el saldo que ya tenías en cada cuenta</strong><br>
+              <span style="color:var(--text3)">Para que el balance arranque desde tu realidad y no desde cero</span>
+            </div>
+          </div>
+
+          <!-- Paso 3 -->
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span style="
+              width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
+              background:rgba(139,144,167,0.08);border:1.5px solid rgba(139,144,167,0.2);
+              display:inline-flex;align-items:center;justify-content:center;
+              font-size:0.72rem;font-weight:700;color:var(--text3)
+            ">3</span>
+            <div style="font-size:0.81rem;color:var(--text3);line-height:1.5">
+              ¡Listo! Ya podés registrar gastos, ingresos y ahorros
+            </div>
+          </div>
+
         </div>
       </div>
-
-      <!-- Lista medios -->
-      <div id="tc-lista"></div>
     </div>
 
-    <!-- Saldo inicial por cuenta -->
-    <div class="card" style="margin-bottom:1.5rem">
-      <div class="card-title" style="margin-bottom:0.3rem">💰 Saldo inicial por cuenta</div>
-      <p style="font-size:0.82rem;color:var(--text3);margin-bottom:1.2rem">
-        Ingresá cuánto tenías en cada cuenta <strong style="color:var(--text2)">antes de empezar a usar la app</strong>. Se suma al balance general sin contar como ingreso mensual.
-      </p>
+    <!-- ══════════════════════════════════════
+         PASO 1 — MIS CUENTAS Y TARJETAS
+    ═══════════════════════════════════════ -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem">
+      <div id="paso1-num" style="
+        width:34px;height:34px;border-radius:50%;flex-shrink:0;
+        background:linear-gradient(135deg,rgba(24,212,123,0.20),rgba(24,212,123,0.06));
+        border:1.5px solid rgba(24,212,123,0.45);
+        display:flex;align-items:center;justify-content:center;
+        font-size:0.85rem;font-weight:700;color:var(--accent);
+        transition:all 0.3s
+      ">1</div>
+      <div>
+        <div style="font-size:1rem;font-weight:700;color:var(--text)">Mis cuentas y tarjetas</div>
+        <div style="font-size:0.74rem;color:var(--text3);margin-top:2px">
+          Aparecen como opciones al registrar gastos, ingresos y ahorros
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:2rem;padding:1.5rem">
+
+      <!-- Info contextual -->
+      <div style="
+        background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.16);
+        border-radius:12px;padding:0.85rem 1.1rem;margin-bottom:1.5rem;
+        font-size:0.79rem;color:var(--text2);line-height:1.65;
+        display:flex;gap:10px;align-items:flex-start
+      ">
+        <span style="font-size:1.05rem;flex-shrink:0">💡</span>
+        <span>
+          Podés agregar <strong style="color:var(--text)">tarjetas de crédito</strong> (Visa, Mastercard, Amex),
+          <strong style="color:var(--text)">tarjetas de débito</strong> y
+          <strong style="color:var(--text)">billeteras virtuales</strong> como Mercado Pago, Ualá o Naranja X.
+          Para crédito podés indicar el <em>día de cierre</em> y las cuotas se calculan solas.
+        </span>
+      </div>
+
+      <!-- Form paso 1: banco -->
+      <div class="form-group" style="max-width:380px;margin-bottom:14px">
+        <label>
+          Banco o institución
+          <span style="font-size:0.68rem;font-weight:400;color:var(--text3);background:rgba(139,144,167,0.1);border-radius:6px;padding:2px 8px;text-transform:none;letter-spacing:0;margin-left:4px">
+            ej: Santander · Mercado Pago · Galicia
+          </span>
+        </label>
+        <input type="text" id="tc-banco"
+          placeholder="Escribí el nombre del banco o billetera..."
+          oninput="renderProductosBanco(); actualizarTooltipCredito()">
+      </div>
+
+      <!-- Form paso 2: productos (aparece al escribir banco) -->
+      <div id="tc-productos-wrap" style="display:none">
+        <div style="font-size:0.7rem;font-weight:700;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+          ¿Qué productos tenés de este banco?
+        </div>
+        <div id="tc-productos-lista" style="display:flex;flex-direction:column;gap:10px"></div>
+
+        <!-- Tooltip de cierre — aparece solo si se marca algún crédito -->
+        <div id="tc-ayuda-credito" style="
+          display:none;margin-top:14px;
+          background:rgba(245,184,46,0.07);border:1px solid rgba(245,184,46,0.18);
+          border-radius:10px;padding:0.75rem 1rem;
+          font-size:0.76rem;color:var(--text2);line-height:1.65
+        ">
+          <strong style="color:var(--accent3)">📅 Fecha de cierre:</strong>
+          el día del mes en que cierra el resumen de tu tarjeta.
+          Si comprás <em>antes</em> del cierre → la cuota 1 cae <em>este mes</em>.
+          Si comprás <em>después</em> → cae <em>el mes que viene</em>.
+          Podés dejarlo vacío si no lo sabés.<br>
+          <strong style="color:var(--accent3)">💳 Límite:</strong> opcional, solo para tu referencia.
+        </div>
+
+        <button class="btn-add" onclick="agregarMedioPago()" style="margin-top:14px;width:100%">
+          + Agregar medio de pago
+        </button>
+      </div>
+
+      <!-- Lista de medios cargados -->
+      <div id="tc-lista" style="margin-top:6px"></div>
+
+    </div><!-- /card paso 1 -->
+
+    <!-- ══════════════════════════════════════
+         PASO 2 — SALDO INICIAL
+    ═══════════════════════════════════════ -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem">
+      <div id="paso2-num" style="
+        width:34px;height:34px;border-radius:50%;flex-shrink:0;
+        background:linear-gradient(135deg,rgba(59,130,246,0.16),rgba(59,130,246,0.05));
+        border:1.5px solid rgba(59,130,246,0.35);
+        display:flex;align-items:center;justify-content:center;
+        font-size:0.85rem;font-weight:700;color:var(--accent4);
+        transition:all 0.3s
+      ">2</div>
+      <div>
+        <div style="font-size:1rem;font-weight:700;color:var(--text)">Saldo inicial por cuenta</div>
+        <div style="font-size:0.74rem;color:var(--text3);margin-top:2px">
+          ¿Cuánta plata ya tenías antes de empezar a usar la app?
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:2rem;padding:1.5rem" id="paso2-card">
+
+      <!-- Estado: sin medios cargados todavía -->
+      <div id="paso2-bloqueado" style="display:none;
+        background:rgba(139,144,167,0.07);border:1px dashed rgba(139,144,167,0.25);
+        border-radius:12px;padding:1.2rem 1.4rem;
+        text-align:center;color:var(--text3);font-size:0.82rem;line-height:1.6
+      ">
+        <div style="font-size:1.6rem;margin-bottom:8px">🔒</div>
+        Primero completá el <strong style="color:var(--text2)">Paso 1</strong> agregando al menos una cuenta o tarjeta.<br>
+        <span style="font-size:0.75rem">El saldo inicial aparecerá acá automáticamente.</span>
+      </div>
+
+      <!-- Info contextual -->
+      <div id="paso2-info" style="
+        background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.16);
+        border-radius:12px;padding:0.85rem 1.1rem;margin-bottom:1.4rem;
+        font-size:0.79rem;color:var(--text2);line-height:1.65;
+        display:flex;gap:10px;align-items:flex-start
+      ">
+        <span style="font-size:1.05rem;flex-shrink:0">💡</span>
+        <span>
+          Si ya tenías plata en tus cuentas <strong style="color:var(--text)">antes de empezar a usar la app</strong>, ingresala acá.
+          No cuenta como ingreso mensual — es solo el punto de partida para que el
+          <strong style="color:var(--accent)">saldo del Dashboard</strong> refleje tu situación real.
+          Si arrancás desde cero, podés dejarlo en blanco.
+        </span>
+      </div>
+
       <div id="saldo-inicial-lista"></div>
-    </div>
+
+    </div><!-- /card paso 2 -->
 
   </div>
 </section>
@@ -2238,7 +2417,7 @@ function showTab(tab) {
   if (tab === 'ahorro') { renderAhorroTable(); renderOrigenAhorro(); }
   if (tab === 'pendientes') renderPendientesTab();
   if (tab === 'admin') renderAdminPanel();
-  if (tab === 'ajustes') { renderTarjetas(); renderSaldoInicial(); }
+  if (tab === 'ajustes') { renderTarjetas(); renderSaldoInicial(); actualizarChecklistAjustes(); }
   if (tab === 'gastos') renderMedioPago();
 }
 
@@ -2555,15 +2734,20 @@ function saveSaldosIniciales() {
 function renderSaldoInicial() {
   const el = document.getElementById('saldo-inicial-lista');
   if (!el) return;
+  const hayMedios = tarjetas.length > 0;
+
+  // Mostrar/ocultar bloqueo del Paso 2
+  const bloq = document.getElementById('paso2-bloqueado');
+  const info = document.getElementById('paso2-info');
+  if (bloq) bloq.style.display = hayMedios ? 'none' : 'block';
+  if (info) info.style.display = hayMedios ? 'flex' : 'none';
+  if (!hayMedios) { el.innerHTML = ''; actualizarChecklistAjustes(); return; }
+
   const cuentas = [
     { label: 'Efectivo', tipo: 'efectivo' },
     ...tarjetas.filter(t => t.tipo === 'billetera').map(t => ({ label: t.label || t.banco || t.nombre, tipo: 'billetera' })),
     ...tarjetas.filter(t => t.tipo === 'debito').map(t => ({ label: t.label || ('Debito ' + t.banco), tipo: 'debito' })),
   ];
-  if (!cuentas.length) {
-    el.innerHTML = '<div class="empty" style="padding:0.5rem">Primero agrega tus medios de pago arriba.</div>';
-    return;
-  }
   // Construir con DOM para evitar problemas de escape en strings
   const wrap = document.createElement('div');
   wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px';
@@ -2609,6 +2793,7 @@ function renderSaldoInicial() {
   el.innerHTML = '';
   el.appendChild(wrap);
   el.appendChild(hint);
+  actualizarChecklistAjustes();
 }
 
 function guardarSaldoInicial(label, valor) {
@@ -2701,6 +2886,7 @@ function toggleProducto(key) {
   const checked = document.getElementById('tc-ch-' + key).checked;
   const det = document.getElementById('tc-det-' + key);
   if (det) det.style.display = checked ? 'block' : 'none';
+  actualizarTooltipCredito();
 }
 
 function agregarMedioPago() {
@@ -2861,6 +3047,52 @@ function renderTarjetas() {
       }).join('')}
     </tbody>
   </table>`;
+  actualizarChecklistAjustes();
+}
+
+// ---- CHECKLIST Y TOOLTIP AJUSTES ----
+function actualizarChecklistAjustes() {
+  const hayMedios = tarjetas && tarjetas.length > 0;
+  const haySaldos = saldosIniciales && Object.values(saldosIniciales).some(v => v > 0);
+  const ambosOk   = hayMedios && haySaldos;
+
+  // Banner: ocultar si ambos completos
+  const banner = document.getElementById('ajustes-banner');
+  if (banner) banner.style.display = ambosOk ? 'none' : 'flex';
+
+  // Círculo paso 1 (banner)
+  const c1 = document.getElementById('check-paso1');
+  if (c1) {
+    c1.textContent      = hayMedios ? '✓' : '1';
+    c1.style.background = hayMedios ? 'rgba(24,212,123,0.25)' : 'rgba(24,212,123,0.14)';
+    c1.style.borderColor= hayMedios ? 'var(--accent)'         : 'rgba(24,212,123,0.5)';
+    c1.style.color      = 'var(--accent)';
+  }
+  // Número grande paso 1
+  const p1 = document.getElementById('paso1-num');
+  if (p1) p1.textContent = hayMedios ? '✓' : '1';
+
+  // Círculo paso 2 (banner)
+  const c2 = document.getElementById('check-paso2');
+  if (c2) {
+    c2.textContent      = haySaldos ? '✓' : '2';
+    c2.style.background = haySaldos ? 'rgba(24,212,123,0.25)' : 'rgba(59,130,246,0.12)';
+    c2.style.borderColor= haySaldos ? 'var(--accent)'         : 'rgba(59,130,246,0.35)';
+    c2.style.color      = haySaldos ? 'var(--accent)'         : 'var(--accent4)';
+  }
+  // Número grande paso 2
+  const p2 = document.getElementById('paso2-num');
+  if (p2) {
+    p2.textContent = haySaldos ? '✓' : '2';
+    p2.style.color = haySaldos ? 'var(--accent)' : 'var(--accent4)';
+  }
+}
+
+function actualizarTooltipCredito() {
+  const ayuda = document.getElementById('tc-ayuda-credito');
+  if (!ayuda) return;
+  const hayCredito = ['visa','master','amex'].some(k => document.getElementById('tc-ch-'+k)?.checked);
+  ayuda.style.display = hayCredito ? 'block' : 'none';
 }
 
 // Reconstruir el select de medio de pago dinámicamente
