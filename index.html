@@ -1014,9 +1014,6 @@ main { max-width: 1120px; }
   flex-direction: column;
   justify-content: center;
 }
-@media (max-width: 700px) {
-  .card { min-height: unset !important; }
-}
 .card::before { height: 0; }
 .card::after {
   content: '';
@@ -1171,7 +1168,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
 
   /* ── MAIN ── */
   main {
-    padding: .75rem .85rem calc(90px + env(safe-area-inset-bottom));
+    padding: .75rem 1rem calc(90px + env(safe-area-inset-bottom));
     max-width: 100%;
   }
 
@@ -1216,7 +1213,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
   /* ── CARDS 2 COLUMNAS ── */
   .cards {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 8px;
+    gap: 10px;
     margin-bottom: 1rem;
   }
   /* Cards anidadas también 2 columnas */
@@ -1225,32 +1222,17 @@ tr:hover td { background: rgba(255,255,255,.035); }
     max-width: 100% !important;
   }
   .card {
-    border-radius: 18px;
-    padding: .75rem .85rem;
-    min-height: unset;
+    border-radius: 20px;
+    padding: .95rem 1rem;
+    min-height: 110px;
   }
-  .card .label {
-    font-size: .58rem;
-    line-height: 1.3;
-    margin-bottom: .35rem;
-    letter-spacing: .5px;
-  }
-  .card .value {
-    font-size: clamp(.82rem, 3.8vw, 1.1rem);
-    line-height: 1.15;
-    word-break: break-all;
-    overflow-wrap: anywhere;
-    white-space: normal;
-  }
-  .card .sub {
-    font-size: .56rem;
-    margin-top: 3px;
-    line-height: 1.3;
-    word-break: break-word;
-  }
+  .card .label { font-size: .62rem; line-height: 1.25; margin-bottom: .5rem; }
+  .card .value { font-size: 1.18rem; line-height: 1.1; word-break: break-word; }
+  .card .sub { font-size: .63rem; margin-top: 3px; }
   /* 3ra card full width SOLO si es la última (3 cards total) */
   .cards .card:nth-child(3):last-child {
     grid-column: span 2;
+    min-height: 100px;
   }
 
   /* ── DASHBOARD GRID ── */
@@ -1382,11 +1364,9 @@ tr:hover td { background: rgba(255,255,255,.035); }
 
 /* ── 380px breakpoint ── */
 @media (max-width: 380px) {
-  main { padding-left: .65rem; padding-right: .65rem; }
-  .card { padding: .65rem .7rem; }
-  .card .label { font-size: .55rem; }
-  .card .value { font-size: clamp(.75rem, 3.5vw, .95rem); }
-  .card .sub { font-size: .52rem; }
+  main { padding-left: .75rem; padding-right: .75rem; }
+  .card { padding: .8rem; min-height: 100px; }
+  .card .value { font-size: 1.05rem; }
   nav button { font-size: .52rem; }
   nav button.nav-add { flex: 0 0 48px; }
 }
@@ -1687,7 +1667,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
 
     <!-- SALDO -->
     <div class="card yellow expandable" onclick="toggleCardPanel('panel-saldo')">
-      <div class="label">Saldo disponible <span class="expand-icon" id="icon-panel-saldo">▾</span></div>
+      <div class="label">Disponible del mes <span class="expand-icon" id="icon-panel-saldo">▾</span></div>
       <div class="value" id="d-saldo">$0</div>
       <div class="sub" id="d-saldo-sub"></div>
     </div>
@@ -1724,7 +1704,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
   </div>
 
   <div class="card-panel" id="panel-saldo" style="display:none">
-    <div class="panel-title">📊 Composición del saldo disponible</div>
+    <div class="panel-title">📊 Composición del disponible del mes</div>
     <div id="panel-saldo-body"></div>
   </div>
 
@@ -2118,220 +2098,41 @@ tr:hover td { background: rgba(255,255,255,.035); }
 
 <!-- AJUSTES -->
 <section id="tab-ajustes">
-  <div style="max-width:860px;margin:0 auto;padding:2rem 1.5rem">
+  <div style="max-width:900px;margin:0 auto;padding:2rem 1.5rem">
+    <div class="page-title">Ajustes</div>
 
-    <div class="page-title">
-      Configuración
-      <small>HACÉ ESTO UNA VEZ ANTES DE EMPEZAR</small>
+    <!-- Medios de pago -->
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-title" style="margin-bottom:0.3rem">💳 Mis medios de pago</div>
+      <p style="font-size:0.82rem;color:var(--text3);margin-bottom:1.2rem">Agregá tus tarjetas, cuentas y billeteras para usarlas al registrar gastos.</p>
+
+      <!-- Form nuevo medio -->
+      <div style="margin-bottom:1.2rem">
+        <!-- Paso 1: banco -->
+        <div class="form-group" style="max-width:320px;margin-bottom:12px">
+          <label>Banco / Institución</label>
+          <input type="text" id="tc-banco" placeholder="ej: Santander, Mercado Pago" oninput="renderProductosBanco()">
+        </div>
+        <!-- Paso 2: productos del banco -->
+        <div id="tc-productos-wrap" style="display:none">
+          <div style="font-size:0.7rem;font-weight:600;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px">¿Qué tenés de este banco?</div>
+          <div id="tc-productos-lista" style="display:flex;flex-direction:column;gap:10px"></div>
+          <button class="btn-add" onclick="agregarMedioPago()" style="margin-top:14px;width:100%">+ Agregar</button>
+        </div>
+      </div>
+
+      <!-- Lista medios -->
+      <div id="tc-lista"></div>
     </div>
 
-    <!-- ══════════════════════════════════════
-         BANNER ONBOARDING
-         Visible hasta que ambos pasos estén OK
-    ═══════════════════════════════════════ -->
-    <div id="ajustes-banner" style="
-      background: linear-gradient(135deg, rgba(24,212,123,0.09), rgba(59,130,246,0.07));
-      border: 1px solid rgba(24,212,123,0.22);
-      border-radius: 20px;
-      padding: 1.4rem 1.6rem;
-      margin-bottom: 2rem;
-      display: flex;
-      gap: 1.2rem;
-      align-items: flex-start;
-    ">
-      <div style="font-size:2rem;line-height:1;flex-shrink:0;margin-top:2px">👋</div>
-      <div style="flex:1">
-        <div style="font-size:0.97rem;font-weight:700;color:var(--text);margin-bottom:0.4rem">
-          ¡Bienvenido! Configurá tu perfil financiero
-        </div>
-        <div style="font-size:0.81rem;color:var(--text2);line-height:1.65;margin-bottom:1.1rem">
-          Para que el <strong style="color:var(--accent)">saldo del Dashboard</strong> sea correcto,
-          completá los dos pasos de abajo. Solo lleva 2 minutos y lo hacés una sola vez.
-        </div>
-        <div style="display:flex;flex-direction:column;gap:9px">
-
-          <!-- Paso 1 -->
-          <div style="display:flex;align-items:flex-start;gap:10px">
-            <span id="check-paso1" style="
-              width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
-              background:rgba(24,212,123,0.14);border:1.5px solid rgba(24,212,123,0.5);
-              display:inline-flex;align-items:center;justify-content:center;
-              font-size:0.72rem;font-weight:700;color:var(--accent);
-              transition:all 0.3s
-            ">1</span>
-            <div style="font-size:0.81rem;color:var(--text2);line-height:1.5">
-              <strong style="color:var(--text)">Agregá tus cuentas y tarjetas</strong><br>
-              <span style="color:var(--text3)">Efectivo, débito, crédito, billeteras virtuales (Mercado Pago, Ualá, etc.)</span>
-            </div>
-          </div>
-
-          <!-- Paso 2 -->
-          <div style="display:flex;align-items:flex-start;gap:10px">
-            <span id="check-paso2" style="
-              width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
-              background:rgba(59,130,246,0.12);border:1.5px solid rgba(59,130,246,0.35);
-              display:inline-flex;align-items:center;justify-content:center;
-              font-size:0.72rem;font-weight:700;color:var(--accent4);
-              transition:all 0.3s
-            ">2</span>
-            <div style="font-size:0.81rem;color:var(--text2);line-height:1.5">
-              <strong style="color:var(--text)">Ingresá el saldo que ya tenías en cada cuenta</strong><br>
-              <span style="color:var(--text3)">Para que el balance arranque desde tu realidad y no desde cero</span>
-            </div>
-          </div>
-
-          <!-- Paso 3 -->
-          <div style="display:flex;align-items:flex-start;gap:10px">
-            <span style="
-              width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
-              background:rgba(139,144,167,0.08);border:1.5px solid rgba(139,144,167,0.2);
-              display:inline-flex;align-items:center;justify-content:center;
-              font-size:0.72rem;font-weight:700;color:var(--text3)
-            ">3</span>
-            <div style="font-size:0.81rem;color:var(--text3);line-height:1.5">
-              ¡Listo! Ya podés registrar gastos, ingresos y ahorros
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════
-         PASO 1 — MIS CUENTAS Y TARJETAS
-    ═══════════════════════════════════════ -->
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem">
-      <div id="paso1-num" style="
-        width:34px;height:34px;border-radius:50%;flex-shrink:0;
-        background:linear-gradient(135deg,rgba(24,212,123,0.20),rgba(24,212,123,0.06));
-        border:1.5px solid rgba(24,212,123,0.45);
-        display:flex;align-items:center;justify-content:center;
-        font-size:0.85rem;font-weight:700;color:var(--accent);
-        transition:all 0.3s
-      ">1</div>
-      <div>
-        <div style="font-size:1rem;font-weight:700;color:var(--text)">Mis cuentas y tarjetas</div>
-        <div style="font-size:0.74rem;color:var(--text3);margin-top:2px">
-          Aparecen como opciones al registrar gastos, ingresos y ahorros
-        </div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-bottom:2rem;padding:1.5rem">
-
-      <!-- Info contextual -->
-      <div style="
-        background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.16);
-        border-radius:12px;padding:0.85rem 1.1rem;margin-bottom:1.5rem;
-        font-size:0.79rem;color:var(--text2);line-height:1.65;
-        display:flex;gap:10px;align-items:flex-start
-      ">
-        <span style="font-size:1.05rem;flex-shrink:0">💡</span>
-        <span>
-          Podés agregar <strong style="color:var(--text)">tarjetas de crédito</strong> (Visa, Mastercard, Amex),
-          <strong style="color:var(--text)">tarjetas de débito</strong> y
-          <strong style="color:var(--text)">billeteras virtuales</strong> como Mercado Pago, Ualá o Naranja X.
-          Para crédito podés indicar el <em>día de cierre</em> y las cuotas se calculan solas.
-        </span>
-      </div>
-
-      <!-- Form paso 1: banco -->
-      <div class="form-group" style="max-width:380px;margin-bottom:14px">
-        <label>
-          Banco o institución
-          <span style="font-size:0.68rem;font-weight:400;color:var(--text3);background:rgba(139,144,167,0.1);border-radius:6px;padding:2px 8px;text-transform:none;letter-spacing:0;margin-left:4px">
-            ej: Santander · Mercado Pago · Galicia
-          </span>
-        </label>
-        <input type="text" id="tc-banco"
-          placeholder="Escribí el nombre del banco o billetera..."
-          oninput="renderProductosBanco(); actualizarTooltipCredito()">
-      </div>
-
-      <!-- Form paso 2: productos (aparece al escribir banco) -->
-      <div id="tc-productos-wrap" style="display:none">
-        <div style="font-size:0.7rem;font-weight:700;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-          ¿Qué productos tenés de este banco?
-        </div>
-        <div id="tc-productos-lista" style="display:flex;flex-direction:column;gap:10px"></div>
-
-        <!-- Tooltip de cierre — aparece solo si se marca algún crédito -->
-        <div id="tc-ayuda-credito" style="
-          display:none;margin-top:14px;
-          background:rgba(245,184,46,0.07);border:1px solid rgba(245,184,46,0.18);
-          border-radius:10px;padding:0.75rem 1rem;
-          font-size:0.76rem;color:var(--text2);line-height:1.65
-        ">
-          <strong style="color:var(--accent3)">📅 Fecha de cierre:</strong>
-          el día del mes en que cierra el resumen de tu tarjeta.
-          Si comprás <em>antes</em> del cierre → la cuota 1 cae <em>este mes</em>.
-          Si comprás <em>después</em> → cae <em>el mes que viene</em>.
-          Podés dejarlo vacío si no lo sabés.<br>
-          <strong style="color:var(--accent3)">💳 Límite:</strong> opcional, solo para tu referencia.
-        </div>
-
-        <button class="btn-add" onclick="agregarMedioPago()" style="margin-top:14px;width:100%">
-          + Agregar medio de pago
-        </button>
-      </div>
-
-      <!-- Lista de medios cargados -->
-      <div id="tc-lista" style="margin-top:6px"></div>
-
-    </div><!-- /card paso 1 -->
-
-    <!-- ══════════════════════════════════════
-         PASO 2 — SALDO INICIAL
-    ═══════════════════════════════════════ -->
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem">
-      <div id="paso2-num" style="
-        width:34px;height:34px;border-radius:50%;flex-shrink:0;
-        background:linear-gradient(135deg,rgba(59,130,246,0.16),rgba(59,130,246,0.05));
-        border:1.5px solid rgba(59,130,246,0.35);
-        display:flex;align-items:center;justify-content:center;
-        font-size:0.85rem;font-weight:700;color:var(--accent4);
-        transition:all 0.3s
-      ">2</div>
-      <div>
-        <div style="font-size:1rem;font-weight:700;color:var(--text)">Saldo inicial por cuenta</div>
-        <div style="font-size:0.74rem;color:var(--text3);margin-top:2px">
-          ¿Cuánta plata ya tenías antes de empezar a usar la app?
-        </div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-bottom:2rem;padding:1.5rem" id="paso2-card">
-
-      <!-- Estado: sin medios cargados todavía -->
-      <div id="paso2-bloqueado" style="display:none;
-        background:rgba(139,144,167,0.07);border:1px dashed rgba(139,144,167,0.25);
-        border-radius:12px;padding:1.2rem 1.4rem;
-        text-align:center;color:var(--text3);font-size:0.82rem;line-height:1.6
-      ">
-        <div style="font-size:1.6rem;margin-bottom:8px">🔒</div>
-        Primero completá el <strong style="color:var(--text2)">Paso 1</strong> agregando al menos una cuenta o tarjeta.<br>
-        <span style="font-size:0.75rem">El saldo inicial aparecerá acá automáticamente.</span>
-      </div>
-
-      <!-- Info contextual -->
-      <div id="paso2-info" style="
-        background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.16);
-        border-radius:12px;padding:0.85rem 1.1rem;margin-bottom:1.4rem;
-        font-size:0.79rem;color:var(--text2);line-height:1.65;
-        display:flex;gap:10px;align-items:flex-start
-      ">
-        <span style="font-size:1.05rem;flex-shrink:0">💡</span>
-        <span>
-          Si ya tenías plata en tus cuentas <strong style="color:var(--text)">antes de empezar a usar la app</strong>, ingresala acá.
-          No cuenta como ingreso mensual — es solo el punto de partida para que el
-          <strong style="color:var(--accent)">saldo del Dashboard</strong> refleje tu situación real.
-          Si arrancás desde cero, podés dejarlo en blanco.
-        </span>
-      </div>
-
+    <!-- Saldo inicial por cuenta -->
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-title" style="margin-bottom:0.3rem">💰 Saldo inicial por cuenta</div>
+      <p style="font-size:0.82rem;color:var(--text3);margin-bottom:1.2rem">
+        Ingresá cuánto tenías en cada cuenta <strong style="color:var(--text2)">antes de empezar a usar la app</strong>. Se suma al balance general sin contar como ingreso mensual.
+      </p>
       <div id="saldo-inicial-lista"></div>
-
-    </div><!-- /card paso 2 -->
+    </div>
 
   </div>
 </section>
@@ -2437,7 +2238,7 @@ function showTab(tab) {
   if (tab === 'ahorro') { renderAhorroTable(); renderOrigenAhorro(); }
   if (tab === 'pendientes') renderPendientesTab();
   if (tab === 'admin') renderAdminPanel();
-  if (tab === 'ajustes') { renderTarjetas(); renderSaldoInicial(); actualizarChecklistAjustes(); }
+  if (tab === 'ajustes') { renderTarjetas(); renderSaldoInicial(); }
   if (tab === 'gastos') renderMedioPago();
 }
 
@@ -2754,20 +2555,15 @@ function saveSaldosIniciales() {
 function renderSaldoInicial() {
   const el = document.getElementById('saldo-inicial-lista');
   if (!el) return;
-  const hayMedios = tarjetas.length > 0;
-
-  // Mostrar/ocultar bloqueo del Paso 2
-  const bloq = document.getElementById('paso2-bloqueado');
-  const info = document.getElementById('paso2-info');
-  if (bloq) bloq.style.display = hayMedios ? 'none' : 'block';
-  if (info) info.style.display = hayMedios ? 'flex' : 'none';
-  if (!hayMedios) { el.innerHTML = ''; actualizarChecklistAjustes(); return; }
-
   const cuentas = [
     { label: 'Efectivo', tipo: 'efectivo' },
     ...tarjetas.filter(t => t.tipo === 'billetera').map(t => ({ label: t.label || t.banco || t.nombre, tipo: 'billetera' })),
     ...tarjetas.filter(t => t.tipo === 'debito').map(t => ({ label: t.label || ('Debito ' + t.banco), tipo: 'debito' })),
   ];
+  if (!cuentas.length) {
+    el.innerHTML = '<div class="empty" style="padding:0.5rem">Primero agrega tus medios de pago arriba.</div>';
+    return;
+  }
   // Construir con DOM para evitar problemas de escape en strings
   const wrap = document.createElement('div');
   wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px';
@@ -2813,7 +2609,6 @@ function renderSaldoInicial() {
   el.innerHTML = '';
   el.appendChild(wrap);
   el.appendChild(hint);
-  actualizarChecklistAjustes();
 }
 
 function guardarSaldoInicial(label, valor) {
@@ -2906,7 +2701,6 @@ function toggleProducto(key) {
   const checked = document.getElementById('tc-ch-' + key).checked;
   const det = document.getElementById('tc-det-' + key);
   if (det) det.style.display = checked ? 'block' : 'none';
-  actualizarTooltipCredito();
 }
 
 function agregarMedioPago() {
@@ -3067,52 +2861,6 @@ function renderTarjetas() {
       }).join('')}
     </tbody>
   </table>`;
-  actualizarChecklistAjustes();
-}
-
-// ---- CHECKLIST Y TOOLTIP AJUSTES ----
-function actualizarChecklistAjustes() {
-  const hayMedios = tarjetas && tarjetas.length > 0;
-  const haySaldos = saldosIniciales && Object.values(saldosIniciales).some(v => v > 0);
-  const ambosOk   = hayMedios && haySaldos;
-
-  // Banner: ocultar si ambos completos
-  const banner = document.getElementById('ajustes-banner');
-  if (banner) banner.style.display = ambosOk ? 'none' : 'flex';
-
-  // Círculo paso 1 (banner)
-  const c1 = document.getElementById('check-paso1');
-  if (c1) {
-    c1.textContent      = hayMedios ? '✓' : '1';
-    c1.style.background = hayMedios ? 'rgba(24,212,123,0.25)' : 'rgba(24,212,123,0.14)';
-    c1.style.borderColor= hayMedios ? 'var(--accent)'         : 'rgba(24,212,123,0.5)';
-    c1.style.color      = 'var(--accent)';
-  }
-  // Número grande paso 1
-  const p1 = document.getElementById('paso1-num');
-  if (p1) p1.textContent = hayMedios ? '✓' : '1';
-
-  // Círculo paso 2 (banner)
-  const c2 = document.getElementById('check-paso2');
-  if (c2) {
-    c2.textContent      = haySaldos ? '✓' : '2';
-    c2.style.background = haySaldos ? 'rgba(24,212,123,0.25)' : 'rgba(59,130,246,0.12)';
-    c2.style.borderColor= haySaldos ? 'var(--accent)'         : 'rgba(59,130,246,0.35)';
-    c2.style.color      = haySaldos ? 'var(--accent)'         : 'var(--accent4)';
-  }
-  // Número grande paso 2
-  const p2 = document.getElementById('paso2-num');
-  if (p2) {
-    p2.textContent = haySaldos ? '✓' : '2';
-    p2.style.color = haySaldos ? 'var(--accent)' : 'var(--accent4)';
-  }
-}
-
-function actualizarTooltipCredito() {
-  const ayuda = document.getElementById('tc-ayuda-credito');
-  if (!ayuda) return;
-  const hayCredito = ['visa','master','amex'].some(k => document.getElementById('tc-ch-'+k)?.checked);
-  ayuda.style.display = hayCredito ? 'block' : 'none';
 }
 
 // Reconstruir el select de medio de pago dinámicamente
@@ -3497,7 +3245,9 @@ function renderDashboard() {
   })();
   const totalAhorroAcumulado = ahorros.reduce((s, a) => s + a.monto, 0);
   const totalSaldoInicial = Object.values(saldosIniciales || {}).reduce((s, v) => s + v, 0);
-  const saldo = totalIngresosHistorico + totalSaldoInicial - totalGastosHistorico - totalAhorroAcumulado;
+  // Disponible del mes: lo que queda del mes seleccionado, sin arrastrar meses anteriores.
+  // Se restan los ahorros del mes porque esa plata deja de estar disponible para gastar.
+  const saldo = totalIngreso - totalGasto - totalAhorroMes;
 
   document.getElementById('d-gasto').textContent = '$' + totalGasto.toLocaleString('es-AR');
   document.getElementById('d-ingreso').textContent = '$' + totalIngreso.toLocaleString('es-AR');
@@ -3525,14 +3275,7 @@ function renderDashboard() {
 
   // Saldo sub label
   const subEl = document.getElementById('d-saldo-sub');
-  if (totalSaldoInicial > 0 && totalAhorroAcumulado > 0)
-    subEl.textContent = 'acumulado total (con saldo inicial y ahorro)';
-  else if (totalSaldoInicial > 0)
-    subEl.textContent = 'acumulado total (con saldo inicial)';
-  else if (totalAhorroAcumulado > 0)
-    subEl.textContent = 'acumulado total (con ahorro)';
-  else
-    subEl.textContent = 'acumulado total';
+  if (subEl) subEl.textContent = totalAhorroMes > 0 ? 'ingresos - gastos - ahorro del mes' : 'ingresos - gastos del mes';
 
   // Saldo color
   const saldoEl = document.getElementById('d-saldo');
@@ -3546,37 +3289,11 @@ function renderDashboard() {
   if (!sorted.length) { catEl.innerHTML = '<div class="empty"><div class="icon">🪣</div>Sin gastos este mes</div>'; }
   else {
     const max = sorted[0][1];
-    const totalCat = sorted.reduce((s,[,v]) => s+v, 0);
-    // Paleta de rojos con distintas intensidades según posición
-    const redPalette = [
-      'linear-gradient(90deg,#ff3a4a,#ff6b6b)',
-      'linear-gradient(90deg,#e8354a,#ff5566)',
-      'linear-gradient(90deg,#d12e40,#f04a5e)',
-      'linear-gradient(90deg,#bb2838,#e04055)',
-      'linear-gradient(90deg,#a52232,#cc3a4e)',
-      'linear-gradient(90deg,#961e2c,#bb3348)',
-    ];
-    catEl.innerHTML = sorted.map(([cat, v], i) => {
-      const pct = (v / max * 100).toFixed(1);
-      const pctTotal = (v / totalCat * 100).toFixed(0);
-      const color = redPalette[Math.min(i, redPalette.length - 1)];
-      return `
+    catEl.innerHTML = sorted.map(([cat, v]) => `
       <div class="bar-item">
-        <div class="bar-label">
-          <span style="display:flex;align-items:center;gap:8px">
-            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color.includes('gradient') ? '#ff4455' : color};flex-shrink:0"></span>
-            ${cat}
-          </span>
-          <span style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:0.68rem;color:var(--accent2);font-weight:700;background:rgba(255,79,94,0.12);border-radius:6px;padding:2px 7px">${pctTotal}%</span>
-            <span style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--accent2)">$${v.toLocaleString('es-AR')}</span>
-          </span>
-        </div>
-        <div class="bar-track">
-          <div class="bar-fill" style="width:${pct}%;background:${color}"></div>
-        </div>
-      </div>`;
-    }).join('');
+        <div class="bar-label"><span>${cat}</span><span>$${v.toLocaleString('es-AR')}</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(v/max*100).toFixed(1)}%"></div></div>
+      </div>`).join('');
   }
 
   // Gráfico evolución mensual (SVG, 6 meses)
@@ -3869,7 +3586,16 @@ function _renderSaldoPanel(ym) {
   const fmt = v => '$' + Math.abs(v).toLocaleString('es-AR');
   const el = document.getElementById('panel-saldo-body');
 
-  // Totales acumulados historicos
+  // Disponible del mes seleccionado
+  const itemsMes = gastosDelMes(ym);
+  const totalGastosMes = itemsMes.reduce((s, x) => s + x.monto, 0);
+  const ingresosMes = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym);
+  const totalIngresosMes = ingresosMes.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
+  const ahorrosMes = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym);
+  const totalAhorroMes = ahorrosMes.reduce((s, a) => s + a.monto, 0);
+  const saldoMes = totalIngresosMes - totalGastosMes - totalAhorroMes;
+
+  // Balance historico, solo informativo
   const totalIngresosAcum = ingresos.reduce((s,i) => s+(i.totalARS ?? i.total ?? 0), 0);
   const totalGastosAcum = (() => {
     const hoy = new Date().toISOString().slice(0,7);
@@ -3890,19 +3616,18 @@ function _renderSaldoPanel(ym) {
   })();
   const totalAhorroAcum = ahorros.reduce((s,a) => s+a.monto, 0);
   const totalSaldoIni   = Object.values(saldosIniciales || {}).reduce((s,v) => s+v, 0);
-  const saldo           = totalIngresosAcum + totalSaldoIni - totalGastosAcum - totalAhorroAcum;
+  const balanceHistorico = totalIngresosAcum + totalSaldoIni - totalGastosAcum - totalAhorroAcum;
 
-  const maxVal = Math.max(totalIngresosAcum + totalSaldoIni, 1);
+  const maxVal = Math.max(totalIngresosMes, totalGastosMes, totalAhorroMes, 1);
   function barra(v, color) {
     const pct = Math.min((v / maxVal * 100), 100).toFixed(1);
     return '<div class="bar-track" style="height:8px;margin-top:4px"><div class="bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>';
   }
 
   const filas = [
-    { label: '💵 Ingresos acumulados', v: totalIngresosAcum, color: 'var(--accent)',  signo: '+' },
-    { label: '🏁 Saldo inicial',        v: totalSaldoIni,     color: 'var(--accent3)', signo: '+' },
-    { label: '💸 Gastos acumulados',    v: totalGastosAcum,   color: 'var(--accent2)', signo: '−' },
-    { label: '🏦 Ahorro acumulado',     v: totalAhorroAcum,   color: 'var(--accent4)', signo: '−' },
+    { label: '💵 Ingresos del mes', v: totalIngresosMes, color: 'var(--accent)',  signo: '+' },
+    { label: '💸 Gastos del mes',   v: totalGastosMes,   color: 'var(--accent2)', signo: '−' },
+    { label: '🏦 Ahorro del mes',   v: totalAhorroMes,   color: 'var(--accent4)', signo: '−' },
   ];
 
   let html = '<div style="padding:1rem 1.4rem;display:flex;flex-direction:column;gap:12px">';
@@ -3915,11 +3640,17 @@ function _renderSaldoPanel(ym) {
   });
   html += '</div>';
 
-  const saldoColor = saldo >= 0 ? 'var(--accent)' : 'var(--accent2)';
-  const saldoLabel = saldo >= 0 ? '✓ Saldo disponible total' : '⚠ Déficit acumulado';
+  const saldoColor = saldoMes >= 0 ? 'var(--accent)' : 'var(--accent2)';
+  const saldoLabel = saldoMes >= 0 ? '✓ Disponible del mes' : '⚠ Déficit del mes';
   html += '<div class="panel-total" style="border-top:2px solid var(--border)">' +
     '<span>' + saldoLabel + '</span>' +
-    '<span style="color:' + saldoColor + ';font-size:1rem">' + (saldo < 0 ? '−' : '') + fmt(saldo) + '</span>' +
+    '<span style="color:' + saldoColor + ';font-size:1rem">' + (saldoMes < 0 ? '−' : '') + fmt(saldoMes) + '</span>' +
+    '</div>';
+
+  const histColor = balanceHistorico >= 0 ? 'var(--accent)' : 'var(--accent2)';
+  html += '<div class="panel-total" style="border-top:1px solid var(--border);opacity:.82">' +
+    '<span>Balance histórico informativo</span>' +
+    '<span style="color:' + histColor + '">' + (balanceHistorico < 0 ? '−' : '') + fmt(balanceHistorico) + '</span>' +
     '</div>';
 
   el.innerHTML = html;
