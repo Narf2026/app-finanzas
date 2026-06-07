@@ -1438,7 +1438,13 @@ tr:hover td { background: rgba(255,255,255,.035); }
     flex: 1;
   }
 
-  /* ── PENDIENTES ── */
+  /* Selects en paneles de cuenta: no heredar min-height forzado */
+  div[id^="mover-"] select,
+  div[id^="ajuste-"] select {
+    min-height: 46px !important;
+    width: 100% !important;
+    display: block !important;
+  }
   .p-item { border-radius: 16px; padding: .8rem .9rem; gap: .7rem; width: 100%; box-sizing: border-box; overflow: hidden; }
   .p-desc { font-size: .83rem; white-space: normal !important; word-break: break-word; }
   .p-body { min-width: 0; flex: 1; overflow: hidden; }
@@ -2118,7 +2124,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
   <div class="table-wrap" style="margin-bottom:1.2rem">
     <div class="table-header"><h3>💰 SALDO POR CUENTA</h3></div>
     <div style="padding:0.6rem 1.2rem;background:var(--surface2);font-size:0.7rem;color:var(--text3);border-bottom:1px solid var(--border)">
-      Calculado desde tus ingresos, gastos en efectivo/débito y ahorros registrados. Usá <strong style="color:var(--accent3)">Ajustar</strong> si el número no coincide con la realidad.
+      Saldo acumulado desde tus registros + saldo inicial configurado en Ajustes. Usá <strong style="color:var(--accent3)">Ajustar</strong> para corregir diferencias.
     </div>
     <div id="saldo-cuentas-body"></div>
   </div>
@@ -3258,16 +3264,18 @@ function renderSaldoCuentas() {
   const el = document.getElementById('saldo-cuentas-body');
   if (!el) return;
 
-  // Cuentas disponibles: Efectivo + billeteras + débito
+  // Cuentas: Efectivo + billeteras + débito
   const cuentas = ['Efectivo'];
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => cuentas.push(t.label || t.banco || t.nombre));
   tarjetas.filter(t => t.tipo === 'debito').forEach(t => cuentas.push(t.label || ('CA ' + t.banco)));
 
-  // Calcular saldo por cuenta
-  const saldos = {};
-  cuentas.forEach(c => { saldos[c] = { ars: 0, usd: 0 }; });
+  const mediosReales = new Set(cuentas);
 
-  // + Ingresos
+  // Saldo: arranca desde saldo inicial configurado en Ajustes
+  const saldos = {};
+  cuentas.forEach(c => { saldos[c] = { ars: saldosIniciales[c] || 0, usd: 0 }; });
+
+  // + Ingresos acumulados (todos los meses)
   ingresos.forEach(i => {
     const dest = i.sueldoDestino || '';
     if (dest && saldos[dest] !== undefined && i.sueldo > 0) {
@@ -3283,46 +3291,26 @@ function renderSaldoCuentas() {
     });
   });
 
-  // − Gastos pagados con efectivo/débito/billetera SOLAMENTE
-  // Cuotas van siempre con crédito → no afectan saldo de cuenta
-  const mediosReales = new Set(['Efectivo']);
-  tarjetas.filter(t => t.tipo === 'billetera').forEach(t => mediosReales.add(t.label || t.banco || t.nombre));
-  tarjetas.filter(t => t.tipo === 'debito').forEach(t => mediosReales.add(t.label || ('CA ' + t.banco)));
-
+  // − Gastos pagados con medios reales (no cuotas = crédito)
   gastos.forEach(g => {
-    if (g.cuota) return; // cuotas = crédito, no salen de cuenta
+    if (g.cuota) return;
     const medio = g.medio || '';
     if (medio && mediosReales.has(medio) && saldos[medio] !== undefined) {
       saldos[medio].ars -= g.monto;
     }
   });
 
-  // − Ahorros depositados
+  // − Base de ahorros depositados desde cada cuenta
   ahorros.forEach(a => {
     const orig = a.origen || '';
     if (orig && saldos[orig] !== undefined) {
-      const moneda = a.moneda || 'ARS';
       const base = a.monto - (a.rendimientos || 0);
-      if (moneda === 'ARS') saldos[orig].ars -= base;
+      if ((a.moneda || 'ARS') === 'ARS') saldos[orig].ars -= base;
       else saldos[orig].usd -= base;
     }
   });
 
-  // + Saldo inicial
-  Object.entries(saldosIniciales || {}).forEach(([label, monto]) => {
-    if (saldos[label] !== undefined) saldos[label].ars += monto;
-  });
-
-  // + Ajustes manuales
-  (window._ajustesCuentas || []).forEach(a => {
-    if (saldos[a.cuenta] !== undefined) {
-      if (a.moneda === 'USD') saldos[a.cuenta].usd += a.monto;
-      else saldos[a.cuenta].ars += a.monto;
-    }
-  });
-
-  const cuentasConDatos = cuentas.filter(c => saldos[c].ars !== 0 || saldos[c].usd !== 0 || true);
-
+  // Construir options de destino para panel Mover
   const opcionesDestino = (excluir) => cuentas
     .filter(c => c !== excluir)
     .map(c => {
@@ -3336,16 +3324,14 @@ function renderSaldoCuentas() {
     const arsColor = ars < 0 ? 'var(--accent2)' : 'var(--accent)';
     const usdColor = usd < 0 ? 'var(--accent2)' : 'var(--accent3)';
     const safeC = c.replace(/[^a-zA-Z0-9_-]/g, '_');
-
     return `
     <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)">
-      <!-- Fila principal: cuenta + saldo + botones -->
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
           <span style="font-size:1.3rem;flex-shrink:0">${icon}</span>
           <div>
             <div style="font-size:0.88rem;font-weight:700;color:var(--text2)">${c}</div>
-            ${ars !== 0 ? `<div style="font-family:'DM Mono',monospace;font-weight:700;color:${arsColor};font-size:1rem">$${ars.toLocaleString('es-AR')}</div>` : '<div style="font-family:\'DM Mono\',monospace;color:var(--text3);font-size:0.85rem">$0</div>'}
+            <div style="font-family:'DM Mono',monospace;font-weight:700;color:${arsColor};font-size:1rem">$${ars.toLocaleString('es-AR')}</div>
             ${usd !== 0 ? `<div style="font-family:'DM Mono',monospace;font-weight:700;color:${usdColor};font-size:0.82rem">u$s ${usd.toLocaleString('es-AR')}</div>` : ''}
           </div>
         </div>
@@ -3354,29 +3340,27 @@ function renderSaldoCuentas() {
           <button onclick="toggleCuentaPanel('mover-${safeC}')" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.4);color:var(--accent4);border-radius:10px;padding:6px 10px;font-size:0.75rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600">↔ Mover</button>
         </div>
       </div>
-
-      <!-- Panel: Ajustar saldo -->
+      <!-- Panel Ajustar -->
       <div id="ajuste-${safeC}" style="display:none;margin-top:10px;flex-direction:column;gap:8px;background:rgba(245,184,46,0.06);border:1px solid rgba(245,184,46,0.2);border-radius:12px;padding:12px">
         <div style="font-size:0.72rem;color:var(--accent3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Ajustar saldo de ${c}</div>
-        <div style="font-size:0.72rem;color:var(--text3)">Ingresá el saldo real actual. La diferencia se registra como ajuste.</div>
+        <div style="font-size:0.72rem;color:var(--text3)">Ingresá el saldo real que tenés ahora. La diferencia se registra automáticamente.</div>
         <input id="ajuste-input-${safeC}" type="number" placeholder="Saldo real actual ($)" step="0.01"
           style="background:var(--bg);border:1px solid var(--accent3);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.9rem;padding:10px 14px;outline:none;width:100%;box-sizing:border-box">
         <button onclick="aplicarAjusteCuenta('${c}', '${safeC}', ${ars})"
           style="background:var(--accent3);border:none;color:#0d0f14;border-radius:10px;padding:10px;font-size:0.85rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700">✓ Aplicar ajuste</button>
       </div>
-
-      <!-- Panel: Mover dinero -->
+      <!-- Panel Mover -->
       <div id="mover-${safeC}" style="display:none;margin-top:10px;flex-direction:column;gap:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:12px">
         <div style="font-size:0.72rem;color:var(--accent4);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Mover dinero desde ${c}</div>
         <input id="mover-input-${safeC}" type="number" placeholder="Monto a mover ($)" min="0" step="0.01"
           style="background:var(--bg);border:1px solid var(--accent4);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.9rem;padding:10px 14px;outline:none;width:100%;box-sizing:border-box">
         <select id="mover-destino-${safeC}"
-          style="background:var(--bg);border:1px solid var(--accent4);border-radius:10px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.88rem;padding:10px 14px;outline:none;width:100%;box-sizing:border-box">
-          <option value="">Seleccionar destino...</option>
+          style="background:var(--bg);border:1px solid var(--accent4);border-radius:10px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.88rem;padding:10px 14px;outline:none;width:100%;box-sizing:border-box;min-height:46px">
+          <option value="">→ ¿A dónde?</option>
           ${opcionesDestino(c)}
         </select>
         <button onclick="moverEntreCuentas('${c}', '${safeC}')"
-          style="background:var(--accent4);border:none;color:#fff;border-radius:10px;padding:10px;font-size:0.85rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700">✓ Confirmar movimiento</button>
+          style="background:var(--accent4);border:none;color:#fff;border-radius:10px;padding:10px;font-size:0.85rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700">✓ Confirmar</button>
       </div>
     </div>`;
   }).join('');
@@ -3386,11 +3370,15 @@ function toggleCuentaPanel(id) {
   const el = document.getElementById(id);
   if (!el) return;
   const visible = el.style.display !== 'none';
-  // Cerrar todos los paneles abiertos
-  document.querySelectorAll('[id^="ajuste-"], [id^="mover-"]').forEach(p => p.style.display = 'none');
+  // Cerrar solo los divs de panel, no los selects ni inputs con mismo prefijo
+  document.querySelectorAll('div[id^="ajuste-"], div[id^="mover-"]').forEach(p => {
+    if (p.id !== id) p.style.display = 'none';
+  });
   if (!visible) {
     el.style.display = 'flex';
-    el.querySelector('input')?.focus();
+    setTimeout(() => el.querySelector('input')?.focus(), 50);
+  } else {
+    el.style.display = 'none';
   }
 }
 
