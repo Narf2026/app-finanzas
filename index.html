@@ -2151,18 +2151,14 @@ window.loadUserData = async function(uid) {
         tarjetas = d.tarjetas;
         localStorage.setItem('gf_tarjetas', JSON.stringify(tarjetas));
       }
-      // Cargar pendientes desde Firestore; si no hay, migrar desde localStorage
-      if (d.pendientes && d.pendientes.length > 0) {
+      // Cargar pendientes desde Firestore; si el campo existe usarlo (aunque esté vacío)
+      if (Array.isArray(d.pendientes)) {
         pendientes = d.pendientes;
       } else {
         // Migración: si hay datos en localStorage, subirlos a Firestore
         const local = JSON.parse(localStorage.getItem('gf_pendientes') || '[]');
-        if (local.length > 0) {
-          pendientes = local;
-          save(); // subir a Firestore
-        } else {
-          pendientes = [];
-        }
+        pendientes = local;
+        if (local.length > 0) save(); // subir a Firestore
       }
     } else {
       gastos = []; ingresos = []; ahorros = []; saldosIniciales = {};
