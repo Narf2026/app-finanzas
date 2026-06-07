@@ -3310,7 +3310,7 @@ function renderSaldoCuentas() {
   const el = document.getElementById('saldo-cuentas-body');
   if (!el) return;
 
-  // Cuentas: Efectivo + billeteras + débito + Sin asignar
+  // Cuentas: Efectivo + billeteras + débito
   const cuentas = ['Efectivo'];
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => cuentas.push(t.label || t.banco || t.nombre));
   tarjetas.filter(t => t.tipo === 'debito').forEach(t => {
@@ -3318,6 +3318,31 @@ function renderSaldoCuentas() {
     if (lbl.startsWith('Débito ')) lbl = 'CA ' + lbl.slice(7);
     cuentas.push(lbl);
   });
+
+  // Función que normaliza el destino guardado al nombre actual de la cuenta
+  // Ej: "Débito Santander" → "CA Santander"
+  const normalizarDestino = (dest) => {
+    if (!dest) return '';
+    // Buscar coincidencia exacta primero
+    if (cuentas.includes(dest)) return dest;
+    // Si empieza con "Débito ", intentar con "CA "
+    if (dest.startsWith('Débito ')) {
+      const alt = 'CA ' + dest.slice(7);
+      if (cuentas.includes(alt)) return alt;
+    }
+    // Si empieza con "CA ", intentar con "Débito "
+    if (dest.startsWith('CA ')) {
+      const alt = 'Débito ' + dest.slice(3);
+      if (cuentas.includes(alt)) return alt;
+    }
+    // Buscar por banco parcial
+    const match = cuentas.find(c => {
+      const cn = c.toLowerCase().replace(/^ca |^débito /i, '');
+      const dn = dest.toLowerCase().replace(/^ca |^débito /i, '');
+      return cn === dn;
+    });
+    return match || dest;
+  };
 
   const mediosReales = new Set(cuentas);
 
@@ -3329,14 +3354,14 @@ function renderSaldoCuentas() {
 
   // + Ingresos acumulados (todos los meses)
   ingresos.forEach(i => {
-    const dest = i.sueldoDestino || '';
+    const dest = normalizarDestino(i.sueldoDestino || '');
     if (i.sueldo > 0) {
       const key = (dest && saldos[dest] !== undefined) ? dest : '__sinasignar__';
       if ((i.sueldoMoneda || 'ARS') === 'ARS') saldos[key].ars += i.sueldo;
       else saldos[key].usd += i.sueldo;
     }
     (i.otros || []).forEach(o => {
-      const d = o.destino || '';
+      const d = normalizarDestino(o.destino || '');
       const key = (d && saldos[d] !== undefined) ? d : '__sinasignar__';
       if ((o.moneda || 'ARS') === 'ARS') saldos[key].ars += o.monto;
       else saldos[key].usd += o.monto;
@@ -3346,20 +3371,21 @@ function renderSaldoCuentas() {
   // − Gastos pagados con medios reales (no cuotas = crédito)
   gastos.forEach(g => {
     if (g.cuota) return;
-    const medio = g.medio || '';
-    if (medio && mediosReales.has(medio) && saldos[medio] !== undefined) {
+    const medio = normalizarDestino(g.medio || '');
+    if (medio && saldos[medio] !== undefined) {
       saldos[medio].ars -= g.monto;
     }
   });
 
   // + Ajustes manuales (array dedicado, no afecta Dashboard)
   (ajustesCuentas || []).forEach(a => {
-    if (saldos[a.cuenta] !== undefined) saldos[a.cuenta].ars += a.monto;
+    const cuenta = normalizarDestino(a.cuenta);
+    if (saldos[cuenta] !== undefined) saldos[cuenta].ars += a.monto;
   });
 
   // − Base de ahorros depositados desde cada cuenta
   ahorros.forEach(a => {
-    const orig = a.origen || '';
+    const orig = normalizarDestino(a.origen || '');
     if (orig && saldos[orig] !== undefined) {
       const base = a.monto - (a.rendimientos || 0);
       if ((a.moneda || 'ARS') === 'ARS') saldos[orig].ars -= base;
