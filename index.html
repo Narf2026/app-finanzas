@@ -1147,7 +1147,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
    MOBILE OPTIMIZADO — App nativa
    ============================================= */
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) {
   /* ── BASE ── */
   body { font-size: 13px; -webkit-text-size-adjust: 100%; }
   *, *::before, *::after { box-sizing: border-box; }
@@ -1397,8 +1397,9 @@ tr:hover td { background: rgba(255,255,255,.035); }
   }
 
   /* ── PENDIENTES ── */
-  .p-item { border-radius: 16px; padding: .8rem .9rem; gap: .7rem; }
-  .p-desc { font-size: .83rem; }
+  .p-item { border-radius: 16px; padding: .8rem .9rem; gap: .7rem; width: 100%; box-sizing: border-box; overflow: hidden; }
+  .p-desc { font-size: .83rem; white-space: normal !important; word-break: break-word; }
+  .p-body { min-width: 0; flex: 1; overflow: hidden; }
 
   /* ── NOTIF & MODAL ── */
   .notif {
@@ -1423,13 +1424,29 @@ tr:hover td { background: rgba(255,255,255,.035); }
   }
   .cuota-toggle label { font-size: .82rem; }
   /* Excepción: el checkbox del toggle de cuotas no debe heredar el ancho/alto forzado */
-  .cuota-toggle input[type=checkbox] {
-    width: 36px !important;
-    min-height: 20px !important;
-    height: 20px !important;
-    flex-shrink: 0;
-    border-radius: 99px !important;
+  .cuota-toggle input[type=checkbox],
+  #tc-productos-lista input[type=checkbox],
+  .p-check {
+    width: 22px !important;
+    min-height: 22px !important;
+    height: 22px !important;
+    flex-shrink: 0 !important;
+    border-radius: 6px !important;
     padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+  /* Labels de productos: no cortar el texto */
+  #tc-productos-lista label {
+    white-space: normal !important;
+    word-break: break-word;
+    font-size: 0.88rem !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+  }
+  /* Detalle cierre/límite en columna en mobile */
+  #tc-productos-lista .form-group {
+    min-width: 0 !important;
+    flex: 1 !important;
   }
   /* Los radio buttons tampoco */
   input[type=radio] {
@@ -1581,7 +1598,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
   .app-nav .nav-icon svg { width: 17px; height: 17px; }
   .app-nav .nav-add .nav-icon { width: 30px; height: 30px; border-radius: 12px; }
 }
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) {
   nav.app-nav {
     overflow: hidden;
     padding-top: 3px;
@@ -2137,19 +2154,8 @@ tr:hover td { background: rgba(255,255,255,.035); }
       <label>Monto estimado ($)</label>
       <input type="number" id="p-monto" placeholder="Opcional" min="0" step="0.01">
     </div>
-
-    <div class="form-group">
-      <label>Vencimiento</label>
-      <input type="date" id="p-vence">
-    </div>
-    <div class="form-group">
-      <label>Prioridad</label>
-      <select id="p-prio">
-        <option value="normal">Normal</option>
-        <option value="alta">Alta</option>
-        <option value="baja">Baja</option>
-      </select>
-    </div>
+    <input type="hidden" id="p-vence" value="">
+    <input type="hidden" id="p-prio" value="normal">
     <div class="form-group" style="align-self:flex-end">
       <button class="btn-add" onclick="addPendiente()">+ Agregar</button>
     </div>
