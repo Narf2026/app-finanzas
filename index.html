@@ -560,7 +560,7 @@ onAuthStateChanged(auth, async (user) => {
   .cuota-toggle input[type=checkbox]:checked::after {
     transform: translateX(16px);
   }
-  .cuota-toggle label { font-size: 0.8rem; color: var(--text2); cursor: pointer; }
+  .cuota-toggle label { font-size: 0.8rem; color: var(--text2); cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 500; }
 
 
   /* PENDIENTES */
@@ -1391,7 +1391,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
   #tab-ingresos td:last-child,
   #tab-ahorro td:last-child {
     width: 62px !important;
-    padding: 4px 4px !important;
+    padding: 4px 6px 4px 2px !important;
     white-space: nowrap;
   }
   /* Monto: no se corta */
@@ -1465,7 +1465,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
     border-top: 2px solid var(--accent-soft);
   }
   .cuota-toggle label { font-size: .82rem; }
-  /* Excepción: el checkbox del toggle de cuotas = pill switch, NO cuadrado */
+  /* Toggle de cuotas: pill switch — anula TODOS los overrides globales */
   .cuota-toggle input[type=checkbox] {
     width: 36px !important;
     min-height: 20px !important;
@@ -1474,10 +1474,21 @@ tr:hover td { background: rgba(255,255,255,.035); }
     border-radius: 99px !important;
     padding: 0 !important;
     box-sizing: border-box !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: var(--border) !important;
+    position: relative !important;
+  }
+  .cuota-toggle input[type=checkbox]:checked {
+    background: var(--accent) !important;
   }
   /* Label del toggle: texto normal, no uppercase */
-  .cuota-toggle label {
-    font-size: 0.88rem !important;
+  .cuota-toggle label,
+  .form-group .cuota-toggle label {
+    font-size: 0.9rem !important;
     text-transform: none !important;
     letter-spacing: 0 !important;
     color: var(--text2) !important;
@@ -3240,7 +3251,7 @@ function renderIngresosTable() {
     ? `<span style="color:var(--accent3);font-family:'DM Mono',monospace">u$s ${v.toLocaleString('es-AR')}</span>`
     : `<span class="monto">$${v.toLocaleString('es-AR')}</span>`;
   el.innerHTML = `<table>
-    <thead><tr><th>Período</th><th>Detalle</th><th class="col-hide-mobile">Destino</th><th class="col-hide-mobile">Otros</th><th>Total ARS</th><th class="col-hide-mobile">Total USD</th><th></th></tr></thead>
+    <thead><tr><th>Período</th><th>Detalle</th><th class="col-hide-mobile">Destino</th><th class="col-hide-mobile">Otros</th><th class="col-hide-mobile">Total ARS</th><th class="col-hide-mobile">Total USD</th><th></th></tr></thead>
     <tbody>
       ${list.map(i => {
         const otros = i.otros || [];
@@ -3248,12 +3259,9 @@ function renderIngresosTable() {
           ? otros.map(o => '<div style="font-size:0.75rem;color:var(--text2)">' + o.nombre + (o.destino ? ' → <span style="color:var(--accent4)">' + o.destino + '</span>' : '') + ': ' + (o.moneda==='USD'?'u$s':'$') + o.monto.toLocaleString('es-AR') + '</div>').join('')
           : (i.extra > 0 ? `<div style="font-size:0.75rem;color:var(--text2)">Extra: $${i.extra.toLocaleString('es-AR')}</div>` : '—');
         const destinoHtml = i.sueldoDestino ? `<span class="badge badge-medio">${i.sueldoDestino}</span>` : '—';
-        // uid: identificador seguro para IDs del DOM (sin caracteres problemáticos)
         const uid = i.uid || i.key;
         const safeUid = String(uid).replace(/[^a-zA-Z0-9_-]/g, '_');
-        // Asegurar que el registro tenga uid persistente
         if (!i.uid) i.uid = safeUid;
-        // Detalle mobile: tipo + destino (sin monto, va en Total ARS)
         const destinoIcono = i.sueldoDestino
           ? (i.sueldoDestino === 'Efectivo' ? '💵' : tarjetas.find(t=>t.tipo==='billetera'&&(t.label||t.banco||t.nombre)===i.sueldoDestino) ? '📱' : '🏦')
           : '💵';
@@ -3264,18 +3272,21 @@ function renderIngresosTable() {
         const otrosMobile = otros.length
           ? otros.map(o => '<div style="font-size:0.75rem;color:var(--text2);margin-top:3px">✦ ' + o.nombre + (o.destino ? ' <span style="color:var(--text3)">→ ' + o.destino + '</span>' : '') + '</div>').join('')
           : '';
+        const montoMobile = (i.totalARS ?? i.total) > 0
+          ? `<div class="col-show-mobile" style="color:var(--accent);font-family:'DM Mono',monospace;font-weight:600;font-size:0.82rem;margin-top:4px">${fmtARS(i.totalARS ?? i.total)}</div>`
+          : '';
         return `
         <tr>
           <td style="white-space:nowrap">
             <div style="font-family:'DM Mono',monospace;color:var(--text2);font-size:0.82rem">${i.mes}</div>
             <div style="font-family:'DM Mono',monospace;color:var(--text3);font-size:0.72rem">${i.año}</div>
           </td>
-          <td>${tipoLabel}${otrosMobile}</td>
+          <td>${tipoLabel}${otrosMobile}${montoMobile}</td>
           <td class="col-hide-mobile">${destinoHtml}</td>
           <td class="col-hide-mobile">${otrosHtml}</td>
-          <td style="color:var(--accent);font-family:'DM Mono',monospace;font-weight:600;white-space:nowrap">${fmtARS(i.totalARS ?? i.total)}</td>
+          <td class="col-hide-mobile" style="color:var(--accent);font-family:'DM Mono',monospace;font-weight:600;white-space:nowrap">${fmtARS(i.totalARS ?? i.total)}</td>
           <td class="col-hide-mobile" style="color:var(--accent3);font-family:'DM Mono',monospace;font-weight:600">${fmtUSD(i.totalUSD ?? 0)}</td>
-          <td style="display:flex;gap:4px">
+          <td style="display:flex;gap:4px;padding-right:8px !important">
             <button class="btn-edit" onclick="toggleEditIngreso('${safeUid}')">✏</button>
             <button class="btn-del" onclick="deleteIngreso('${i.key}')">✕</button>
           </td>
