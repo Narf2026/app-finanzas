@@ -3264,7 +3264,7 @@ function renderSaldoCuentas() {
   const el = document.getElementById('saldo-cuentas-body');
   if (!el) return;
 
-  // Cuentas: Efectivo + billeteras + débito
+  // Cuentas: Efectivo + billeteras + débito + Sin asignar
   const cuentas = ['Efectivo'];
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => cuentas.push(t.label || t.banco || t.nombre));
   tarjetas.filter(t => t.tipo === 'debito').forEach(t => cuentas.push(t.label || ('CA ' + t.banco)));
@@ -3274,20 +3274,22 @@ function renderSaldoCuentas() {
   // Saldo: arranca desde saldo inicial configurado en Ajustes
   const saldos = {};
   cuentas.forEach(c => { saldos[c] = { ars: saldosIniciales[c] || 0, usd: 0 }; });
+  // Cuenta especial para ingresos sin destino asignado
+  saldos['__sinasignar__'] = { ars: 0, usd: 0 };
 
   // + Ingresos acumulados (todos los meses)
   ingresos.forEach(i => {
     const dest = i.sueldoDestino || '';
-    if (dest && saldos[dest] !== undefined && i.sueldo > 0) {
-      if ((i.sueldoMoneda || 'ARS') === 'ARS') saldos[dest].ars += i.sueldo;
-      else saldos[dest].usd += i.sueldo;
+    if (i.sueldo > 0) {
+      const key = (dest && saldos[dest] !== undefined) ? dest : '__sinasignar__';
+      if ((i.sueldoMoneda || 'ARS') === 'ARS') saldos[key].ars += i.sueldo;
+      else saldos[key].usd += i.sueldo;
     }
     (i.otros || []).forEach(o => {
       const d = o.destino || '';
-      if (d && saldos[d] !== undefined) {
-        if ((o.moneda || 'ARS') === 'ARS') saldos[d].ars += o.monto;
-        else saldos[d].usd += o.monto;
-      }
+      const key = (d && saldos[d] !== undefined) ? d : '__sinasignar__';
+      if ((o.moneda || 'ARS') === 'ARS') saldos[key].ars += o.monto;
+      else saldos[key].usd += o.monto;
     });
   });
 
@@ -3317,6 +3319,22 @@ function renderSaldoCuentas() {
       const ic = c === 'Efectivo' ? '💵' : tarjetas.find(t=>t.tipo==='billetera'&&(t.label||t.banco||t.nombre)===c) ? '📱' : '🏦';
       return `<option value="${c}">${ic} ${c}</option>`;
     }).join('');
+
+  const sinAsignar = saldos['__sinasignar__'];
+  const extraRow = (sinAsignar.ars !== 0 || sinAsignar.usd !== 0) ? `
+    <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border);background:rgba(245,184,46,0.04)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1.3rem">❓</span>
+          <div>
+            <div style="font-size:0.88rem;font-weight:700;color:var(--accent3)">Sin destino asignado</div>
+            <div style="font-size:0.68rem;color:var(--text3);margin-top:2px">Ingresos registrados sin indicar a qué cuenta</div>
+            <div style="font-family:'DM Mono',monospace;font-weight:700;color:var(--accent3);font-size:1rem">$${sinAsignar.ars.toLocaleString('es-AR')}</div>
+          </div>
+        </div>
+        <a onclick="showTab('ingresos')" style="font-size:0.72rem;color:var(--accent4);cursor:pointer;text-decoration:underline;flex-shrink:0">Asignar →</a>
+      </div>
+    </div>` : '';
 
   el.innerHTML = cuentas.map(c => {
     const { ars, usd } = saldos[c];
@@ -3363,7 +3381,7 @@ function renderSaldoCuentas() {
           style="background:var(--accent4);border:none;color:#fff;border-radius:10px;padding:10px;font-size:0.85rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700">✓ Confirmar</button>
       </div>
     </div>`;
-  }).join('');
+  }).join('') + extraRow;
 }
 
 function toggleCuentaPanel(id) {
