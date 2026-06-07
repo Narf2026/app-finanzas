@@ -1723,6 +1723,180 @@ tr:hover td { background: rgba(255,255,255,.035); }
   nav.app-nav .nav-text { font-size: .52rem; }
 }
 
+/* =========================================================
+   RESPONSIVE FIXES V3 — mobile vertical + horizontal + desktop
+   ========================================================= */
+
+/* ── AJUSTES & ADMIN: contenedor interno responsive ── */
+#tab-ajustes > div,
+#tab-admin > div {
+  padding: 2rem 1.5rem;
+}
+
+/* ── DASHBOARD: chart span-2 sólo en desktop ── */
+.chart-box[style*="grid-column: span 2"] {
+  grid-column: span 2;
+}
+
+/* ── INGRESOS: form interno inline-flex → responsive ── */
+#tab-ingresos > div > div:first-child {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 1.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── MOBILE (≤700px) ── */
+@media (max-width: 700px) {
+  /* Ajustes y Admin: padding reducido, sin max-width rígido */
+  #tab-ajustes > div,
+  #tab-admin > div {
+    padding: .85rem .85rem .5rem !important;
+    max-width: 100% !important;
+  }
+
+  /* Dashboard: gráfico mensual ocupa 1 columna */
+  .dash-grid .chart-box[style*="grid-column"] {
+    grid-column: span 1 !important;
+  }
+
+  /* Dashboard: sección cuotas sin max-width ni padding lateral */
+  #tab-dashboard > div[style*="max-width:900px"] {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin-top: .9rem !important;
+  }
+
+  /* Ingresos: form principal colapsa a columna */
+  #tab-ingresos > div > div:first-child {
+    flex-direction: column !important;
+    padding: .9rem !important;
+    gap: .75rem !important;
+    align-items: stretch !important;
+  }
+  #tab-ingresos > div > div:first-child .form-group {
+    min-width: 0 !important;
+    width: 100% !important;
+    flex: none !important;
+  }
+  /* Moneda + monto en columna */
+  #tab-ingresos .form-group div[style*="display:flex"] {
+    flex-direction: column !important;
+    gap: .5rem !important;
+  }
+  #tab-ingresos .form-group div[style*="display:flex"] select,
+  #tab-ingresos .form-group div[style*="display:flex"] input {
+    width: 100% !important;
+    flex: none !important;
+  }
+  /* Sección "Otros ingresos" header */
+  #tab-ingresos > div > div:nth-child(2) {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: .6rem !important;
+    padding: .7rem .9rem !important;
+  }
+  /* Form otros ingresos */
+  #otros-form > div {
+    flex-direction: column !important;
+    gap: .7rem !important;
+  }
+  #otros-form .form-group {
+    min-width: 0 !important;
+    flex: none !important;
+    width: 100% !important;
+  }
+  /* Botón guardar ingreso */
+  #tab-ingresos > div > div:last-child {
+    padding: .8rem .9rem !important;
+    justify-content: stretch !important;
+  }
+  #tab-ingresos > div > div:last-child .btn-add {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Ahorro: cards 2 columnas */
+  #tab-ahorro .cards { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Pendientes: filtros en fila con wrap */
+  #tab-pendientes > div[style*="display:flex"] {
+    flex-wrap: wrap !important;
+  }
+
+  /* Admin: botones diagnóstico en columna */
+  #tab-admin div[style*="display:flex;gap:8px;flex-wrap:wrap"] {
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+  #tab-admin .btn-export {
+    display: block !important;
+    width: 100% !important;
+    text-align: left !important;
+  }
+
+  /* Saldo por cuenta: tabla no cortada */
+  #saldo-cuentas-body table { table-layout: auto; }
+  #saldo-cuentas-body td { font-size: .72rem; padding: 7px 8px; }
+
+  /* Fondos body */
+  #fondos-body table { table-layout: auto; }
+  #fondos-body td { font-size: .72rem; padding: 7px 8px; }
+}
+
+/* ── LANDSCAPE PHONE (ancho ≥501px y alto ≤500px) ── */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Nav más compacta */
+  nav.app-nav {
+    padding-top: 2px !important;
+    padding-bottom: calc(2px + env(safe-area-inset-bottom)) !important;
+  }
+  nav.app-nav button {
+    padding: 2px 1px 3px !important;
+    gap: 1px !important;
+  }
+  nav.app-nav .nav-icon {
+    width: 26px !important;
+    height: 26px !important;
+  }
+  nav.app-nav .nav-text { font-size: .48rem !important; }
+  nav.app-nav .nav-add .nav-icon { width: 32px !important; height: 32px !important; }
+
+  /* Main: padding inferior menor */
+  main { padding-bottom: calc(68px + env(safe-area-inset-bottom)) !important; }
+  /* Notif más arriba */
+  .notif { bottom: calc(72px + env(safe-area-inset-bottom)) !important; }
+
+  /* Cards 2 columnas también en landscape */
+  .cards { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+  /* Formularios en 2 columnas en landscape */
+  .form-grid, .ingreso-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Page title más chico */
+  .page-title { font-size: 1.2rem !important; margin-bottom: .75rem !important; }
+}
+
+/* ── TABLET (701px–1024px) ── */
+@media (min-width: 701px) and (max-width: 1024px) {
+  main { padding: 1.5rem 1.2rem; max-width: 100%; }
+  .cards { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .form-grid, .ingreso-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .dash-grid { grid-template-columns: 1fr 1fr; }
+  .chart-box[style*="grid-column: span 2"] { grid-column: span 2 !important; }
+  #tab-ajustes > div, #tab-admin > div { max-width: 100%; padding: 1.5rem 1.2rem; }
+}
+
+/* ── DESKTOP (>1024px) ── */
+@media (min-width: 1025px) {
+  /* Ajustes y Admin con padding normal, centrados */
+  #tab-ajustes > div { max-width: 900px; margin: 0 auto; padding: 2rem 0; }
+  #tab-admin > div  { max-width: 1100px; margin: 0 auto; padding: 2rem 0; }
+  .dash-grid { grid-template-columns: 1fr 1fr; }
+  .chart-box[style*="grid-column: span 2"] { grid-column: span 2 !important; }
+}
+
 </style>
 </head>
 <body>
@@ -2296,8 +2470,6 @@ tr:hover td { background: rgba(255,255,255,.035); }
   <div id="pendientes-list"></div>
 </section>
 
-</main>
-
 <!-- AJUSTES -->
 <section id="tab-ajustes">
   <div style="max-width:900px;margin:0 auto;padding:2rem 1.5rem">
@@ -2397,6 +2569,8 @@ tr:hover td { background: rgba(255,255,255,.035); }
     </div>
   </div>
 </section>
+
+</main>
 
 <div class="notif" id="notif">✓ <span id="notif-msg"></span></div>
 
