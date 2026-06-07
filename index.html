@@ -939,7 +939,12 @@ onAuthStateChanged(auth, async (user) => {
   .btn-logout:hover { border-color: var(--accent2); color: var(--accent2); }
 
   /* EDIT ROW */
-  .edit-row td { background: var(--surface2); padding: 10px 10px !important; }
+  .edit-row td {
+    background: var(--surface2);
+    padding: 10px 10px !important;
+    border-top: 2px solid var(--accent) !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+  }
   .edit-input {
     background: var(--bg);
     border: 1px solid var(--accent);
@@ -1307,6 +1312,14 @@ tr:hover td { background: rgba(255,255,255,.035); }
     -webkit-overflow-scrolling: touch;
     width: 100%;
   }
+  /* Ajustes: el edit-row necesita espacio completo, no cortarse */
+  #tc-lista {
+    overflow: visible !important;
+  }
+  #tc-lista table {
+    overflow: visible !important;
+    width: 100%;
+  }
   .table-wrap > div:first-child,
   .table-header {
     flex-direction: column; align-items: flex-start;
@@ -1368,6 +1381,20 @@ tr:hover td { background: rgba(255,255,255,.035); }
   /* ── AJUSTES: tabla de tarjetas ── */
   #tc-lista table { table-layout: auto; }
   #tc-lista td:last-child { width: 58px; }
+  /* El edit panel no debe cortarse — la tabla permite overflow visible en el row */
+  #tc-lista { overflow: visible !important; }
+  #tc-lista table { overflow: visible !important; }
+  #tc-lista .edit-row td { 
+    padding: 12px 10px !important;
+    overflow: visible !important;
+  }
+  #tc-lista .edit-panel-body .edit-panel-row {
+    gap: 8px;
+  }
+  #tc-lista .edit-panel-body .edit-panel-row .edit-input {
+    min-width: 0;
+    flex: 1;
+  }
 
   /* ── PENDIENTES ── */
   .p-item { border-radius: 16px; padding: .8rem .9rem; gap: .7rem; }
@@ -1383,6 +1410,17 @@ tr:hover td { background: rgba(255,255,255,.035); }
 
   /* ── MISC ── */
   #otros-form > div { flex-direction: column; }
+
+  /* ── INGRESOS: separación formulario / tabla ── */
+  #tab-ingresos .ingreso-grid,
+  #tab-ingresos > div:first-of-type {
+    margin-bottom: 0 !important;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  #tab-ingresos .table-wrap {
+    margin-top: 1.4rem !important;
+    border-top: 2px solid var(--accent-soft);
+  }
   .cuota-toggle label { font-size: .82rem; }
   /* Excepción: el checkbox del toggle de cuotas no debe heredar el ancho/alto forzado */
   .cuota-toggle input[type=checkbox] {
@@ -1983,14 +2021,14 @@ tr:hover td { background: rgba(255,255,255,.035); }
     <div id="otros-pendientes"></div>
 
     <!-- Fila: botón guardar todo -->
-    <div style="padding:1rem 1.4rem;display:flex;justify-content:flex-end;background:var(--surface2)">
+    <div style="padding:1rem 1.4rem;display:flex;justify-content:flex-end;background:var(--surface2);border-radius:0 0 var(--radius) var(--radius)">
       <button class="btn-add" onclick="addIngreso()" style="padding:10px 28px;font-size:0.88rem">
         ✓ Guardar ingreso del mes
       </button>
     </div>
   </div>
 
-  <div class="table-wrap">
+  <div class="table-wrap" style="margin-top:1.2rem">
     <div class="table-header"><h3>HISTORIAL DE INGRESOS</h3></div>
     <div id="ingresos-table-body"></div>
   </div>
@@ -2230,6 +2268,23 @@ tr:hover td { background: rgba(255,255,255,.035); }
     <div class="table-wrap" style="max-width:600px">
       <div class="table-header"><h3>EMAILS HABILITADOS PARA REGISTRARSE</h3></div>
       <div id="admin-email-list"></div>
+    </div>
+
+    <!-- Diagnóstico de datos -->
+    <div style="margin-top:2rem;max-width:600px">
+      <div class="table-header" style="border-radius:var(--radius) var(--radius) 0 0"><h3>🔍 DIAGNÓSTICO DE DATOS EN FIRESTORE</h3></div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:1rem">
+        <p style="font-size:0.78rem;color:var(--text3);margin-bottom:1rem">Lee directamente Firestore para cada usuario y muestra cuántos registros tiene guardados.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem">
+          <button class="btn-add" style="padding:8px 16px;font-size:0.8rem" onclick="diagUsuario(window._currentUser?.uid, 'pachadofran@gmail.com')">🔍 Ver mis datos</button>
+        </div>
+        <div id="diag-result" style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text2);white-space:pre-wrap;background:var(--bg);border-radius:10px;padding:1rem;min-height:60px"></div>
+        <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-export" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent4);color:var(--accent4)" onclick="recuperarPendientes()">♻ Recuperar memos de localStorage</button>
+          <button class="btn-export" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent2);color:var(--accent2)" onclick="verFirestoreRaw()">📦 Ver JSON crudo de Firestore</button>
+        </div>
+        <div id="diag-raw" style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--text3);white-space:pre-wrap;background:var(--bg);border-radius:10px;padding:1rem;margin-top:8px;display:none;max-height:300px;overflow-y:auto"></div>
+      </div>
     </div>
   </div>
 </section>
@@ -4034,6 +4089,86 @@ function cancelImport() {
 
 // ---- AUTH UI ----
 let authMode = 'login'; // 'login' | 'register'
+
+// ---- DIAGNÓSTICO ADMIN ----
+async function diagUsuario(uid, email) {
+  const el = document.getElementById('diag-result');
+  if (!uid) { el.textContent = '❌ No hay usuario logueado'; return; }
+  el.textContent = '⏳ Leyendo Firestore...';
+  try {
+    const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid));
+    if (!snap.exists()) {
+      el.textContent = '⚠️ No existe documento en Firestore para este usuario.';
+      return;
+    }
+    const d = snap.data();
+    const lines = [
+      `👤 Usuario: ${email}`,
+      `📅 Última actualización: ${d.updatedAt || '(sin fecha)'}`,
+      `💸 Gastos: ${(d.gastos||[]).length} registros`,
+      `💵 Ingresos: ${(d.ingresos||[]).length} registros`,
+      `🏦 Ahorros: ${(d.ahorros||[]).length} registros`,
+      `📝 Memos/Pendientes: ${(d.pendientes||[]).length} registros`,
+      `💳 Tarjetas: ${(d.tarjetas||[]).length} registros`,
+      `💡 Conceptos guardados: ${(d.conceptosGuardados||[]).length} registros`,
+      ``,
+      `🔑 Campos presentes en Firestore:`,
+      Object.keys(d).map(k => `  • ${k}: ${JSON.stringify(d[k]).slice(0,60)}`).join('\n'),
+    ];
+    el.textContent = lines.join('\n');
+
+    // Si hay pendientes en Firestore, recargarlos
+    if (Array.isArray(d.pendientes) && d.pendientes.length > 0) {
+      pendientes = d.pendientes;
+      renderPendientesTab();
+      el.textContent += '\n\n✅ Memos recargados desde Firestore (' + d.pendientes.length + ' ítems).';
+    }
+  } catch(e) {
+    el.textContent = '❌ Error: ' + e.message;
+  }
+}
+
+async function verFirestoreRaw() {
+  const el = document.getElementById('diag-raw');
+  const uid = window._currentUser?.uid;
+  if (!uid) { el.textContent = '❌ Sin usuario'; el.style.display = 'block'; return; }
+  el.textContent = '⏳ Cargando...';
+  el.style.display = 'block';
+  try {
+    const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid));
+    if (!snap.exists()) { el.textContent = '⚠️ Sin documento'; return; }
+    const d = snap.data();
+    // Mostrar solo pendientes y metadata para no saturar
+    el.textContent = JSON.stringify({
+      updatedAt: d.updatedAt,
+      pendientesCount: (d.pendientes||[]).length,
+      pendientes: d.pendientes || [],
+      gastosCount: (d.gastos||[]).length,
+      ingresosCount: (d.ingresos||[]).length,
+      ahorrosCount: (d.ahorros||[]).length,
+    }, null, 2);
+  } catch(e) {
+    el.textContent = '❌ Error: ' + e.message;
+  }
+}
+
+function recuperarPendientes() {
+  const el = document.getElementById('diag-result');
+  const local = JSON.parse(localStorage.getItem('gf_pendientes') || '[]');
+  if (!local.length) {
+    el.textContent = '⚠️ No hay memos en localStorage de este dispositivo.';
+    return;
+  }
+  if (!confirm(`¿Restaurar ${local.length} memo(s) desde este dispositivo? Esto va a AGREGAR los memos al array actual (no reemplazar).`)) return;
+  // Agregar sin duplicar por id
+  const existingIds = new Set(pendientes.map(p => p.id));
+  const nuevos = local.filter(p => !existingIds.has(p.id));
+  pendientes = [...pendientes, ...nuevos];
+  save();
+  renderPendientesTab();
+  el.textContent = `✅ Recuperados ${nuevos.length} memo(s) desde localStorage y guardados en Firestore.`;
+  notify(`${nuevos.length} memos recuperados`);
+}
 
 window.toggleAuthMode = function() {
   authMode = authMode === 'login' ? 'register' : 'login';
