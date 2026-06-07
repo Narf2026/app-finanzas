@@ -2072,6 +2072,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
           <option value="Otros">✏ Otros...</option>
         </select>
         <input type="text" id="i-sueldo-concepto-otro" placeholder="Escribí el concepto" style="display:none;margin-top:6px;width:100%;background:var(--bg);border:1px solid var(--accent);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;box-sizing:border-box">
+        <div id="conceptos-custom-lista" style="display:none;margin-top:6px"></div>
       </div>
       <div class="form-group" style="min-width:160px;flex:2">
         <label>Destino</label>
@@ -2477,7 +2478,7 @@ function showTab(tab) {
   if (btn) btn.classList.add('active');
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'gastos') { renderGastosTable(); populateFilters(); }
-  if (tab === 'ingresos') { renderIngresosTable(); renderDestinosIngreso(); renderSaldoCuentas(); }
+  if (tab === 'ingresos') { renderIngresosTable(); renderDestinosIngreso(); renderSaldoCuentas(); renderConceptosSelect(); }
   if (tab === 'ahorro') { renderAhorroTable(); renderOrigenAhorro(); }
   if (tab === 'pendientes') renderPendientesTab();
   if (tab === 'admin') renderAdminPanel();
@@ -3227,6 +3228,43 @@ function renderOrigenAhorro() {
     opciones.map(o => `<option value="${o}">${o}</option>`).join('');
 }
 
+const CONCEPTOS_FIJOS = ['Sueldo','Freelance','Alquiler','Facturación','Inversión'];
+
+function renderConceptosSelect() {
+  const sel = document.getElementById('i-sueldo-concepto');
+  if (!sel) return;
+  const custom = (conceptosGuardados || []).filter(c => !CONCEPTOS_FIJOS.includes(c));
+  const prev = sel.value;
+  sel.innerHTML =
+    `<option value="Sueldo">💼 Sueldo</option>
+     <option value="Freelance">💻 Freelance</option>
+     <option value="Alquiler">🏠 Alquiler</option>
+     <option value="Facturación">🧾 Facturación</option>
+     <option value="Inversión">📈 Inversión</option>` +
+    custom.map(c => `<option value="${c}">✦ ${c}</option>`).join('') +
+    `<option value="Otros">✏ Agregar nuevo...</option>`;
+  if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+
+  // Mostrar lista de categorías custom con botón eliminar
+  const lista = document.getElementById('conceptos-custom-lista');
+  if (!lista) return;
+  if (custom.length === 0) { lista.style.display = 'none'; return; }
+  lista.style.display = 'block';
+  lista.innerHTML = '<div style="font-size:0.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Mis categorías</div>' +
+    custom.map(c => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:var(--bg);border-radius:8px;margin-bottom:4px">
+        <span style="font-size:0.82rem;color:var(--text2)">✦ ${c}</span>
+        <button onclick="eliminarConcepto('${c}')" style="background:none;border:none;color:var(--accent2);font-size:0.8rem;cursor:pointer;padding:2px 6px">✕</button>
+      </div>`).join('');
+}
+
+function eliminarConcepto(nombre) {
+  conceptosGuardados = conceptosGuardados.filter(c => c !== nombre);
+  save();
+  renderConceptosSelect();
+  notify(`Categoría "${nombre}" eliminada`);
+}
+
 function toggleConceptoOtro() {
   const sel = document.getElementById('i-sueldo-concepto');
   const otro = document.getElementById('i-sueldo-concepto-otro');
@@ -3240,7 +3278,16 @@ function getConceptoIngreso() {
   if (!sel) return 'Ingreso';
   if (sel.value === 'Otros') {
     const otro = document.getElementById('i-sueldo-concepto-otro');
-    return otro?.value.trim() || 'Ingreso';
+    const nombre = otro?.value.trim();
+    if (nombre) {
+      // Guardar en conceptosGuardados si no existe
+      if (!conceptosGuardados.includes(nombre)) {
+        conceptosGuardados.push(nombre);
+        // No llamamos save() acá, se llama en addIngreso
+      }
+      return nombre;
+    }
+    return 'Ingreso';
   }
   return sel.value;
 }
@@ -3273,6 +3320,7 @@ function addIngreso() {
   document.getElementById('i-sueldo-concepto').value = 'Sueldo';
   document.getElementById('i-sueldo-concepto-otro').style.display = 'none';
   document.getElementById('i-sueldo-concepto-otro').value = '';
+  renderConceptosSelect();
   document.getElementById('otros-form').style.display = 'none';
   notify('Ingreso guardado');
   renderIngresosTable();
