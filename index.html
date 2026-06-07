@@ -3545,6 +3545,31 @@ function renderIngresosTable() {
     <tbody>
       ${list.map(i => {
         const otros = i.otros || [];
+        // Detectar si es un ajuste manual viejo (registrado con código anterior)
+        const esAjusteViejo = otros.some(o => o.nombre === 'Ajuste manual de saldo') ||
+                              i.sueldoConcepto === 'Ajuste' ||
+                              (i.key && i.key.startsWith('ajuste-'));
+        if (esAjusteViejo) {
+          return `
+          <tr style="background:rgba(245,184,46,0.06)">
+            <td style="white-space:nowrap">
+              <div style="font-family:'DM Mono',monospace;color:var(--text2);font-size:0.82rem">${i.mes}</div>
+              <div style="font-family:'DM Mono',monospace;color:var(--text3);font-size:0.72rem">${i.año}</div>
+            </td>
+            <td>
+              <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,184,46,0.15);border:1px solid rgba(245,184,46,0.3);border-radius:8px;padding:3px 8px;font-size:0.72rem;color:var(--accent3)">⚠ Ajuste manual (código viejo)</div>
+              <div style="font-size:0.72rem;color:var(--text3);margin-top:3px">Este registro afecta el Dashboard. Eliminalo para corregir.</div>
+              <div class="col-show-mobile" style="color:var(--accent3);font-family:'DM Mono',monospace;font-size:0.82rem;margin-top:3px">${fmtARS(i.totalARS ?? i.total)}</div>
+            </td>
+            <td class="col-hide-mobile" style="color:var(--accent3);font-family:'DM Mono',monospace">${fmtARS(i.totalARS ?? i.total)}</td>
+            <td class="col-hide-mobile"></td>
+            <td class="col-hide-mobile"></td>
+            <td class="col-hide-mobile"></td>
+            <td style="padding-right:8px !important">
+              <button class="btn-del" onclick="deleteIngreso('${i.key}')" style="background:rgba(255,79,94,0.15);border-color:var(--accent2);color:var(--accent2)">✕ Eliminar</button>
+            </td>
+          </tr>`;
+        }
         const otrosHtml = otros.length
           ? otros.map(o => '<div style="font-size:0.75rem;color:var(--text2)">' + o.nombre + (o.destino ? ' → <span style="color:var(--accent4)">' + o.destino + '</span>' : '') + ': ' + (o.moneda==='USD'?'u$s':'$') + o.monto.toLocaleString('es-AR') + '</div>').join('')
           : (i.extra > 0 ? `<div style="font-size:0.75rem;color:var(--text2)">Extra: $${i.extra.toLocaleString('es-AR')}</div>` : '—');
