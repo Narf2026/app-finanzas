@@ -1155,26 +1155,37 @@ tr:hover td { background: rgba(255,255,255,.035); }
   /* ── HEADER ── */
   header {
     height: auto;
-    min-height: 60px;
-    padding: max(36px, calc(16px + env(safe-area-inset-top,0px))) 16px 10px;
+    min-height: auto;
+    padding: max(10px, calc(8px + env(safe-area-inset-top,0px))) 12px 0;
     border-bottom: none;
-    justify-content: space-between;
-    gap: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
     position: sticky;
     top: 0;
     z-index: 100;
   }
-  .logo { font-size: 1.3rem; white-space: nowrap; gap: 6px; }
-  .logo span { display: none; }
-  .logo img { width: 42px !important; height: 42px !important; margin-right: 6px !important; border-radius: 50% !important; border: 2px solid var(--accent) !important; object-fit: cover !important; object-position: top !important; }
-  .data-btns { display: flex; align-items: center; gap: 6px; }
-  .user-bar span { display: none; }
-  .btn-export, .btn-import { display: none; }
-  .btn-logout {
-    min-height: 32px; border-radius: 999px;
-    padding: 4px 12px; font-size: .7rem;
-    background: rgba(255,255,255,.06);
+  /* Fila 1: logo + botones de usuario */
+  header > .logo {
+    display: flex !important;
+    align-items: center;
+    padding: 4px 4px 6px;
   }
+  header > .logo img {
+    width: 34px !important; height: 34px !important;
+    margin-right: 8px !important;
+    border-radius: 50% !important;
+    border: 2px solid var(--accent) !important;
+    object-fit: cover !important; object-position: top !important;
+    flex-shrink: 0;
+  }
+  header > .logo span { display: inline !important; font-size: 0.78rem !important; color: var(--accent) !important; }
+  /* Fila 2: nav pill */
+  header > nav.app-nav {
+    width: 100%;
+  }
+  .data-btns { display: none; }
+  .btn-export, .btn-import { display: none; }
 
   /* ── NAV PILL BOTTOM ── */
   nav {
