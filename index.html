@@ -4844,21 +4844,28 @@ window.doLogout = async function() {
   conceptosGuardados = []; otrosPendientes = []; ajustesCuentas = [];
   localStorage.removeItem('gf_pendientes');
   localStorage.removeItem('gf_tarjetas');
+};
 
 // Limpia ingresos/gastos generados por ajustes manuales viejos
 window.limpiarAjustesViejos = function() {
   const antesI = ingresos.length;
   const antesG = gastos.length;
-  ingresos = ingresos.filter(i => !(i.otros||[]).some(o => o.nombre === 'Ajuste manual de saldo'));
-  gastos = gastos.filter(g => g.desc !== 'Ajuste manual de saldo');
+  ingresos = ingresos.filter(i => {
+    const esAjuste =
+      (i.key && i.key.startsWith('ajuste-')) ||
+      i.sueldoConcepto === 'Ajuste' ||
+      (i.otros||[]).some(o => o.nombre === 'Ajuste manual de saldo') ||
+      (i.otros||[]).some(o => o.nombre && o.nombre.toLowerCase().includes('ajuste'));
+    return !esAjuste;
+  });
+  gastos = gastos.filter(g => g.desc !== 'Ajuste manual de saldo' && g.cat !== 'Ajuste');
   const eliminadosI = antesI - ingresos.length;
   const eliminadosG = antesG - gastos.length;
-  if (eliminadosI + eliminadosG === 0) { notify('No se encontraron ajustes viejos'); return; }
+  if (eliminadosI + eliminadosG === 0) { notify('No se encontraron ajustes viejos para eliminar'); return; }
   save();
-  notify(`✓ Eliminados ${eliminadosI} ingreso(s) y ${eliminadosG} gasto(s) de ajuste manual`);
+  notify(`✓ Eliminados ${eliminadosI} ingreso(s) y ${eliminadosG} gasto(s) de ajuste`);
   renderSaldoCuentas();
-  if (document.getElementById('tab-dashboard')?.classList.contains('active')) renderDashboard?.();
-};
+  renderIngresosTable();
 };
 
 
