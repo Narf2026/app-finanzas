@@ -2062,6 +2062,18 @@ tr:hover td { background: rgba(255,255,255,.035); }
         </div>
       </div>
       <div class="form-group" style="min-width:160px;flex:2">
+        <label>Concepto</label>
+        <select id="i-sueldo-concepto" onchange="toggleConceptoOtro()" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;width:100%">
+          <option value="Sueldo">💼 Sueldo</option>
+          <option value="Freelance">💻 Freelance</option>
+          <option value="Alquiler">🏠 Alquiler</option>
+          <option value="Facturación">🧾 Facturación</option>
+          <option value="Inversión">📈 Inversión</option>
+          <option value="Otros">✏ Otros...</option>
+        </select>
+        <input type="text" id="i-sueldo-concepto-otro" placeholder="Escribí el concepto" style="display:none;margin-top:6px;width:100%;background:var(--bg);border:1px solid var(--accent);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;box-sizing:border-box">
+      </div>
+      <div class="form-group" style="min-width:160px;flex:2">
         <label>Destino</label>
         <div id="i-sueldo-destino-container">
           <select id="i-sueldo-destino" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;width:100%">
@@ -2377,6 +2389,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
         <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-export" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent4);color:var(--accent4)" onclick="recuperarPendientes()">♻ Recuperar memos de localStorage</button>
           <button class="btn-export" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent2);color:var(--accent2)" onclick="verFirestoreRaw()">📦 Ver JSON crudo de Firestore</button>
+          <button class="btn-export" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent3);color:var(--accent3)" onclick="limpiarAjustesViejos()">🧹 Limpiar ajustes mal registrados</button>
         </div>
         <div id="diag-raw" style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--text3);white-space:pre-wrap;background:var(--bg);border-radius:10px;padding:1rem;margin-top:8px;display:none;max-height:300px;overflow-y:auto"></div>
       </div>
@@ -2397,6 +2410,7 @@ let tarjetas = JSON.parse(localStorage.getItem('gf_tarjetas') || '[]');
 let saldosIniciales = {};
 let conceptosGuardados = [];
 let otrosPendientes = [];
+let ajustesCuentas = [];
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 let selectedDashMonth = new Date().toISOString().slice(0,7);
@@ -2406,7 +2420,7 @@ async function save() {
   if (!uid) return;
   try {
     await window._fbSetDoc(window._fbDoc(window._fbDb, 'usuarios', uid), {
-      gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, updatedAt: new Date().toISOString()
+      gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, updatedAt: new Date().toISOString()
     });
   } catch(e) { console.error('Error guardando:', e); }
 }
@@ -2414,7 +2428,7 @@ async function save() {
 window.loadUserData = async function(uid) {
   // Resetear todo antes de cargar para evitar datos de sesiones anteriores
   gastos = []; ingresos = []; ahorros = []; saldosIniciales = {}; pendientes = [];
-  conceptosGuardados = []; otrosPendientes = [];
+  conceptosGuardados = []; otrosPendientes = []; ajustesCuentas = [];
   try {
     const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid));
     if (snap.exists()) {
@@ -2424,6 +2438,7 @@ window.loadUserData = async function(uid) {
       ahorros         = d.ahorros         || [];
       saldosIniciales = d.saldosIniciales  || {};
       if (Array.isArray(d.conceptosGuardados)) conceptosGuardados = d.conceptosGuardados;
+      if (Array.isArray(d.ajustesCuentas)) ajustesCuentas = d.ajustesCuentas;
       // Cargar tarjetas desde Firestore; si no hay, usar localStorage como fallback
       if (d.tarjetas && d.tarjetas.length > 0) {
         tarjetas = d.tarjetas;
@@ -2775,7 +2790,7 @@ function saveSaldosIniciales() {
   const uid = window._currentUser?.uid;
   if (!uid) return;
   window._fbSetDoc(window._fbDoc(window._fbDb, 'usuarios', uid), {
-    gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, updatedAt: new Date().toISOString()
+    gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, updatedAt: new Date().toISOString()
   }).catch(e => console.error('Error guardando saldos iniciales:', e));
 }
 
@@ -3177,7 +3192,12 @@ function renderDestinosIngreso() {
   // Solo Efectivo + billeteras virtuales + débito (no crédito, no almacena dinero)
   const opciones = ['Efectivo'];
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.banco || t.nombre));
-  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('CA ' + t.banco)));
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => {
+    // Normalizar label: si dice "Débito X" mostrarlo como "CA X"
+    let lbl = t.label || ('CA ' + t.banco);
+    if (lbl.startsWith('Débito ')) lbl = 'CA ' + lbl.slice(7);
+    opciones.push(lbl);
+  });
 
   const opcionesHTML = opciones.map(o => '<option value="' + o + '"' + (o === 'Efectivo' ? ' selected' : '') + '>' + o + '</option>').join('');
 
@@ -3198,9 +3218,31 @@ function renderOrigenAhorro() {
   if (!sel) return;
   const opciones = ['Efectivo'];
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.banco || t.nombre));
-  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('CA ' + t.banco)));
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => {
+    let lbl = t.label || ('CA ' + t.banco);
+    if (lbl.startsWith('Débito ')) lbl = 'CA ' + lbl.slice(7);
+    opciones.push(lbl);
+  });
   sel.innerHTML = '<option value="">Seleccionar...</option>' +
     opciones.map(o => `<option value="${o}">${o}</option>`).join('');
+}
+
+function toggleConceptoOtro() {
+  const sel = document.getElementById('i-sueldo-concepto');
+  const otro = document.getElementById('i-sueldo-concepto-otro');
+  if (!sel || !otro) return;
+  otro.style.display = sel.value === 'Otros' ? 'block' : 'none';
+  if (sel.value === 'Otros') otro.focus();
+}
+
+function getConceptoIngreso() {
+  const sel = document.getElementById('i-sueldo-concepto');
+  if (!sel) return 'Ingreso';
+  if (sel.value === 'Otros') {
+    const otro = document.getElementById('i-sueldo-concepto-otro');
+    return otro?.value.trim() || 'Ingreso';
+  }
+  return sel.value;
 }
 
 function addIngreso() {
@@ -3209,6 +3251,7 @@ function addIngreso() {
   const sueldo = parseFloat(document.getElementById('i-sueldo').value) || 0;
   const sueldoMoneda = document.getElementById('i-sueldo-moneda').value;
   const sueldoDestino = resolverDestino('i-sueldo-destino');
+  const sueldoConcepto = getConceptoIngreso();
   if (!año) { notify('Ingresá el año'); return; }
   if (sueldo <= 0 && otrosPendientes.length === 0) { notify('⚠ Ingresá al menos un monto'); return; }
   // Calcular totales por moneda (sueldo + otros pendientes)
@@ -3220,13 +3263,16 @@ function addIngreso() {
   });
   // Cada guardado es una fila nueva independiente
   const key = `${año}-${String(MESES.indexOf(mes)+1).padStart(2,'0')}-${Date.now()}`;
-  const rec = { key, año, mes, sueldo, sueldoMoneda, sueldoDestino, otros: [...otrosPendientes], totalARS, totalUSD, total: totalARS };
+  const rec = { key, año, mes, sueldo, sueldoMoneda, sueldoDestino, sueldoConcepto, otros: [...otrosPendientes], totalARS, totalUSD, total: totalARS };
   ingresos.push(rec);
   save();
   otrosPendientes = [];
   renderOtrosPendientes();
   document.getElementById('i-sueldo').value = '';
   document.getElementById('i-sueldo-destino').value = '';
+  document.getElementById('i-sueldo-concepto').value = 'Sueldo';
+  document.getElementById('i-sueldo-concepto-otro').style.display = 'none';
+  document.getElementById('i-sueldo-concepto-otro').value = '';
   document.getElementById('otros-form').style.display = 'none';
   notify('Ingreso guardado');
   renderIngresosTable();
@@ -3267,7 +3313,11 @@ function renderSaldoCuentas() {
   // Cuentas: Efectivo + billeteras + débito + Sin asignar
   const cuentas = ['Efectivo'];
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => cuentas.push(t.label || t.banco || t.nombre));
-  tarjetas.filter(t => t.tipo === 'debito').forEach(t => cuentas.push(t.label || ('CA ' + t.banco)));
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => {
+    let lbl = t.label || ('CA ' + t.banco);
+    if (lbl.startsWith('Débito ')) lbl = 'CA ' + lbl.slice(7);
+    cuentas.push(lbl);
+  });
 
   const mediosReales = new Set(cuentas);
 
@@ -3300,6 +3350,11 @@ function renderSaldoCuentas() {
     if (medio && mediosReales.has(medio) && saldos[medio] !== undefined) {
       saldos[medio].ars -= g.monto;
     }
+  });
+
+  // + Ajustes manuales (array dedicado, no afecta Dashboard)
+  (ajustesCuentas || []).forEach(a => {
+    if (saldos[a.cuenta] !== undefined) saldos[a.cuenta].ars += a.monto;
   });
 
   // − Base de ahorros depositados desde cada cuenta
@@ -3361,11 +3416,23 @@ function renderSaldoCuentas() {
       <!-- Panel Ajustar -->
       <div id="ajuste-${safeC}" style="display:none;margin-top:10px;flex-direction:column;gap:8px;background:rgba(245,184,46,0.06);border:1px solid rgba(245,184,46,0.2);border-radius:12px;padding:12px">
         <div style="font-size:0.72rem;color:var(--accent3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Ajustar saldo de ${c}</div>
-        <div style="font-size:0.72rem;color:var(--text3)">Ingresá el saldo real que tenés ahora. La diferencia se registra automáticamente.</div>
+        <div style="font-size:0.72rem;color:var(--text3)">Ingresá el saldo real que tenés ahora. La diferencia se registra automáticamente y <strong>no afecta el Dashboard</strong>.</div>
         <input id="ajuste-input-${safeC}" type="number" placeholder="Saldo real actual ($)" step="0.01"
           style="background:var(--bg);border:1px solid var(--accent3);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.9rem;padding:10px 14px;outline:none;width:100%;box-sizing:border-box">
         <button onclick="aplicarAjusteCuenta('${c}', '${safeC}', ${ars})"
           style="background:var(--accent3);border:none;color:#0d0f14;border-radius:10px;padding:10px;font-size:0.85rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700">✓ Aplicar ajuste</button>
+        ${(ajustesCuentas||[]).filter(a=>a.cuenta===c).length > 0 ? `
+        <div style="margin-top:4px;border-top:1px solid rgba(245,184,46,0.2);padding-top:8px">
+          <div style="font-size:0.68rem;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Historial de ajustes</div>
+          ${(ajustesCuentas||[]).filter(a=>a.cuenta===c).map(a => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+            <div>
+              <div style="font-size:0.75rem;color:var(--text2)">${a.fecha} · $${a.saldoAntes?.toLocaleString('es-AR')} → $${a.saldoDespues?.toLocaleString('es-AR')}</div>
+              <div style="font-size:0.7rem;color:${a.monto>0?'var(--accent)':'var(--accent2)'}">${a.monto>0?'+':''}$${a.monto.toLocaleString('es-AR')}</div>
+            </div>
+            <button onclick="eliminarAjuste(${a.id})" style="background:none;border:1px solid rgba(255,79,94,0.4);color:var(--accent2);border-radius:8px;padding:3px 8px;font-size:0.7rem;cursor:pointer">✕</button>
+          </div>`).join('')}
+        </div>` : ''}
       </div>
       <!-- Panel Mover -->
       <div id="mover-${safeC}" style="display:none;margin-top:10px;flex-direction:column;gap:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:12px">
@@ -3407,36 +3474,29 @@ function aplicarAjusteCuenta(cuenta, safeC, saldoActual) {
   const diferencia = +(saldoReal - saldoActual).toFixed(2);
   if (diferencia === 0) { notify('El saldo ya coincide'); return; }
 
-  // Guardar ajuste en array global (se persiste con save)
-  if (!window._ajustesCuentas) window._ajustesCuentas = [];
-  window._ajustesCuentas.push({
-    cuenta, monto: diferencia, moneda: 'ARS',
+  // Guardar en array dedicado — NO afecta ingresos ni gastos ni Dashboard
+  if (!ajustesCuentas) ajustesCuentas = [];
+  ajustesCuentas.push({
+    id: Date.now(),
+    cuenta,
+    monto: diferencia,
+    moneda: 'ARS',
     fecha: new Date().toISOString().slice(0,10),
-    concepto: 'Ajuste manual'
+    saldoAntes: saldoActual,
+    saldoDespues: saldoReal
   });
 
-  // También registrar como ingreso/egreso para tener trazabilidad
-  const key = `ajuste-${Date.now()}`;
-  if (diferencia > 0) {
-    ingresos.push({
-      key, uid: key, año: new Date().getFullYear(),
-      mes: MESES[new Date().getMonth()],
-      sueldo: 0, sueldoMoneda: 'ARS', sueldoDestino: cuenta,
-      otros: [{ id: Date.now(), nombre: 'Ajuste manual de saldo', moneda: 'ARS', monto: diferencia, destino: cuenta }],
-      totalARS: diferencia, totalUSD: 0, total: diferencia
-    });
-  } else {
-    gastos.push({
-      id: Date.now(), fecha: new Date().toISOString().slice(0,10),
-      desc: 'Ajuste manual de saldo', cat: 'Ajuste',
-      medio: cuenta, monto: Math.abs(diferencia), notas: 'Corrección de saldo'
-    });
-  }
-
   save();
-  notify(`✓ Saldo de ${cuenta} ajustado ${diferencia > 0 ? '+' : ''}$${diferencia.toLocaleString('es-AR')}`);
+  notify(`✓ Saldo de ${cuenta} ajustado ${diferencia > 0 ? '+' : ''}$${Math.abs(diferencia).toLocaleString('es-AR')}`);
   input.value = '';
   renderSaldoCuentas();
+}
+
+function eliminarAjuste(id) {
+  ajustesCuentas = ajustesCuentas.filter(a => a.id !== id);
+  save();
+  renderSaldoCuentas();
+  notify('Ajuste eliminado');
 }
 
 function moverEntreCuentas(origen, safeC) {
@@ -3496,7 +3556,7 @@ function renderIngresosTable() {
           ? (i.sueldoDestino === 'Efectivo' ? '💵' : tarjetas.find(t=>t.tipo==='billetera'&&(t.label||t.banco||t.nombre)===i.sueldoDestino) ? '📱' : '🏦')
           : '💵';
         const tipoLabel = i.sueldo > 0
-          ? '<div style="font-size:0.8rem;color:var(--text2)">💼 Ingreso</div>' +
+          ? '<div style="font-size:0.8rem;color:var(--text2)">💼 ' + (i.sueldoConcepto || 'Ingreso') + '</div>' +
             '<div style="font-size:0.72rem;color:var(--text3);margin-top:2px">' + destinoIcono + ' ' + (i.sueldoDestino || 'Efectivo') + '</div>'
           : '';
         const otrosMobile = otros.length
@@ -4756,9 +4816,24 @@ window.doLogout = async function() {
   await window._fbSignOut(window._fbAuth);
   gastos = []; ingresos = []; ahorros = [];
   pendientes = []; tarjetas = []; saldosIniciales = {};
-  conceptosGuardados = []; otrosPendientes = [];
+  conceptosGuardados = []; otrosPendientes = []; ajustesCuentas = [];
   localStorage.removeItem('gf_pendientes');
   localStorage.removeItem('gf_tarjetas');
+
+// Limpia ingresos/gastos generados por ajustes manuales viejos
+window.limpiarAjustesViejos = function() {
+  const antesI = ingresos.length;
+  const antesG = gastos.length;
+  ingresos = ingresos.filter(i => !(i.otros||[]).some(o => o.nombre === 'Ajuste manual de saldo'));
+  gastos = gastos.filter(g => g.desc !== 'Ajuste manual de saldo');
+  const eliminadosI = antesI - ingresos.length;
+  const eliminadosG = antesG - gastos.length;
+  if (eliminadosI + eliminadosG === 0) { notify('No se encontraron ajustes viejos'); return; }
+  save();
+  notify(`✓ Eliminados ${eliminadosI} ingreso(s) y ${eliminadosG} gasto(s) de ajuste manual`);
+  renderSaldoCuentas();
+  if (document.getElementById('tab-dashboard')?.classList.contains('active')) renderDashboard?.();
+};
 };
 
 
