@@ -3969,18 +3969,24 @@ function toggleRendInput(key) {
   if (!visible) wrap.querySelector('input').focus();
 }
 
-function agregarRendimiento(key) {
+function agregarRendimiento(key, signo) {
+  signo = signo || 1; // 1 = sumar, -1 = restar
   const input = document.getElementById('rend-input-' + key);
   const monto = parseFloat(input.value);
   if (!monto || monto <= 0) { notify('⚠ Ingresá un monto válido'); return; }
   const idx = ahorros.findIndex(a => a.key === key);
   if (idx < 0) return;
-  ahorros[idx].monto += monto;
-  ahorros[idx].rendimientos = (ahorros[idx].rendimientos || 0) + monto;
+  const ajuste = +(monto * signo).toFixed(2);
+  const nuevoSaldo = +(ahorros[idx].monto + ajuste).toFixed(2);
+  // Permitir saldo negativo (rendimiento negativo puede dejar el fondo en rojo)
+  ahorros[idx].monto = nuevoSaldo;
+  ahorros[idx].rendimientos = +((ahorros[idx].rendimientos || 0) + ajuste).toFixed(2);
   ahorros[idx].historialRendimientos = ahorros[idx].historialRendimientos || [];
-  ahorros[idx].historialRendimientos.push({ monto, fecha: new Date().toISOString().slice(0,10) });
+  ahorros[idx].historialRendimientos.push({ monto: ajuste, fecha: new Date().toISOString().slice(0,10) });
   save();
-  notify(`+${ahorros[idx].moneda === 'USD' ? 'u$s ' : '$'}${monto.toLocaleString('es-AR')} sumado como rendimiento`);
+  const s = ahorros[idx].moneda === 'USD' ? 'u$s ' : '$';
+  notify(`${signo > 0 ? '+' : '−'}${s}${monto.toLocaleString('es-AR')} ${signo > 0 ? 'sumado' : 'restado'} como rendimiento`);
+  input.value = '';
   renderAhorroTable();
 }
 
@@ -3995,13 +4001,15 @@ function saveEditAhorro(key) {
   const idx = ahorros.findIndex(a => a.key === key);
   if (idx < 0) return;
   const ek = key.replace(/[^a-zA-Z0-9_-]/g,'_');
-  const monto = parseFloat(document.getElementById('ea-monto-' + key).value);
+  const montoBase = parseFloat(document.getElementById('ea-monto-' + key).value);
   const notas = document.getElementById('ea-notas-' + key).value.trim();
   const tipo  = document.getElementById('ea-tipo-' + key).value.trim();
   const origen = document.getElementById('ea-origen-' + ek)?.value || ahorros[idx].origen || '';
-  if (!monto || monto <= 0) { notify('⚠ Monto inválido'); return; }
+  if (isNaN(montoBase) || montoBase < 0) { notify('⚠ Monto inválido'); return; }
   const rendimientos = ahorros[idx].rendimientos || 0;
-  ahorros[idx] = { ...ahorros[idx], monto: monto + rendimientos, notas, tipo, origen };
+  // El saldo total = monto base editado + rendimientos acumulados (puede ser negativo)
+  const montoTotal = +(montoBase + rendimientos).toFixed(2);
+  ahorros[idx] = { ...ahorros[idx], monto: montoTotal, notas, tipo, origen };
   save();
   notify('Ahorro actualizado');
   renderAhorroTable();
@@ -4046,9 +4054,10 @@ function renderAhorroTable() {
           : `<span class="badge" style="background:rgba(0,229,160,0.1);color:var(--accent)">$ ARS</span>`;
         const rend = a.rendimientos || 0;
         const montoBase = +(a.monto - rend).toFixed(2);
-        const rendLabel = rend > 0
-          ? `<span style="color:#a8ffdc;font-family:'DM Mono',monospace;font-size:0.78rem">+${s}${rend.toLocaleString('es-AR')}</span>`
+        const rendLabel = rend !== 0
+          ? `<span style="color:${rend>0?'#a8ffdc':'var(--accent2)'};font-family:'DM Mono',monospace;font-size:0.78rem">${rend>0?'+':''}${s}${rend.toLocaleString('es-AR')}</span>`
           : `<span style="color:var(--text3);font-size:0.78rem">—</span>`;
+        const montoColor = a.monto < 0 ? 'var(--accent2)' : color;
         const safeKey = a.key.replace(/'/g, "\'");
         const ek = a.key.replace(/[^a-zA-Z0-9_-]/g,'_');
         const origenHtml = a.origen
@@ -4064,7 +4073,20 @@ function renderAhorroTable() {
             <div>${badge}</div>
             ${a.tipo ? '<div style="font-size:0.7rem;color:var(--text3);margin-top:3px">' + a.tipo + '</div>' : ''}
             ${a.origen ? '<div style="font-size:0.7rem;color:var(--text3)">→ ' + a.origen + '</div>' : ''}
-            <div style="font-family:\'DM Mono\',monospace;color:${color};font-weight:600;font-size:0.82rem;margin-top:3px" class="col-show-mobile">${s}${a.monto.toLocaleString('es-AR')}</div>
+            <div style="font-family:'DM Mono',monospace;color:${montoColor};font-weight:600;font-size:0.82rem;margin-top:4px">${s}${a.monto.toLocaleString('es-AR')}</div>
+            ${rend !== 0 ? `<div style="font-size:0.68rem;color:${rend>0?'#a8ffdc':'var(--accent2)'};margin-top:2px">${rend>0?'▲':'▼'} rend: ${rend>0?'+':''}${s}${Math.abs(rend).toLocaleString('es-AR')}</div>` : ''}
+            <div style="margin-top:6px">
+              <button onclick="toggleRendInput('${safeKey}')" style="background:none;border:1px solid rgba(168,255,220,0.3);color:#a8ffdc;border-radius:8px;padding:3px 10px;font-size:0.7rem;cursor:pointer;font-family:'Sora',sans-serif">± Rendimiento</button>
+              <div id="rend-wrap-${a.key}" style="display:none;margin-top:6px;flex-direction:column;gap:6px">
+                <input id="rend-input-${a.key}" type="number" placeholder="Monto" min="0" step="0.01"
+                  style="background:var(--bg);border:1px solid var(--accent);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.85rem;padding:8px 12px;outline:none;width:100%"
+                  onkeydown="if(event.key==='Enter') agregarRendimiento('${safeKey}', 1)">
+                <div style="display:flex;gap:6px">
+                  <button onclick="agregarRendimiento('${safeKey}', 1)" style="flex:1;background:rgba(0,229,160,0.12);border:1px solid var(--accent);color:var(--accent);border-radius:10px;padding:8px;font-size:0.82rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600">+ Sumar</button>
+                  <button onclick="agregarRendimiento('${safeKey}', -1)" style="flex:1;background:rgba(255,79,94,0.1);border:1px solid var(--accent2);color:var(--accent2);border-radius:10px;padding:8px;font-size:0.82rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600">− Restar</button>
+                </div>
+              </div>
+            </div>
           </td>
           <td class="col-hide-mobile" style="font-family:'DM Mono',monospace;color:${color};font-weight:600;white-space:nowrap">${s}${a.monto.toLocaleString('es-AR')}</td>
           <td class="col-hide-mobile">
