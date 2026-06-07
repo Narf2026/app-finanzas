@@ -325,6 +325,7 @@ onAuthStateChanged(auth, async (user) => {
     outline: none;
   }
   table { width: 100%; border-collapse: collapse; }
+  .col-show-mobile { display: none; }
   th {
     padding: 10px 14px;
     text-align: left;
@@ -1317,6 +1318,7 @@ tr:hover td { background: rgba(255,255,255,.035); }
 
   /* ── TABLAS ── */
   .col-hide-mobile { display: none !important; }
+  .col-show-mobile { display: block !important; }
   .table-wrap {
     border-radius: 18px;
     overflow-x: auto;
@@ -1344,12 +1346,27 @@ tr:hover td { background: rgba(255,255,255,.035); }
   }
   /* Tablas: auto layout, sin forzar anchos fijos */
   table { width: 100%; min-width: 0; table-layout: auto; border-collapse: collapse; }
+  /* Tablas de historial: separate para que edit-row no se fusione con fila anterior */
+  #tab-gastos table,
+  #tab-ingresos table,
+  #tab-ahorro table,
+  #tc-lista table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+  }
   th { padding: 7px 8px; font-size: .6rem; white-space: nowrap; }
   td { padding: 8px 8px; font-size: .74rem; vertical-align: middle; }
   /* Columnas ocultas ya eliminadas con col-hide-mobile */
   /* Botones: columna angosta y sin wrap */
   td[style*="display:flex"] { width: 58px !important; padding: 6px 6px !important; gap: 3px !important; flex-wrap: nowrap !important; }
   .btn-edit, .btn-del { padding: 4px 6px; font-size: .68rem; }
+
+  /* Edit-row: separación visual clara de la fila anterior */
+  .edit-row td {
+    border-top: 3px solid var(--accent) !important;
+    padding-top: 14px !important;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.4) !important;
+  }
 
   /* Badges: texto corto, sin partir */
   .badge {
@@ -1365,10 +1382,24 @@ tr:hover td { background: rgba(255,255,255,.035); }
   /* ── TABLA GASTOS: scroll horizontal suave ── */
   #tab-gastos .table-wrap,
   #tab-ahorro .table-wrap,
-  #tab-ingresos .table-wrap { overflow-x: auto; }
+  #tab-ingresos .table-wrap { overflow-x: hidden; }
   #tab-gastos table,
   #tab-ahorro table,
-  #tab-ingresos table { min-width: 340px; }
+  #tab-ingresos table { min-width: 0; width: 100%; }
+  /* Columna de botones: ancho fijo y sin overflow */
+  #tab-gastos td:last-child,
+  #tab-ingresos td:last-child,
+  #tab-ahorro td:last-child {
+    width: 62px !important;
+    padding: 4px 4px !important;
+    white-space: nowrap;
+  }
+  /* Monto: no se corta */
+  #tab-ingresos td:nth-child(3),
+  #tab-gastos td:nth-child(5) {
+    white-space: nowrap;
+    font-size: .72rem !important;
+  }
 
   /* ── PANEL EXPANDIBLE ── */
   .panel-table { table-layout: auto; width: 100%; }
@@ -1434,8 +1465,25 @@ tr:hover td { background: rgba(255,255,255,.035); }
     border-top: 2px solid var(--accent-soft);
   }
   .cuota-toggle label { font-size: .82rem; }
-  /* Excepción: el checkbox del toggle de cuotas no debe heredar el ancho/alto forzado */
-  .cuota-toggle input[type=checkbox],
+  /* Excepción: el checkbox del toggle de cuotas = pill switch, NO cuadrado */
+  .cuota-toggle input[type=checkbox] {
+    width: 36px !important;
+    min-height: 20px !important;
+    height: 20px !important;
+    flex-shrink: 0 !important;
+    border-radius: 99px !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+  /* Label del toggle: texto normal, no uppercase */
+  .cuota-toggle label {
+    font-size: 0.88rem !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    color: var(--text2) !important;
+    font-weight: 500 !important;
+  }
+  /* Checkboxes de productos y memo: cuadrado pequeño */
   #tc-productos-lista input[type=checkbox],
   .p-check {
     width: 22px !important;
@@ -3975,7 +4023,7 @@ function renderAhorroTable() {
   const maxMonto = Math.max(...list.map(a => a.monto), 1);
 
   el.innerHTML = `<table>
-    <thead><tr><th>Período</th><th>Detalle</th><th>Saldo</th><th class="col-hide-mobile">Rendimientos</th><th class="col-hide-mobile">Origen</th><th class="col-hide-mobile">Evolución</th><th class="col-hide-mobile">Notas</th><th></th></tr></thead>
+    <thead><tr><th>Período</th><th>Detalle</th><th class="col-hide-mobile">Saldo</th><th class="col-hide-mobile">Rendimientos</th><th class="col-hide-mobile">Origen</th><th class="col-hide-mobile">Evolución</th><th class="col-hide-mobile">Notas</th><th></th></tr></thead>
     <tbody>
       ${list.map(a => {
         const moneda = a.moneda || 'ARS';
@@ -4005,8 +4053,9 @@ function renderAhorroTable() {
             <div>${badge}</div>
             ${a.tipo ? '<div style="font-size:0.7rem;color:var(--text3);margin-top:3px">' + a.tipo + '</div>' : ''}
             ${a.origen ? '<div style="font-size:0.7rem;color:var(--text3)">→ ' + a.origen + '</div>' : ''}
+            <div style="font-family:\'DM Mono\',monospace;color:${color};font-weight:600;font-size:0.82rem;margin-top:3px" class="col-show-mobile">${s}${a.monto.toLocaleString('es-AR')}</div>
           </td>
-          <td style="font-family:'DM Mono',monospace;color:${color};font-weight:600;white-space:nowrap">${s}${a.monto.toLocaleString('es-AR')}</td>
+          <td class="col-hide-mobile" style="font-family:'DM Mono',monospace;color:${color};font-weight:600;white-space:nowrap">${s}${a.monto.toLocaleString('es-AR')}</td>
           <td class="col-hide-mobile">
             ${rendLabel}
             <div style="margin-top:5px;display:flex;align-items:center;gap:5px">
