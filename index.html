@@ -2117,6 +2117,9 @@ tr:hover td { background: rgba(255,255,255,.035); }
 
   <div class="table-wrap" style="margin-bottom:1.2rem">
     <div class="table-header"><h3>💰 SALDO POR CUENTA</h3></div>
+    <div style="padding:0.6rem 1.2rem;background:var(--surface2);font-size:0.7rem;color:var(--text3);border-bottom:1px solid var(--border)">
+      Calculado desde tus ingresos, gastos en efectivo/débito y ahorros registrados. Usá <strong style="color:var(--accent3)">Ajustar</strong> si el número no coincide con la realidad.
+    </div>
     <div id="saldo-cuentas-body"></div>
   </div>
 
@@ -3280,12 +3283,17 @@ function renderSaldoCuentas() {
     });
   });
 
-  // − Gastos
+  // − Gastos pagados con efectivo/débito/billetera SOLAMENTE
+  // Cuotas van siempre con crédito → no afectan saldo de cuenta
+  const mediosReales = new Set(['Efectivo']);
+  tarjetas.filter(t => t.tipo === 'billetera').forEach(t => mediosReales.add(t.label || t.banco || t.nombre));
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => mediosReales.add(t.label || ('CA ' + t.banco)));
+
   gastos.forEach(g => {
+    if (g.cuota) return; // cuotas = crédito, no salen de cuenta
     const medio = g.medio || '';
-    if (medio && saldos[medio] !== undefined) {
-      const monto = g.cuota ? g.montoXcuota : g.monto;
-      saldos[medio].ars -= monto;
+    if (medio && mediosReales.has(medio) && saldos[medio] !== undefined) {
+      saldos[medio].ars -= g.monto;
     }
   });
 
