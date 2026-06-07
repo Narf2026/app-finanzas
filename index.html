@@ -1306,7 +1306,47 @@ tr:hover td { background: rgba(255,255,255,.035); }
   /* ── MISC ── */
   #otros-form > div { flex-direction: column; }
   .cuota-toggle label { font-size: .82rem; }
+  /* Excepción: el checkbox del toggle de cuotas no debe heredar el ancho/alto forzado */
+  .cuota-toggle input[type=checkbox] {
+    width: 36px !important;
+    min-height: 20px !important;
+    height: 20px !important;
+    flex-shrink: 0;
+    border-radius: 99px !important;
+    padding: 0 !important;
+  }
+  /* Los radio buttons tampoco */
+  input[type=radio] {
+    width: 18px !important;
+    min-height: 18px !important;
+    height: 18px !important;
+    flex-shrink: 0;
+    padding: 0 !important;
+    border-radius: 50% !important;
+  }
   [style*="display:flex;gap:1rem;flex-wrap:wrap"] { flex-direction: column; }
+
+  /* ── FORMULARIO INGRESOS: colapsar a columna en mobile ── */
+  #tab-ingresos > div > div:first-child {
+    flex-direction: column !important;
+    padding: .9rem !important;
+    gap: .8rem !important;
+  }
+  #tab-ingresos > div > div:first-child .form-group {
+    min-width: 0 !important;
+    width: 100% !important;
+    flex: none !important;
+  }
+  /* Fila de sueldo: moneda + monto en columna */
+  #tab-ingresos .form-group div[style*="display:flex;gap:6px"] {
+    flex-direction: column !important;
+    gap: .5rem !important;
+  }
+  #tab-ingresos .form-group div[style*="display:flex;gap:6px"] select,
+  #tab-ingresos .form-group div[style*="display:flex;gap:6px"] input {
+    width: 100% !important;
+    flex: none !important;
+  }
 
   /* Botones de edición en tablas */
   .btn-edit, .btn-del {
@@ -2138,6 +2178,8 @@ async function save() {
 }
 
 window.loadUserData = async function(uid) {
+  // Resetear todo antes de cargar para evitar datos de sesiones anteriores
+  gastos = []; ingresos = []; ahorros = []; saldosIniciales = {}; pendientes = [];
   try {
     const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid));
     if (snap.exists()) {
@@ -2338,7 +2380,7 @@ function buildMedioSelect(id, medioActual) {
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.banco || t.nombre));
   // Si el medio actual no está en la lista, agregarlo
   if (medioActual && !opciones.includes(medioActual)) opciones.push(medioActual);
-  return '<select class="edit-input" id="eg-medio-' + id + '" style="min-width:120px">' +
+  return '<select class="edit-input" id="eg-medio-' + id + '" style="width:100%">' +
     opciones.map(o => '<option value="' + o + '"' + (o === medioActual ? ' selected' : '') + '>' + o + '</option>').join('') +
     '</select>';
 }
@@ -2399,14 +2441,23 @@ function renderGastosTable() {
           </td>
         </tr>
         <tr id="edit-g-${g.id}" class="edit-row" style="display:none">
-          <td><input class="edit-input" id="eg-fecha-${g.id}" type="date" value="${g.fecha}"></td>
-          <td><input class="edit-input" id="eg-desc-${g.id}" type="text" value="${g.desc}"></td>
-          <td style="color:var(--text3);font-size:0.75rem">${g.cat}</td>
-          <td>${buildMedioSelect(g.id, g.medio)}</td>
-          <td><input class="edit-input" id="eg-monto-${g.id}" type="number" value="${g.monto}" style="width:90px"></td>
-          <td></td>
-          <td><input class="edit-input" id="eg-notas-${g.id}" type="text" value="${g.notas || ''}"></td>
-          <td><button class="btn-save" onclick="saveEditGasto(${g.id})">✓ Guardar</button></td>
+          <td colspan="8" style="padding:10px 12px !important">
+            <div style="font-size:0.72rem;color:var(--text3);margin-bottom:8px;font-weight:600">${g.cat}</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <!-- Fecha -->
+              <input class="edit-input" id="eg-fecha-${g.id}" type="date" value="${g.fecha}" style="width:100%">
+              <!-- Descripción -->
+              <input class="edit-input" id="eg-desc-${g.id}" type="text" value="${g.desc}" placeholder="Descripción" style="width:100%">
+              <!-- Medio de pago -->
+              ${buildMedioSelect(g.id, g.medio)}
+              <!-- Monto -->
+              <input class="edit-input" id="eg-monto-${g.id}" type="number" value="${g.monto}" placeholder="Monto" style="width:100%">
+              <!-- Notas -->
+              <input class="edit-input" id="eg-notas-${g.id}" type="text" value="${g.notas || ''}" placeholder="Notas" style="width:100%">
+              <!-- Botón guardar -->
+              <button class="btn-save" onclick="saveEditGasto(${g.id})" style="width:100%;padding:9px;border-radius:10px;font-size:0.85rem">✓ Guardar</button>
+            </div>
+          </td>
         </tr>`).join('')}
     </tbody>
   </table>`;
@@ -2797,18 +2848,32 @@ function renderTarjetas() {
           </td>
         </tr>
         <tr id="tc-edit-${t.id}" class="edit-row" style="display:none">
-          <td colspan="4">
-            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:4px 0">
-              <div class="form-group" style="min-width:130px;flex:2">
+          <td colspan="4" style="padding:10px 12px !important">
+            <div style="font-size:0.72rem;color:var(--text3);margin-bottom:8px;font-weight:600">${iconTipo(t)} ${labelTipo(t)}</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <!-- Banco / Institución -->
+              <div class="form-group" style="width:100%">
                 <label>${(t.tipo||'credito') === 'billetera' ? 'Nombre / Institución' : 'Banco'}</label>
-                <input class="edit-input" id="te-banco-${t.id}" type="text" value="${t.banco||''}">
+                <input class="edit-input" id="te-banco-${t.id}" type="text" value="${t.banco||''}" style="width:100%">
               </div>
-              ${(t.tipo||'credito') !== 'billetera' ? `<div class="form-group" style="min-width:130px;flex:2"><label>Red / Nombre</label><input class="edit-input" id="te-nombre-${t.id}" type="text" value="${t.nombre||''}"></div>` : `<input type="hidden" id="te-nombre-${t.id}" value="${t.nombre||''}">`}
-              ${(t.tipo||'credito') === 'credito' ? `<div class="form-group" style="min-width:100px;flex:1"><label>Cierre (día)</label><input class="edit-input" id="te-cierre-${t.id}" type="number" min="1" max="31" value="${t.cierre||''}"></div>` : ''}
-              ${(t.tipo||'credito') === 'credito' ? `<div class="form-group" style="min-width:110px;flex:1"><label>Límite</label><input class="edit-input" id="te-limite-${t.id}" type="number" value="${t.limite||''}"></div>` : ''}
-              <div class="form-group" style="align-self:flex-end">
-                <button class="btn-save" onclick="saveEditTarjeta(${t.id})">✓ Guardar</button>
-              </div>
+              <!-- Red / Nombre (no billetera) -->
+              ${(t.tipo||'credito') !== 'billetera'
+                ? `<div class="form-group" style="width:100%"><label>Red / Nombre</label><input class="edit-input" id="te-nombre-${t.id}" type="text" value="${t.nombre||''}" style="width:100%"></div>`
+                : `<input type="hidden" id="te-nombre-${t.id}" value="${t.nombre||''}">`}
+              <!-- Cierre y Límite (solo crédito) en fila -->
+              ${(t.tipo||'credito') === 'credito' ? `
+              <div style="display:flex;gap:8px">
+                <div class="form-group" style="flex:1">
+                  <label>Cierre (día)</label>
+                  <input class="edit-input" id="te-cierre-${t.id}" type="number" min="1" max="31" value="${t.cierre||''}" style="width:100%">
+                </div>
+                <div class="form-group" style="flex:1">
+                  <label>Límite</label>
+                  <input class="edit-input" id="te-limite-${t.id}" type="number" value="${t.limite||''}" style="width:100%">
+                </div>
+              </div>` : ''}
+              <!-- Botón guardar -->
+              <button class="btn-save" onclick="saveEditTarjeta(${t.id})" style="width:100%;padding:9px;border-radius:10px;font-size:0.85rem">✓ Guardar</button>
             </div>
           </td>
         </tr>`;
@@ -3030,31 +3095,31 @@ function renderIngresosTable() {
           </td>
         </tr>
         <tr id="edit-i-${safeUid}" class="edit-row" style="display:none">
-          <td colspan="2" style="color:var(--text3);font-size:0.75rem">${i.mes} ${i.año}</td>
-          <td>
-            <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
-              <select id="ei-smoneda-${safeUid}" class="edit-input" style="width:72px">
-                <option value="ARS" ${(i.sueldoMoneda||'ARS')==='ARS'?'selected':''}>$ ARS</option>
-                <option value="USD" ${i.sueldoMoneda==='USD'?'selected':''}>u$s USD</option>
-              </select>
-              <input class="edit-input" id="ei-sueldo-${safeUid}" type="number" value="${i.sueldo||0}" style="width:100px" placeholder="Sueldo">
-            </div>
-          </td>
-          <td>
-            <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
-              <select id="ei-destino-${safeUid}" class="edit-input" style="width:180px">
+          <td colspan="7" style="padding:10px 12px !important">
+            <div style="font-size:0.72rem;color:var(--text3);margin-bottom:8px;font-weight:600">${i.mes} ${i.año}</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <!-- Moneda + Monto -->
+              <div style="display:flex;gap:6px;align-items:center">
+                <select id="ei-smoneda-${safeUid}" class="edit-input" style="width:90px;flex-shrink:0">
+                  <option value="ARS" ${(i.sueldoMoneda||'ARS')==='ARS'?'selected':''}>$ ARS</option>
+                  <option value="USD" ${i.sueldoMoneda==='USD'?'selected':''}>u$s USD</option>
+                </select>
+                <input class="edit-input" id="ei-sueldo-${safeUid}" type="number" value="${i.sueldo||0}" placeholder="Sueldo" style="flex:1;min-width:0">
+              </div>
+              <!-- Destino -->
+              <select id="ei-destino-${safeUid}" class="edit-input" style="width:100%">
                 <option value="">Sin destino</option>
                 <option value="Efectivo" ${(i.sueldoDestino||'')==='Efectivo'?'selected':''}>Efectivo</option>
                 ${tarjetas.filter(t=>t.tipo==='billetera').map(t=>`<option value="${t.label||t.banco||t.nombre}" ${(i.sueldoDestino||'')===(t.label||t.banco||t.nombre)?'selected':''}>${t.label||t.banco||t.nombre}</option>`).join('')}
                 ${tarjetas.filter(t=>t.tipo==='debito').map(t=>`<option value="${t.label||('Débito '+t.banco)}" ${(i.sueldoDestino||'')===(t.label||('Débito '+t.banco))?'selected':''}>${t.label||('Débito '+t.banco)}</option>`).join('')}
                 ${(i.sueldoDestino && i.sueldoDestino !== 'Efectivo' && !tarjetas.some(t=>t.tipo!=='credito' && ((t.label||t.banco||t.nombre)===i.sueldoDestino || (t.label||('Débito '+t.banco))===i.sueldoDestino))) ? `<option value="${i.sueldoDestino}" selected>${i.sueldoDestino}</option>` : ''}
               </select>
+              <!-- Otros (solo info) -->
+              ${(i.otros||[]).length ? '<div style="font-size:0.72rem;color:var(--text3);padding:4px 0">Otros: ' + (i.otros||[]).map(o=> o.nombre + ' ' + (o.moneda==='USD'?'u$s':'$') + o.monto.toLocaleString('es-AR') + (o.destino ? ' → ' + o.destino : '')).join(', ') + '</div>' : ''}
+              <!-- Botón guardar -->
+              <button class="btn-save" onclick="saveEditIngreso('${safeUid}')" style="width:100%;padding:9px;border-radius:10px;font-size:0.85rem">✓ Guardar</button>
             </div>
           </td>
-          <td colspan="2">
-            ${(i.otros||[]).length ? '<div style="font-size:0.72rem;color:var(--text3)">Otros: ' + (i.otros||[]).map(o=> o.nombre + ' ' + (o.moneda==='USD'?'u$s':'$') + o.monto.toLocaleString('es-AR') + (o.destino ? ' → ' + o.destino : '')).join(', ') + '</div>' : ''}
-          </td>
-          <td><button class="btn-save" onclick="saveEditIngreso('${safeUid}')">✓ Guardar</button></td>
         </tr>`;
       }).join('')}
     </tbody>
@@ -3829,21 +3894,27 @@ function renderAhorroTable() {
           </td>
         </tr>
         <tr id="edit-a-${ek}" class="edit-row" style="display:none">
-          <td colspan="2" style="color:var(--text3);font-size:0.75rem">${a.mes} ${a.año} · ${moneda}</td>
-          <td><input class="edit-input" id="ea-monto-${a.key}" type="number" value="${montoBase}" placeholder="Monto base"></td>
-          <td style="color:var(--text3);font-size:0.72rem">Rendimientos: ${rend > 0 ? s+rend.toLocaleString('es-AR') : '—'}</td>
-          <td>
-            <select id="ea-origen-${ek}" class="edit-input" style="min-width:130px">
-              <option value="">Sin origen</option>
-              <option value="Efectivo" ${(a.origen||'')==='Efectivo'?'selected':''}>Efectivo</option>
-              ${tarjetas.filter(t=>t.tipo==='billetera').map(t=>`<option value="${t.label||t.banco||t.nombre}" ${(a.origen||'')===(t.label||t.banco||t.nombre)?'selected':''}>${t.label||t.banco||t.nombre}</option>`).join('')}
-              ${tarjetas.filter(t=>t.tipo==='debito').map(t=>`<option value="${t.label||('Débito '+t.banco)}" ${(a.origen||'')===(t.label||('Débito '+t.banco))?'selected':''}>${t.label||('Débito '+t.banco)}</option>`).join('')}
-              ${(a.origen && a.origen !== 'Efectivo' && !tarjetas.some(t=>t.tipo!=='credito'&&((t.label||t.banco||t.nombre)===a.origen||(t.label||('Débito '+t.banco))===a.origen))) ? `<option value="${a.origen}" selected>${a.origen}</option>` : ''}
-            </select>
+          <td colspan="8" style="padding:10px 12px !important">
+            <div style="font-size:0.72rem;color:var(--text3);margin-bottom:8px;font-weight:600">${a.mes} ${a.año} · ${moneda}${rend > 0 ? ' · Rendimientos: ' + s + rend.toLocaleString('es-AR') : ''}</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <!-- Monto base -->
+              <input class="edit-input" id="ea-monto-${a.key}" type="number" value="${montoBase}" placeholder="Monto base" style="width:100%">
+              <!-- Origen -->
+              <select id="ea-origen-${ek}" class="edit-input" style="width:100%">
+                <option value="">Sin origen</option>
+                <option value="Efectivo" ${(a.origen||'')==='Efectivo'?'selected':''}>Efectivo</option>
+                ${tarjetas.filter(t=>t.tipo==='billetera').map(t=>`<option value="${t.label||t.banco||t.nombre}" ${(a.origen||'')===(t.label||t.banco||t.nombre)?'selected':''}>${t.label||t.banco||t.nombre}</option>`).join('')}
+                ${tarjetas.filter(t=>t.tipo==='debito').map(t=>`<option value="${t.label||('Débito '+t.banco)}" ${(a.origen||'')===(t.label||('Débito '+t.banco))?'selected':''}>${t.label||('Débito '+t.banco)}</option>`).join('')}
+                ${(a.origen && a.origen !== 'Efectivo' && !tarjetas.some(t=>t.tipo!=='credito'&&((t.label||t.banco||t.nombre)===a.origen||(t.label||('Débito '+t.banco))===a.origen))) ? `<option value="${a.origen}" selected>${a.origen}</option>` : ''}
+              </select>
+              <!-- Dónde guardás -->
+              <input class="edit-input" id="ea-tipo-${a.key}" type="text" value="${a.tipo||''}" placeholder="Dónde guardás" style="width:100%">
+              <!-- Notas -->
+              <input class="edit-input" id="ea-notas-${a.key}" type="text" value="${a.notas||''}" placeholder="Notas" style="width:100%">
+              <!-- Botón guardar -->
+              <button class="btn-save" onclick="saveEditAhorro('${a.key}')" style="width:100%;padding:9px;border-radius:10px;font-size:0.85rem">✓ Guardar</button>
+            </div>
           </td>
-          <td><input class="edit-input" id="ea-tipo-${a.key}" type="text" value="${a.tipo||''}" placeholder="Dónde guardás"></td>
-          <td colspan="2"><input class="edit-input" id="ea-notas-${a.key}" type="text" value="${a.notas||''}" placeholder="Notas"></td>
-          <td><button class="btn-save" onclick="saveEditAhorro('${a.key}')">✓ Guardar</button></td>
         </tr>`;
       }).join('')}
     </tbody>
@@ -3997,6 +4068,9 @@ window.authAction = async function() {
 window.doLogout = async function() {
   await window._fbSignOut(window._fbAuth);
   gastos = []; ingresos = []; ahorros = [];
+  pendientes = []; tarjetas = []; saldosIniciales = {};
+  localStorage.removeItem('gf_pendientes');
+  localStorage.removeItem('gf_tarjetas');
 };
 
 
