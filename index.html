@@ -2202,6 +2202,11 @@ tr:hover td { background: rgba(255,255,255,.035); }
     </div>
   </div>
 
+  <div class="table-wrap" style="margin-bottom:1.2rem">
+    <div class="table-header"><h3>💼 MIS FONDOS</h3></div>
+    <div id="fondos-body"></div>
+  </div>
+
   <div class="table-wrap">
     <div class="table-header"><h3>HISTORIAL DE AHORRO</h3></div>
     <div id="ahorro-table-body"></div>
@@ -2593,7 +2598,7 @@ function populateFilters() {
 function buildMedioSelect(id, medioActual) {
   const opciones = ['Efectivo'];
   tarjetas.filter(t => (t.tipo||'credito') === 'credito').forEach(t => opciones.push(t.label || t.nombre));
-  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('Débito ' + t.banco)));
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('CA ' + t.banco)));
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.banco || t.nombre));
   // Si el medio actual no está en la lista, agregarlo
   if (medioActual && !opciones.includes(medioActual)) opciones.push(medioActual);
@@ -2766,7 +2771,7 @@ function renderSaldoInicial() {
   const cuentas = [
     { label: 'Efectivo', tipo: 'efectivo' },
     ...tarjetas.filter(t => t.tipo === 'billetera').map(t => ({ label: t.label || t.banco || t.nombre, tipo: 'billetera' })),
-    ...tarjetas.filter(t => t.tipo === 'debito').map(t => ({ label: t.label || ('Debito ' + t.banco), tipo: 'debito' })),
+    ...tarjetas.filter(t => t.tipo === 'debito').map(t => ({ label: t.label || ('CA ' + t.banco), tipo: 'debito' })),
   ];
   if (!cuentas.length) {
     el.innerHTML = '<div class="empty" style="padding:0.5rem">Primero agrega tus medios de pago arriba.</div>';
@@ -2891,7 +2896,7 @@ function renderProductosBanco() {
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.85rem;color:var(--text2);text-transform:none;letter-spacing:0;font-weight:600">
         <input type="checkbox" id="tc-ch-debito" onchange="toggleProducto('debito')"
           style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">
-        🏦 Tarjeta de débito
+        🏦 Caja de ahorro / Débito
       </label>
     </div>
     <!-- Billetera -->
@@ -2941,7 +2946,7 @@ function agregarMedioPago() {
 
     let label = '';
     if (p.tipo === 'credito')   label = p.nombre + ' ' + banco;
-    if (p.tipo === 'debito')    label = 'Débito ' + banco;
+    if (p.tipo === 'debito')    label = 'CA ' + banco;
     if (p.tipo === 'billetera') label = banco;
 
     // Evitar duplicados exactos
@@ -2990,7 +2995,7 @@ function saveEditTarjeta(id) {
   // Recalcular label
   let label = '';
   if (tipo === 'credito')   label = (nombre ? nombre + ' ' : '') + banco;
-  if (tipo === 'debito')    label = 'Débito ' + banco + (nombre ? ' (' + nombre + ')' : '');
+  if (tipo === 'debito')    label = 'CA ' + banco + (nombre ? ' (' + nombre + ')' : '');
   if (tipo === 'billetera') label = banco || nombre || t.label;
 
   tarjetas[idx] = { ...t, banco, nombre, cierre, limite, label };
@@ -3029,7 +3034,7 @@ function renderTarjetas() {
   };
   const labelTipo = t => {
     const tipo = t.tipo || 'credito';
-    if (tipo === 'debito')   return 'Débito';
+    if (tipo === 'debito')   return 'Caja/Débito';
     if (tipo === 'billetera') return 'Billetera';
     return 'Crédito';
   };
@@ -3041,7 +3046,7 @@ function renderTarjetas() {
         const tipo = t.tipo || 'credito';
         const detalle = tipo === 'credito'
           ? (t.cierre ? 'Cierre día ' + t.cierre : 'Sin fecha de cierre') + (t.limite > 0 ? ' · $' + t.limite.toLocaleString('es-AR') : '')
-          : tipo === 'debito' ? (t.nombre ? 'Red: ' + t.nombre : 'Sin red especificada')
+          : tipo === 'debito' ? (t.nombre ? t.nombre : 'Caja de ahorro')
           : '—';
         const label = t.label || t.nombre;
         return `
@@ -3060,9 +3065,9 @@ function renderTarjetas() {
             <div class="edit-panel-body">
               <!-- Banco / Institución -->
               <input class="edit-input" id="te-banco-${t.id}" type="text" value="${t.banco||''}" placeholder="${(t.tipo||'credito') === 'billetera' ? 'Nombre / Institución' : 'Banco'}">
-              <!-- Red / Nombre (no billetera) -->
+              <!-- Red / Nombre / Alias según tipo -->
               ${(t.tipo||'credito') !== 'billetera'
-                ? `<input class="edit-input" id="te-nombre-${t.id}" type="text" value="${t.nombre||''}" placeholder="Red / Nombre">`
+                ? `<input class="edit-input" id="te-nombre-${t.id}" type="text" value="${t.nombre||''}" placeholder="${(t.tipo||'credito') === 'debito' ? 'Alias / descripción (opcional)' : 'Red (Visa, Mastercard...)'}">`
                 : `<input type="hidden" id="te-nombre-${t.id}" value="${t.nombre||''}">`}
               <!-- Cierre y Límite (solo crédito) en fila -->
               ${(t.tipo||'credito') === 'credito' ? `
@@ -3093,7 +3098,7 @@ function renderMedioPago(extraMedio) {
 
   const opciones = ['Efectivo'];
   tarjetas.filter(t => (t.tipo||'credito') === 'credito').forEach(t => opciones.push(t.label || t.nombre));
-  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('Débito ' + t.banco)));
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('CA ' + t.banco)));
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.banco || t.nombre));
 
   // Si el gasto viejo tiene un medio que ya no está en la lista, lo agregamos como opción
@@ -3158,7 +3163,7 @@ function renderDestinosIngreso() {
   // Solo Efectivo + billeteras virtuales + débito (no crédito, no almacena dinero)
   const opciones = ['Efectivo'];
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.banco || t.nombre));
-  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('Débito ' + t.banco)));
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('CA ' + t.banco)));
 
   const opcionesHTML = opciones.map(o => '<option value="' + o + '"' + (o === 'Efectivo' ? ' selected' : '') + '>' + o + '</option>').join('');
 
@@ -3179,7 +3184,7 @@ function renderOrigenAhorro() {
   if (!sel) return;
   const opciones = ['Efectivo'];
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => opciones.push(t.label || t.banco || t.nombre));
-  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('Débito ' + t.banco)));
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => opciones.push(t.label || ('CA ' + t.banco)));
   sel.innerHTML = '<option value="">Seleccionar...</option>' +
     opciones.map(o => `<option value="${o}">${o}</option>`).join('');
 }
@@ -4015,7 +4020,98 @@ function saveEditAhorro(key) {
   renderAhorroTable();
 }
 
+function renderFondos() {
+  const el = document.getElementById('fondos-body');
+  if (!el) return;
+  if (!ahorros.length) { el.innerHTML = '<div class="empty" style="padding:1rem">Sin fondos registrados</div>'; return; }
+
+  // Agrupar por tipo (o "Sin clasificar" si no tiene tipo)
+  const grupos = {};
+  ahorros.forEach(a => {
+    const key = (a.tipo || 'Sin clasificar') + '|' + (a.moneda || 'ARS');
+    if (!grupos[key]) grupos[key] = { tipo: a.tipo || 'Sin clasificar', moneda: a.moneda || 'ARS', items: [] };
+    grupos[key].items.push(a);
+  });
+
+  const html = Object.entries(grupos).map(([gkey, g]) => {
+    const s = g.moneda === 'USD' ? 'u$s ' : '$';
+    const color = g.moneda === 'USD' ? 'var(--accent3)' : 'var(--accent)';
+    const totalMonto = g.items.reduce((sum, a) => sum + a.monto, 0);
+    const totalRend  = g.items.reduce((sum, a) => sum + (a.rendimientos || 0), 0);
+    const totalBase  = g.items.reduce((sum, a) => sum + (a.monto - (a.rendimientos||0)), 0);
+    const montoColor = totalMonto < 0 ? 'var(--accent2)' : color;
+    const safeGkey = gkey.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    return `
+    <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="min-width:0;flex:1">
+          <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:2px">${g.tipo}</div>
+          <div style="font-size:0.7rem;color:var(--text3)">${g.items.length} depósito${g.items.length>1?'s':''} · ${g.moneda}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:${montoColor};margin-top:6px">${s}${totalMonto.toLocaleString('es-AR')}</div>
+          ${totalRend !== 0 ? `<div style="font-size:0.72rem;color:${totalRend>0?'#a8ffdc':'var(--accent2)'};margin-top:2px">${totalRend>0?'▲':'▼'} Rendimientos: ${totalRend>0?'+':''}${s}${Math.abs(totalRend).toLocaleString('es-AR')}</div>` : ''}
+          <div style="font-size:0.68rem;color:var(--text3);margin-top:1px">Base depositada: ${s}${totalBase.toLocaleString('es-AR')}</div>
+        </div>
+        <button onclick="toggleFondoRend('${safeGkey}')" style="background:none;border:1px solid rgba(168,255,220,0.3);color:#a8ffdc;border-radius:10px;padding:6px 12px;font-size:0.75rem;cursor:pointer;font-family:'Sora',sans-serif;white-space:nowrap;flex-shrink:0">± Rend.</button>
+      </div>
+      <div id="fondo-rend-${safeGkey}" style="display:none;margin-top:10px;flex-direction:column;gap:8px">
+        <input id="fondo-input-${safeGkey}" type="number" placeholder="Monto del rendimiento" min="0" step="0.01"
+          style="background:var(--bg);border:1px solid var(--accent);border-radius:12px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.9rem;padding:10px 14px;outline:none;width:100%;box-sizing:border-box">
+        <div style="display:flex;gap:8px">
+          <button onclick="aplicarRendFondo('${safeGkey}', '${g.tipo}', '${g.moneda}', 1)" style="flex:1;background:rgba(0,229,160,0.12);border:1px solid var(--accent);color:var(--accent);border-radius:12px;padding:10px;font-size:0.85rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700">+ Sumar</button>
+          <button onclick="aplicarRendFondo('${safeGkey}', '${g.tipo}', '${g.moneda}', -1)" style="flex:1;background:rgba(255,79,94,0.1);border:1px solid var(--accent2);color:var(--accent2);border-radius:12px;padding:10px;font-size:0.85rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700">− Restar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = html || '<div class="empty" style="padding:1rem">Sin fondos</div>';
+}
+
+function toggleFondoRend(safeGkey) {
+  const wrap = document.getElementById('fondo-rend-' + safeGkey);
+  if (!wrap) return;
+  const visible = wrap.style.display !== 'none';
+  wrap.style.display = visible ? 'none' : 'flex';
+  if (!visible) document.getElementById('fondo-input-' + safeGkey)?.focus();
+}
+
+function aplicarRendFondo(safeGkey, tipo, moneda, signo) {
+  const input = document.getElementById('fondo-input-' + safeGkey);
+  const monto = parseFloat(input.value);
+  if (!monto || monto <= 0) { notify('⚠ Ingresá un monto válido'); return; }
+
+  // Encontrar todos los items de este fondo y distribuir el rendimiento proporcionalmente
+  const items = ahorros.filter(a => (a.tipo || 'Sin clasificar') === tipo && (a.moneda || 'ARS') === moneda);
+  if (!items.length) return;
+
+  const totalBase = items.reduce((s, a) => s + Math.max(a.monto, 0.01), 0);
+  const ajusteTotal = +(monto * signo).toFixed(2);
+  const fecha = new Date().toISOString().slice(0, 10);
+
+  // Distribuir proporcionalmente entre los items del fondo
+  items.forEach((item, i) => {
+    const idx = ahorros.findIndex(a => a.key === item.key);
+    if (idx < 0) return;
+    // Último item recibe el residuo para evitar errores de redondeo
+    const proporcion = i < items.length - 1
+      ? +((Math.max(item.monto, 0.01) / totalBase) * ajusteTotal).toFixed(2)
+      : ajusteTotal - items.slice(0, -1).reduce((s, a) => s + +((Math.max(a.monto, 0.01) / totalBase) * ajusteTotal).toFixed(2), 0);
+    ahorros[idx].monto = +(ahorros[idx].monto + proporcion).toFixed(2);
+    ahorros[idx].rendimientos = +((ahorros[idx].rendimientos || 0) + proporcion).toFixed(2);
+    ahorros[idx].historialRendimientos = ahorros[idx].historialRendimientos || [];
+    ahorros[idx].historialRendimientos.push({ monto: proporcion, fecha });
+  });
+
+  save();
+  const s = moneda === 'USD' ? 'u$s ' : '$';
+  notify(`${signo > 0 ? '+' : '−'}${s}${monto.toLocaleString('es-AR')} aplicado al fondo "${tipo}"`);
+  input.value = '';
+  renderAhorroTable();
+}
+
 function renderAhorroTable() {
+  renderFondos();
   const el = document.getElementById('ahorro-table-body');
   const list = [...ahorros].sort((a,b) => {
     const ka = a.ymBase || a.key.slice(0,7);
@@ -4075,18 +4171,6 @@ function renderAhorroTable() {
             ${a.origen ? '<div style="font-size:0.7rem;color:var(--text3)">→ ' + a.origen + '</div>' : ''}
             <div style="font-family:'DM Mono',monospace;color:${montoColor};font-weight:600;font-size:0.82rem;margin-top:4px">${s}${a.monto.toLocaleString('es-AR')}</div>
             ${rend !== 0 ? `<div style="font-size:0.68rem;color:${rend>0?'#a8ffdc':'var(--accent2)'};margin-top:2px">${rend>0?'▲':'▼'} rend: ${rend>0?'+':''}${s}${Math.abs(rend).toLocaleString('es-AR')}</div>` : ''}
-            <div style="margin-top:6px">
-              <button onclick="toggleRendInput('${safeKey}')" style="background:none;border:1px solid rgba(168,255,220,0.3);color:#a8ffdc;border-radius:8px;padding:3px 10px;font-size:0.7rem;cursor:pointer;font-family:'Sora',sans-serif">± Rendimiento</button>
-              <div id="rend-wrap-${a.key}" style="display:none;margin-top:6px;flex-direction:column;gap:6px">
-                <input id="rend-input-${a.key}" type="number" placeholder="Monto" min="0" step="0.01"
-                  style="background:var(--bg);border:1px solid var(--accent);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.85rem;padding:8px 12px;outline:none;width:100%"
-                  onkeydown="if(event.key==='Enter') agregarRendimiento('${safeKey}', 1)">
-                <div style="display:flex;gap:6px">
-                  <button onclick="agregarRendimiento('${safeKey}', 1)" style="flex:1;background:rgba(0,229,160,0.12);border:1px solid var(--accent);color:var(--accent);border-radius:10px;padding:8px;font-size:0.82rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600">+ Sumar</button>
-                  <button onclick="agregarRendimiento('${safeKey}', -1)" style="flex:1;background:rgba(255,79,94,0.1);border:1px solid var(--accent2);color:var(--accent2);border-radius:10px;padding:8px;font-size:0.82rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600">− Restar</button>
-                </div>
-              </div>
-            </div>
           </td>
           <td class="col-hide-mobile" style="font-family:'DM Mono',monospace;color:${color};font-weight:600;white-space:nowrap">${s}${a.monto.toLocaleString('es-AR')}</td>
           <td class="col-hide-mobile">
