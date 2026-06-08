@@ -1183,6 +1183,16 @@ function eliminarAjuste(id) {
   notify('Ajuste eliminado');
 }
 
+function borrarTodosLosAjustes() {
+  if (!ajustesCuentas || ajustesCuentas.length === 0) { notify('No hay ajustes guardados'); return; }
+  if (!confirm('¿Borrar todos los ajustes? Esta acción no se puede deshacer.')) return;
+  ajustesCuentas = [];
+  save();
+  renderSaldoCuentas();
+  renderDashboard();
+  notify('Todos los ajustes eliminados');
+}
+
 function moverEntreCuentas(origen, safeC) {
   const input = document.getElementById('mover-input-' + safeC);
   const destSel = document.getElementById('mover-destino-' + safeC);
@@ -1420,9 +1430,9 @@ function renderDashboard() {
   })();
   const totalAhorroAcumulado = ahorros.reduce((s, a) => s + a.monto, 0);
   const totalSaldoInicial = Object.values(saldosIniciales || {}).reduce((s, v) => s + v, 0);
-  // Disponible del mes: lo que queda del mes seleccionado, sin arrastrar meses anteriores.
-  // Se restan los ahorros del mes porque esa plata deja de estar disponible para gastar.
-  const saldo = totalIngreso - totalGasto - totalAhorroMes;
+  // Disponible del mes: flujo mensual + ajustes registrados para el mes seleccionado.
+  const ajustesDelMes = (ajustesCuentas || []).filter(a => a.fecha.slice(0,7) === ym).reduce((s, a) => s + (a.monto || 0), 0);
+  const saldo = totalIngreso - totalGasto - totalAhorroMes + ajustesDelMes;
 
   $('d-gasto').textContent = '$' + fmt(totalGasto);
   $('d-ingreso').textContent = '$' + fmt(totalIngreso);
@@ -1452,7 +1462,7 @@ function renderDashboard() {
 
   // Saldo sub label
   const subEl = $('d-saldo-sub');
-  if (subEl) subEl.textContent = totalAhorroMes > 0 ? 'ingresos - gastos - ahorro del mes' : 'ingresos - gastos del mes';
+  if (subEl) subEl.textContent = ajustesDelMes !== 0 ? 'ingresos − gastos − ahorro + ajustes' : (totalAhorroMes > 0 ? 'ingresos − gastos − ahorro del mes' : 'ingresos − gastos del mes');
 
   // Saldo color
   const saldoEl = $('d-saldo');
@@ -1777,7 +1787,9 @@ function _renderSaldoPanel(ym) {
   const totalIngresosMes = ingresosMes.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
   const ahorrosMes = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym);
   const totalAhorroMes = ahorrosMes.reduce((s, a) => s + a.monto, 0);
-  const saldoMes = totalIngresosMes - totalGastosMes - totalAhorroMes;
+  const ajustesMes = (ajustesCuentas || []).filter(a => a.fecha.slice(0,7) === ym);
+  const totalAjustesMes = ajustesMes.reduce((s, a) => s + (a.monto || 0), 0);
+  const saldoMes = totalIngresosMes - totalGastosMes - totalAhorroMes + totalAjustesMes;
 
   // Balance historico, solo informativo
   const totalIngresosAcum = ingresos.reduce((s,i) => s+(i.totalARS ?? i.total ?? 0), 0);
@@ -1813,6 +1825,7 @@ function _renderSaldoPanel(ym) {
     { label: '💸 Gastos del mes',   v: totalGastosMes,   color: 'var(--accent2)', signo: '−' },
     { label: '🏦 Ahorro del mes',   v: totalAhorroMes,   color: 'var(--accent4)', signo: '−' },
   ];
+  if (totalAjustesMes !== 0) filas.push({ label: '🔧 Ajustes del mes', v: Math.abs(totalAjustesMes), color: 'var(--accent3)', signo: totalAjustesMes > 0 ? '+' : '−' });
 
   let html = '<div style="padding:1rem 1.4rem;display:flex;flex-direction:column;gap:12px">';
   filas.forEach(f => {
@@ -2877,18 +2890,6 @@ async function renderAdminPanel() {
           '</td>' +
         '</tr>'
       ).join('') +
-    '</tbody></table>';
-  } catch(e) {
-    el.innerHTML = '<div class="panel-empty">Error cargando: ' + e.message + '</div>';
-  }
+      '</tbody></table>';
+  } catch(e) { notify('Error: ' + e.message); }
 }
-
-// ---- INIT ----
-$('g-fecha').value = new Date().toISOString().slice(0,7) + '-' + String(new Date().getDate()).padStart(2,'0');
-initCatSelects();
-renderMedioPago();
-renderDestinosIngreso();
-renderOrigenAhorro();
-renderSaldoInicial();
-// renderDashboard() se llama desde onAuthStateChanged cuando el usuario inicia sesión
-window.renderDashboard = renderDashboard;

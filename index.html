@@ -252,7 +252,7 @@ onAuthStateChanged(auth, async (user) => {
 
     <!-- SALDO -->
     <div class="card yellow expandable" onclick="toggleCardPanel('panel-saldo')">
-      <div class="label">Disponible del mes <span class="expand-icon" id="icon-panel-saldo">▾</span></div>
+      <div class="label">Dinero disponible <span class="expand-icon" id="icon-panel-saldo">▾</span></div>
       <div class="value" id="d-saldo">$0</div>
       <div class="sub" id="d-saldo-sub"></div>
     </div>
@@ -520,7 +520,10 @@ onAuthStateChanged(auth, async (user) => {
   </div>
 
   <div class="table-wrap" style="margin-bottom:1.2rem">
-    <div class="table-header"><h3>💰 SALDO POR CUENTA</h3></div>
+    <div class="table-header" style="display:flex;justify-content:space-between;align-items:center">
+      <h3>💰 SALDO POR CUENTA</h3>
+      <button onclick="borrarTodosLosAjustes()" style="font-size:0.7rem;padding:4px 10px;background:rgba(255,79,94,0.12);border:1px solid rgba(255,79,94,0.35);color:var(--accent2);border-radius:8px;cursor:pointer">🗑 Borrar ajustes</button>
+    </div>
     <div style="padding:0.6rem 1.2rem;background:var(--surface2);font-size:0.7rem;color:var(--text3);border-bottom:1px solid var(--border)">
       Saldo acumulado desde tus registros + saldo inicial configurado en Ajustes. Usá <strong style="color:var(--accent3)">Ajustar</strong> para corregir diferencias.
     </div>
@@ -790,3 +793,4 @@ onAuthStateChanged(auth, async (user) => {
   <script src="app.js" defer></script>
 </body>
 </html>
+            
