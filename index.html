@@ -60,7 +60,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCbiRrXVS_R-NhH0ZBlHa06zzdBdK9zdSE",
@@ -86,6 +86,10 @@ window._fbSignIn = signInWithEmailAndPassword;
 window._fbSignOut = signOut;
 window._fbResetPassword = sendPasswordResetEmail;
 window._fbOnAuth = onAuthStateChanged;
+window._fbCollection = collection;
+window._fbQuery = query;
+window._fbWhere = where;
+window._fbGetDocs = getDocs;
 
 // Escuchar cambios de sesión
 onAuthStateChanged(auth, async (user) => {
@@ -530,6 +534,13 @@ onAuthStateChanged(auth, async (user) => {
     <div id="saldo-cuentas-body"></div>
   </div>
 
+  <div class="table-wrap" style="margin-bottom:1.2rem">
+    <div class="table-header" style="display:flex;justify-content:space-between;align-items:center">
+      <h3>🔧 HISTORIAL DE AJUSTES</h3>
+    </div>
+    <div id="ajustes-historial-body"></div>
+  </div>
+
   <div class="table-wrap" style="margin-top:1.2rem">
     <div class="table-header"><h3>HISTORIAL DE INGRESOS</h3></div>
     <div id="ingresos-table-body"></div>
@@ -779,6 +790,25 @@ onAuthStateChanged(auth, async (user) => {
           <button class="btn-export" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent3);color:var(--accent3)" onclick="limpiarAjustesViejos()">🧹 Limpiar ajustes mal registrados</button>
         </div>
         <div id="diag-raw" style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--text3);white-space:pre-wrap;background:var(--bg);border-radius:10px;padding:1rem;margin-top:8px;display:none;max-height:300px;overflow-y:auto"></div>
+      </div>
+
+      <!-- BORRAR DATOS DE USUARIO -->
+      <div class="table-wrap" style="margin-top:1.2rem;border:1px solid rgba(255,79,94,0.3)">
+        <div class="table-header" style="background:rgba(255,79,94,0.08)">
+          <h3 style="color:var(--accent2)">🗑 BORRAR DATOS DE USUARIO</h3>
+        </div>
+        <div style="padding:1.2rem;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:0.75rem;color:var(--text3)">Borra todos los registros (gastos, ingresos, ahorros, etc.) del usuario indicado. La cuenta de Firebase <strong>no se elimina</strong> — el usuario puede volver a cargar datos desde cero.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="admin-borrar-email" type="email" placeholder="email del usuario a resetear"
+              style="flex:1;min-width:220px;background:var(--bg);border:1px solid rgba(255,79,94,0.5);border-radius:10px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.88rem;padding:10px 14px;outline:none">
+            <button onclick="borrarDatosUsuario()"
+              style="background:rgba(255,79,94,0.15);border:1px solid rgba(255,79,94,0.6);color:var(--accent2);border-radius:10px;padding:10px 18px;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;white-space:nowrap">
+              🗑 Borrar todos los datos
+            </button>
+          </div>
+          <div id="admin-borrar-result" style="font-size:0.8rem;min-height:20px"></div>
+        </div>
       </div>
     </div>
   </div>
