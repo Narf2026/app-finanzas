@@ -738,7 +738,7 @@ tr:last-child td {
     align-items: center;
 }
 
-.btn-export {
+.btn-export, .btn-secondary {
   background: none;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -754,7 +754,7 @@ tr:last-child td {
     gap: 5px;
 }
 
-.btn-export:hover {
+.btn-export:hover, .btn-secondary:hover {
   border-color: var(--accent); color: var(--accent);
 }
 
@@ -1359,6 +1359,8 @@ tr:hover td {
   }
   .data-btns { display: none; }
   .btn-export, .btn-import { display: none; }
+  .data-io-mobile { display: block !important; }
+  .btn-secondary { min-height: 44px !important; font-size: 0.85rem !important; padding: 10px 14px !important; border-radius: 12px !important; justify-content: center; }
 
   /* ── NAV PILL BOTTOM ── */
   nav {
@@ -1489,8 +1491,9 @@ tr:hover td {
   }
 
   /* ── TABLAS ── */
-  .col-hide-mobile { display: none !important; }
-  .col-show-mobile { display: block !important; }
+  .col-show-mobile { display: none; }
+.col-hide-mobile { display: none !important; }
+  .col-show-mobile { display: flex !important; }
   .table-wrap {
     border-radius: 18px;
     overflow-x: auto;
@@ -2430,5 +2433,81 @@ button:focus-visible {
 @media (max-width: 700px) {
   header {
     gap: 0 !important;
+  }
+}
+
+/* =========================================================
+   MOBILE — inline JS-generated elements fix
+   ========================================================= */
+@media (max-width: 700px) {
+
+  /* Admin panel: borrar datos input + button en columna */
+  #tab-admin input[type="email"] {
+    min-height: 46px !important;
+    font-size: 16px !important;
+    width: 100% !important;
+  }
+  #tab-admin .table-wrap div[style*="display:flex;gap:8px"] {
+    flex-direction: column !important;
+  }
+  #tab-admin button[onclick="borrarDatosUsuario()"] {
+    width: 100% !important;
+    min-height: 48px !important;
+    font-size: 0.9rem !important;
+    justify-content: center;
+  }
+
+  /* Historial de ajustes: edit form columna full-width */
+  #ajustes-historial-body div[style*="display:flex;flex-wrap:wrap"] {
+    flex-direction: column !important;
+  }
+  #ajustes-historial-body input,
+  #ajustes-historial-body select {
+    min-height: 46px !important;
+    font-size: 16px !important;
+    width: 100% !important;
+  }
+  /* Botones ✏ ✕ en historial: igual altura, no se encogen */
+  #ajustes-historial-body button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    touch-action: manipulation;
+  }
+  /* Fila de botones en el historial: no se apila */
+  #ajustes-historial-body div[style*="display:flex;justify-content:space-between"] > div[style*="display:flex;align-items:center;gap:8px"] {
+    gap: 6px !important;
+    flex-shrink: 0;
+  }
+
+  /* Paneles Ajustar / Mover: inputs siempre 16px */
+  div[id^="ajuste-"] input,
+  div[id^="mover-"] input,
+  div[id^="mover-"] select {
+    font-size: 16px !important;
+    min-height: 46px !important;
+  }
+
+  /* "ver detalle" tap zone: más grande */
+  div[onclick*="toggleDetalleCuenta"] {
+    padding: 4px 0 !important;
+    min-height: 56px;
+    align-items: center;
+  }
+
+  /* Detalle cuenta: más espacio entre filas */
+  div[id^="detalle-"] > div {
+    padding: 10px 14px !important;
+  }
+
+  /* Tab admin: diag buttons en columna */
+  #tab-admin div[style*="display:flex;flex-wrap:wrap;gap:8px"] {
+    flex-direction: column !important;
+  }
+  #tab-admin .btn-export {
+    min-height: 44px !important;
+    font-size: 0.82rem !important;
+    width: 100% !important;
+    text-align: center;
+    justify-content: center;
   }
 }

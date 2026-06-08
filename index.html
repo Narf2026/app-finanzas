@@ -487,7 +487,7 @@ onAuthStateChanged(auth, async (user) => {
     <!-- Fila: Otros ingresos -->
     <div style="padding:0.8rem 1.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
       <span style="font-size:0.7rem;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase">Otros ingresos</span>
-      <button class="btn-export" onclick="toggleOtrosForm()" style="white-space:nowrap">+ Agregar otro ingreso</button>
+      <button class="btn-secondary" onclick="toggleOtrosForm()" style="white-space:nowrap">+ Agregar otro ingreso</button>
     </div>
     <div id="otros-form" style="display:none;padding:1rem 1.4rem;border-bottom:1px solid var(--border);background:var(--surface2)">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
@@ -698,7 +698,7 @@ onAuthStateChanged(auth, async (user) => {
     <button class="month-btn" id="pf-pendientes" onclick="setPendienteFiltro('pendientes',this)">Pendientes</button>
     <button class="month-btn" id="pf-completados" onclick="setPendienteFiltro('completados',this)">Completados</button>
     <div style="margin-left:auto">
-      <button class="btn-export" onclick="limpiarCompletados()" style="border-color:var(--accent2);color:var(--accent2)">🗑 Limpiar completados</button>
+      <button class="btn-secondary" onclick="limpiarCompletados()" style="border-color:var(--accent2);color:var(--accent2)">🗑 Limpiar completados</button>
     </div>
   </div>
 
@@ -709,6 +709,15 @@ onAuthStateChanged(auth, async (user) => {
 <section id="tab-ajustes">
   <div style="max-width:900px;margin:0 auto;padding:2rem 1.5rem">
     <div class="page-title">Ajustes</div>
+
+    <!-- Exportar/Importar — en desktop está en el header, en mobile aparece acá -->
+    <div class="card data-io-mobile" style="margin-bottom:1.5rem;display:none">
+      <div style="font-size:0.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">💾 Datos</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-secondary" onclick="exportData()" style="flex:1;justify-content:center">⬇ Exportar</button>
+        <button class="btn-secondary" onclick="document.getElementById('import-file').click()" style="flex:1;justify-content:center">⬆ Importar</button>
+      </div>
+    </div>
 
     <!-- Medios de pago -->
     <div class="card" style="margin-bottom:1.5rem">
@@ -795,42 +804,5 @@ onAuthStateChanged(auth, async (user) => {
         </div>
         <div id="diag-result" style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text2);white-space:pre-wrap;background:var(--bg);border-radius:10px;padding:1rem;min-height:60px"></div>
         <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn-export" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent4);color:var(--accent4)" onclick="recuperarPendientes()">♻ Recuperar memos de localStorage</button>
-          <button class="btn-export" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent2);color:var(--accent2)" onclick="verFirestoreRaw()">📦 Ver JSON crudo de Firestore</button>
-          <button class="btn-export" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent3);color:var(--accent3)" onclick="limpiarAjustesViejos()">🧹 Limpiar ajustes mal registrados</button>
-        </div>
-        <div id="diag-raw" style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--text3);white-space:pre-wrap;background:var(--bg);border-radius:10px;padding:1rem;margin-top:8px;display:none;max-height:300px;overflow-y:auto"></div>
-      </div>
-
-      <!-- BORRAR DATOS DE USUARIO -->
-      <div class="table-wrap" style="margin-top:1.2rem;border:1px solid rgba(255,79,94,0.3)">
-        <div class="table-header" style="background:rgba(255,79,94,0.08)">
-          <h3 style="color:var(--accent2)">🗑 BORRAR DATOS DE USUARIO</h3>
-        </div>
-        <div style="padding:1.2rem;display:flex;flex-direction:column;gap:12px">
-          <div style="font-size:0.75rem;color:var(--text3)">Borra todos los registros (gastos, ingresos, ahorros, etc.) del usuario indicado. La cuenta de Firebase <strong>no se elimina</strong> — el usuario puede volver a cargar datos desde cero.</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <input id="admin-borrar-email" type="email" placeholder="email del usuario a resetear"
-              style="flex:1;min-width:220px;background:var(--bg);border:1px solid rgba(255,79,94,0.5);border-radius:10px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.88rem;padding:10px 14px;outline:none">
-            <button onclick="borrarDatosUsuario()"
-              style="background:rgba(255,79,94,0.15);border:1px solid rgba(255,79,94,0.6);color:var(--accent2);border-radius:10px;padding:10px 18px;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;white-space:nowrap">
-              🗑 Borrar todos los datos
-            </button>
-          </div>
-          <div id="admin-borrar-result" style="font-size:0.8rem;min-height:20px"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-</main>
-
-<div class="notif" id="notif">✓ <span id="notif-msg"></span></div>
-
-
-  <!-- App logic -->
-  <script src="app.js" defer></script>
-</body>
-</html>
-            
+          <button class="btn-secondary" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent4);color:var(--accent4)" onclick="recuperarPendientes()">♻ Recuperar memos de localStorage</button>
+          <butto

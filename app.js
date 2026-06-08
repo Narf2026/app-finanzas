@@ -271,12 +271,19 @@ function renderGastosTable() {
   rows.map(g => `
     <tr>
       <td style="color:var(--text3);font-size:0.8rem;white-space:nowrap">${g.fecha}</td>
-      <td style="font-weight:600;color:var(--text2)">${g.desc}</td>
-      <td class="col-hide-mobile"><span class="badge badge-cat">${g.cat}</span></td>
-      <td class="col-hide-mobile"><span class="badge badge-medio">${g.medio || '—'}</span></td>
+      <td>
+        <div style="font-weight:600;color:var(--text2)">${escHtml(g.desc)}</div>
+        <div class="col-show-mobile" style="margin-top:3px;gap:4px;flex-wrap:wrap;align-items:center">
+          <span class="badge badge-cat" style="font-size:0.62rem">${escHtml(g.cat)}</span>
+          ${g.medio ? `<span class="badge badge-medio" style="font-size:0.62rem">${escHtml(g.medio)}</span>` : ''}
+          ${g.cuota ? `<span class="badge badge-cuota" style="font-size:0.62rem">${g.ncuotas}x $${fmt(g.montoXcuota)}</span>` : ''}
+        </div>
+      </td>
+      <td class="col-hide-mobile"><span class="badge badge-cat">${escHtml(g.cat)}</span></td>
+      <td class="col-hide-mobile"><span class="badge badge-medio">${escHtml(g.medio || '—')}</span></td>
       <td class="monto" style="white-space:nowrap">$${fmt(g.monto)}</td>
       <td class="col-hide-mobile">${g.cuota ? `<span class="badge badge-cuota">${g.ncuotas}x $${fmt(g.montoXcuota)}</span>` : '—'}</td>
-      <td class="col-hide-mobile" style="color:var(--text3);font-size:0.78rem">${g.notas || '—'}</td>
+      <td class="col-hide-mobile" style="color:var(--text3);font-size:0.78rem">${escHtml(g.notas || '—')}</td>
       <td style="display:flex;gap:4px">
         <button class="btn-edit" onclick="toggleEditGasto(${g.id})">✏</button>
         <button class="btn-del" onclick="deleteGasto(${g.id})">✕</button>
@@ -1602,8 +1609,8 @@ function renderSaldoCuentas() {
           </div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
-          <button onclick="toggleCuentaPanel('ajuste-${safeC}')" style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.4);color:var(--accent3);border-radius:10px;padding:6px 10px;font-size:0.75rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600">✏ Ajustar</button>
-          <button onclick="toggleCuentaPanel('mover-${safeC}')" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.4);color:var(--accent4);border-radius:10px;padding:6px 10px;font-size:0.75rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600">↔ Mover</button>
+          <button onclick="toggleCuentaPanel('ajuste-${safeC}')" style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.4);color:var(--accent3);border-radius:10px;padding:10px 14px;font-size:0.82rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">✏ Ajustar</button>
+          <button onclick="toggleCuentaPanel('mover-${safeC}')" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.4);color:var(--accent4);border-radius:10px;padding:10px 14px;font-size:0.82rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">↔ Mover</button>
         </div>
       </div>
       <!-- Panel Detalle -->
@@ -1704,9 +1711,9 @@ function renderSaldoCuentas() {
         <div style="font-size:0.72rem;color:var(--accent3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Ajustar saldo de ${c}</div>
         <div style="font-size:0.72rem;color:var(--text3)">Ingresá el saldo real que tenés ahora. La diferencia se registra automáticamente y <strong>no afecta el Dashboard</strong>.</div>
         <input id="ajuste-input-${safeC}" type="number" placeholder="Saldo real actual ($)" step="0.01"
-          style="background:var(--bg);border:1px solid var(--accent3);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.9rem;padding:10px 14px;outline:none;width:100%;box-sizing:border-box">
+          style="background:var(--bg);border:1px solid var(--accent3);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;padding:12px 14px;outline:none;width:100%;box-sizing:border-box;min-height:46px">
         <button onclick="aplicarAjusteCuenta('${c}', '${safeC}', ${ars})"
-          style="background:var(--accent3);border:none;color:#0d0f14;border-radius:10px;padding:10px;font-size:0.85rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700">✓ Aplicar ajuste</button>
+          style="background:var(--accent3);border:none;color:#0d0f14;border-radius:10px;padding:14px;font-size:0.9rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700;min-height:48px;width:100%;touch-action:manipulation">✓ Aplicar ajuste</button>
         ${(ajustesCuentas||[]).filter(a=>a.cuenta===c).length > 0 ? `
         <div style="margin-top:4px;border-top:1px solid rgba(245,184,46,0.2);padding-top:8px">
           <div style="font-size:0.68rem;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Historial de ajustes</div>
@@ -1716,7 +1723,7 @@ function renderSaldoCuentas() {
               <div style="font-size:0.75rem;color:var(--text2)">${a.fecha} · $${a.saldoAntes?.toLocaleString('es-AR')} → $${a.saldoDespues?.toLocaleString('es-AR')}</div>
               <div style="font-size:0.7rem;color:${a.monto>0?'var(--accent)':'var(--accent2)'}">${a.monto>0?'+':''}$${fmt(Math.abs(a.monto))}</div>
             </div>
-            <button onclick="eliminarAjuste(${a.id})" style="background:none;border:1px solid rgba(255,79,94,0.4);color:var(--accent2);border-radius:8px;padding:3px 8px;font-size:0.7rem;cursor:pointer">✕</button>
+            <button onclick="eliminarAjuste(${a.id})" style="background:rgba(255,79,94,0.08);border:1px solid rgba(255,79,94,0.4);color:var(--accent2);border-radius:8px;padding:9px 14px;font-size:0.82rem;cursor:pointer;min-height:44px;touch-action:manipulation">✕</button>
           </div>`).join('')}
         </div>` : ''}
       </div>
@@ -1724,14 +1731,14 @@ function renderSaldoCuentas() {
       <div id="mover-${safeC}" style="display:none;margin-top:10px;flex-direction:column;gap:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:12px">
         <div style="font-size:0.72rem;color:var(--accent4);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Mover dinero desde ${c}</div>
         <input id="mover-input-${safeC}" type="number" placeholder="Monto a mover ($)" min="0" step="0.01"
-          style="background:var(--bg);border:1px solid var(--accent4);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.9rem;padding:10px 14px;outline:none;width:100%;box-sizing:border-box">
+          style="background:var(--bg);border:1px solid var(--accent4);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;padding:12px 14px;outline:none;width:100%;box-sizing:border-box;min-height:46px">
         <select id="mover-destino-${safeC}"
-          style="background:var(--bg);border:1px solid var(--accent4);border-radius:10px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.88rem;padding:10px 14px;outline:none;width:100%;box-sizing:border-box;min-height:46px">
+          style="background:var(--bg);border:1px solid var(--accent4);border-radius:10px;color:var(--text);font-family:'Sora',sans-serif;font-size:16px;padding:12px 14px;outline:none;width:100%;box-sizing:border-box;min-height:46px">
           <option value="">→ ¿A dónde?</option>
           ${opcionesDestino(c)}
         </select>
         <button onclick="moverEntreCuentas('${c}', '${safeC}')"
-          style="background:var(--accent4);border:none;color:#fff;border-radius:10px;padding:10px;font-size:0.85rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700">↔ Confirmar movimiento</button>
+          style="background:var(--accent4);border:none;color:#fff;border-radius:10px;padding:14px;font-size:0.9rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700;min-height:48px;width:100%;touch-action:manipulation">↔ Confirmar movimiento</button>
       </div>
     </div>`;
   }).join('') + extraRow;
@@ -2289,25 +2296,25 @@ function renderAjustesHistorial() {
         <div style="flex:1;min-width:120px">
           <div style="font-size:0.68rem;color:var(--text3);margin-bottom:3px">Fecha</div>
           <input id="aj-fecha-${a.id}" type="date" value="${a.fecha}"
-            style="background:var(--bg);border:1px solid var(--accent3);border-radius:8px;color:var(--text);font-size:0.82rem;padding:7px 10px;width:100%;box-sizing:border-box">
+            style="background:var(--bg);border:1px solid var(--accent3);border-radius:8px;color:var(--text);font-size:16px;padding:12px 14px;width:100%;box-sizing:border-box;min-height:46px">
         </div>
         <div style="flex:1;min-width:120px">
           <div style="font-size:0.68rem;color:var(--text3);margin-bottom:3px">Cuenta</div>
           <select id="aj-cuenta-${a.id}"
-            style="background:var(--bg);border:1px solid var(--accent3);border-radius:8px;color:var(--text);font-size:0.82rem;padding:7px 10px;width:100%;box-sizing:border-box">
+            style="background:var(--bg);border:1px solid var(--accent3);border-radius:8px;color:var(--text);font-size:16px;padding:12px 14px;width:100%;box-sizing:border-box;min-height:46px">
             ${cuentaOpts}
           </select>
         </div>
         <div style="flex:1;min-width:120px">
           <div style="font-size:0.68rem;color:var(--text3);margin-bottom:3px">Saldo real</div>
           <input id="aj-saldo-${a.id}" type="number" value="${a.saldoDespues}" step="0.01"
-            style="background:var(--bg);border:1px solid var(--accent3);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.82rem;padding:7px 10px;width:100%;box-sizing:border-box">
+            style="background:var(--bg);border:1px solid var(--accent3);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;padding:12px 14px;width:100%;box-sizing:border-box;min-height:46px">
         </div>
         <div style="display:flex;gap:6px;align-self:flex-end;padding-bottom:1px">
           <button onclick="guardarEdicionAjuste(${a.id})"
-            style="background:var(--accent3);border:none;color:#0d0f14;border-radius:8px;padding:7px 14px;font-size:0.8rem;cursor:pointer;font-weight:700">✓</button>
+            style="background:var(--accent3);border:none;color:#0d0f14;border-radius:8px;padding:12px 20px;font-size:0.88rem;cursor:pointer;font-weight:700;min-height:44px;touch-action:manipulation">✓</button>
           <button onclick="cancelarEdicionAjuste(${a.id})"
-            style="background:rgba(255,255,255,0.07);border:1px solid var(--border);color:var(--text3);border-radius:8px;padding:7px 12px;font-size:0.8rem;cursor:pointer">✕</button>
+            style="background:rgba(255,255,255,0.07);border:1px solid var(--border);color:var(--text3);border-radius:8px;padding:12px 18px;font-size:0.88rem;cursor:pointer;min-height:44px;touch-action:manipulation">✕</button>
         </div>
       </div>
       ` : `
@@ -2321,9 +2328,9 @@ function renderAjustesHistorial() {
             ${pos ? '+' : '−'}$${Math.abs(a.monto).toLocaleString('es-AR')}
           </span>
           <button onclick="iniciarEdicionAjuste(${a.id})"
-            style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.35);color:var(--accent3);border-radius:8px;padding:5px 10px;font-size:0.75rem;cursor:pointer">✏</button>
+            style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.35);color:var(--accent3);border-radius:8px;padding:11px 16px;font-size:0.85rem;cursor:pointer;min-height:44px;touch-action:manipulation">✏</button>
           <button onclick="eliminarAjuste(${a.id})"
-            style="background:rgba(255,79,94,0.08);border:1px solid rgba(255,79,94,0.35);color:var(--accent2);border-radius:8px;padding:5px 10px;font-size:0.75rem;cursor:pointer">✕</button>
+            style="background:rgba(255,79,94,0.08);border:1px solid rgba(255,79,94,0.35);color:var(--accent2);border-radius:8px;padding:11px 16px;font-size:0.85rem;cursor:pointer;min-height:44px;touch-action:manipulation">✕</button>
         </div>
       </div>
       `}
