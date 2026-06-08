@@ -805,4 +805,60 @@ onAuthStateChanged(auth, async (user) => {
         <div id="diag-result" style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text2);white-space:pre-wrap;background:var(--bg);border-radius:10px;padding:1rem;min-height:60px"></div>
         <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-secondary" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent4);color:var(--accent4)" onclick="recuperarPendientes()">♻ Recuperar memos de localStorage</button>
-          <butto
+          <button class="btn-secondary" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent2);color:var(--accent2)" onclick="verFirestoreRaw()">📦 Ver JSON crudo</button>
+          <button class="btn-secondary" style="padding:8px 14px;font-size:0.78rem;border-color:var(--accent3);color:var(--accent3)" onclick="limpiarAjustesViejos()">🧹 Limpiar ajustes viejos</button>
+        </div>
+        <div id="diag-raw" style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--text3);white-space:pre-wrap;background:var(--bg);border-radius:10px;padding:1rem;margin-top:8px;display:none;max-height:300px;overflow-y:auto"></div>
+      </div>
+
+      <!-- BORRAR DATOS DE USUARIO -->
+      <div class="table-wrap" style="margin-top:1.2rem;border:1px solid rgba(255,79,94,0.3)">
+        <div class="table-header" style="background:rgba(255,79,94,0.08)">
+          <h3 style="color:var(--accent2)">&#128465; BORRAR DATOS DE USUARIO</h3>
+        </div>
+        <div style="padding:1.2rem;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:0.75rem;color:var(--text3)">Borra todos los registros del usuario indicado. La cuenta de Firebase <strong>no se elimina</strong>.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="admin-borrar-email" type="email" placeholder="email del usuario a resetear"
+              style="flex:1;min-width:220px;background:var(--bg);border:1px solid rgba(255,79,94,0.5);border-radius:10px;color:var(--text);font-family:'Sora',sans-serif;font-size:16px;padding:12px 14px;outline:none;min-height:46px">
+            <button onclick="borrarDatosUsuario()"
+              style="background:rgba(255,79,94,0.15);border:1px solid rgba(255,79,94,0.6);color:var(--accent2);border-radius:10px;padding:12px 18px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;min-height:44px;touch-action:manipulation">
+              Borrar datos
+            </button>
+          </div>
+          <div id="admin-borrar-result" style="font-size:0.8rem;min-height:20px"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+</main>
+
+<div class="notif" id="notif">&#10003; <span id="notif-msg"></span></div>
+
+<div class="modal-overlay" id="import-modal">
+  <div class="modal">
+    <div class="modal-title">Importar datos</div>
+    <div class="modal-body">Esto reemplazara todos tus datos actuales. Confirmas?</div>
+    <div class="modal-actions">
+      <button class="btn-confirm" onclick="confirmImport()">Si, importar</button>
+      <button class="btn-cancel" onclick="cancelImport()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="cat-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">Categorias</div>
+    <div id="cat-modal-body"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeCatModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

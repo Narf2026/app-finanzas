@@ -843,6 +843,21 @@ function deleteAhorro(id) {
   renderDashboard();
 }
 
+function agregarRendimiento(id) {
+  const a = ahorros.find(x => x.id === id);
+  if (!a) return;
+  const montoStr = prompt(`Ingresá el monto de rendimiento/interés para "${a.tipo || a.concepto || 'ahorro'}":`, '');
+  if (montoStr === null) return;
+  const monto = parseFloat(String(montoStr).replace(',', '.'));
+  if (isNaN(monto) || monto === 0) { notify('Monto inválido'); return; }
+  a.rendimientos = (a.rendimientos || 0) + monto;
+  a.monto = (a.monto || 0) + monto;
+  save();
+  renderAhorroTable();
+  renderSaldoCuentas();
+  notify('✓ Rendimiento agregado: $' + fmt(Math.abs(monto)));
+}
+
 function renderAhorroTable() {
   const el = $('ahorro-table-body');
   if (!el) return;
@@ -906,26 +921,56 @@ function renderAhorroTable() {
 function renderFondos() {
   const el = $('fondos-body');
   if (!el) return;
-  // Agrupar ahorros por tipo
+  // Agrupar ahorros por tipo, incluyendo rendimientos acumulados
   const tipos = {};
   ahorros.forEach(a => {
     const t = a.tipo || a.concepto || 'Otros';
-    if (!tipos[t]) tipos[t] = { ars: 0, usd: 0 };
-    if ((a.moneda||'ARS') === 'ARS') tipos[t].ars += a.monto;
-    else tipos[t].usd += a.monto;
+    if (!tipos[t]) tipos[t] = { ars: 0, usd: 0, rend: 0 };
+    if ((a.moneda||'ARS') === 'ARS') {
+      tipos[t].ars += a.monto;
+      tipos[t].rend += (a.rendimientos || 0);
+    } else {
+      tipos[t].usd += a.monto;
+    }
   });
   if (!Object.keys(tipos).length) {
     el.innerHTML = '<div class="panel-empty">Sin fondos registrados</div>';
     return;
   }
   el.innerHTML = Object.entries(tipos).map(([tipo, v]) => `
-    <div style="padding:0.9rem 1.2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-size:0.88rem;font-weight:600;color:var(--text2)">${tipo}</div>
+    <div style="padding:0.9rem 1.2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.88rem;font-weight:600;color:var(--text2)">${escHtml(tipo)}</div>
+        ${v.rend > 0 ? `<div style="font-size:0.72rem;color:var(--accent);font-family:'DM Mono',monospace;margin-top:2px">▲ rendimientos: +$${fmt(v.rend)}</div>` : ''}
         ${v.usd > 0 ? `<div style="font-size:0.75rem;color:var(--accent3);font-family:'DM Mono',monospace">u$s ${fmt(v.usd)}</div>` : ''}
       </div>
-      <div style="font-family:'DM Mono',monospace;font-weight:700;color:var(--accent);font-size:1rem">$${fmt(v.ars)}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div style="font-family:'DM Mono',monospace;font-weight:700;color:var(--accent);font-size:1rem">$${fmt(v.ars)}</div>
+        <button onclick="agregarRendimientoFondo(this.dataset.tipo)" data-tipo="${tipo}"
+          style="background:rgba(168,255,220,0.08);border:1px solid rgba(168,255,220,0.3);color:var(--accent);border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;min-height:36px;touch-action:manipulation;white-space:nowrap">
+          +$ Interés
+        </button>
+      </div>
     </div>`).join('');
+}
+
+function agregarRendimientoFondo(tipo) {
+  // Encontrar ahorros de este tipo (ARS)
+  const del_tipo = ahorros.filter(a => (a.tipo || a.concepto || 'Otros') === tipo && (a.moneda||'ARS') === 'ARS');
+  if (!del_tipo.length) { notify('Sin ahorros ARS de ese tipo'); return; }
+  const montoStr = prompt('Monto de rendimiento/interés para "' + tipo + '":', '');
+  if (montoStr === null) return;
+  const monto = parseFloat(String(montoStr).replace(',', '.'));
+  if (isNaN(monto)) { notify('Monto inválido'); return; }
+  // Agregar al más reciente del tipo
+  const target = del_tipo.sort((a, b) => (b.ymBase||b.key||'').localeCompare(a.ymBase||a.key||''))[0];
+  target.rendimientos = (target.rendimientos || 0) + monto;
+  target.monto = (target.monto || 0) + monto;
+  save();
+  renderAhorroTable();
+  renderSaldoCuentas();
+  const sign = monto >= 0 ? '+' : '';
+  notify('✓ ' + sign + '$' + fmt(monto) + ' rendimiento en ' + tipo);
 }
 
 // ---- PENDIENTES (MEMO) ----
@@ -2111,30 +2156,6 @@ function renderConceptosSelect() {
   if (current && saved.includes(current)) sel.value = current;
 }
 
-function renderFondos() {
-  const el = $('ahorro-fondos');
-  if (!el) return;
-  const byTipo = {};
-  ahorros.forEach(a => {
-    const k = a.concepto || a.tipo || 'General';
-    if (!byTipo[k]) byTipo[k] = { ars: 0, usd: 0 };
-    if ((a.moneda||'ARS') === 'USD') byTipo[k].usd += a.monto;
-    else byTipo[k].ars += a.monto;
-  });
-  const keys = Object.keys(byTipo);
-  if (!keys.length) {
-    el.innerHTML = '<div class="empty"><div class="icon">🏦</div>Sin fondos registrados aún</div>';
-    return;
-  }
-  el.innerHTML = keys.map(k => {
-    const { ars, usd } = byTipo[k];
-    return `<div class="stat-item">
-      <div class="stat-label">${k}</div>
-      ${ars ? `<div class="stat-val">$${fmt(ars)}</div>` : ''}
-      ${usd ? `<div class="stat-val" style="color:var(--accent3)">u$s ${fmt(usd)}</div>` : ''}
-    </div>`;
-  }).join('');
-}
 // ---- ADMIN ----
 
 async function addEmailHabilitado() {
