@@ -2111,3 +2111,324 @@ tr:hover td {
   .chart-box[style*="grid-column: span 2"] { grid-column: span 2 !important; }
 }
 
+
+/* =========================================================
+   POLISH V4 — Touch targets, desktop refinement, aesthetics
+   ========================================================= */
+
+/* ── TOUCH TARGETS: mínimo 36px en todos los botones de acción ── */
+
+.btn-edit,
+.btn-del,
+.btn-save {
+  min-height: 32px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.18s ease;
+}
+
+.btn-logout {
+  min-height: 32px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.18s ease;
+}
+
+/* ── DESKTOP NAV: mejor espaciado y hover ── */
+
+@media (min-width: 701px) {
+  nav.app-nav {
+    gap: 2px;
+  }
+
+  nav.app-nav button {
+    padding: 7px 14px;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    letter-spacing: 0.2px;
+    transition: all 0.18s ease;
+    gap: 7px;
+  }
+
+  nav.app-nav button:hover:not(.active) {
+    color: var(--text);
+    background: rgba(255,255,255,.06);
+    border-color: rgba(255,255,255,.08);
+  }
+
+  nav.app-nav button.active {
+    color: var(--accent);
+    background: rgba(24,212,123,.12);
+    border-color: rgba(24,212,123,.22);
+    box-shadow: inset 0 1px 0 rgba(24,212,123,.08);
+  }
+
+  /* Data-btns: mejor presentación en desktop */
+  .data-btns {
+    gap: 10px;
+    align-items: center;
+  }
+
+  .user-bar {
+    font-size: 0.72rem;
+    color: var(--text3);
+    gap: 8px;
+    align-items: center;
+  }
+
+  #user-email {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    opacity: 0.7;
+  }
+
+  .btn-logout {
+    padding: 6px 14px;
+    border-radius: 9px;
+    border-color: rgba(255,255,255,.1);
+    font-size: 0.72rem;
+  }
+
+  .btn-logout:hover {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(255,79,94,.06);
+  }
+
+  /* Export/import buttons desktop */
+  .btn-export,
+  .btn-import {
+    padding: 6px 12px;
+    border-radius: 9px;
+    font-size: 0.72rem;
+    min-height: 32px;
+    align-items: center;
+  }
+}
+
+/* ── HEADER: inner layout control ── */
+
+header {
+  gap: 1rem;
+}
+
+/* ── AUTH SCREEN: mejor en móvil pequeño ── */
+
+@media (max-width: 400px) {
+  .auth-box {
+    padding: 2rem 1.25rem;
+    margin: 0 1rem;
+    border-radius: 20px;
+  }
+
+  #auth-screen {
+    padding: 0 0.5rem;
+  }
+}
+
+/* ── MODAL: seguro en pantallas chicas ── */
+
+.modal-overlay {
+  padding: 1rem;
+}
+
+.modal {
+  width: min(400px, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+
+/* ── TOUCH TARGETS MOBILE: 44px mínimo para botones críticos ── */
+
+@media (max-width: 700px) {
+  .btn-edit,
+  .btn-del,
+  .btn-save {
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    border-radius: 9px;
+  }
+
+  .btn-logout {
+    min-height: 36px;
+    padding: 6px 14px;
+  }
+
+  /* Filter row: mejor layout en mobile */
+  .filter-row {
+    gap: 6px;
+    width: 100%;
+  }
+
+  .filter-row select,
+  .filter-row input {
+    flex: 1 1 100px;
+    min-width: 80px;
+    max-width: 100%;
+  }
+
+  /* Month selector: pills más legibles */
+  .month-btn {
+    padding: 7px 13px;
+    font-size: 0.7rem;
+    border-radius: 999px;
+  }
+
+  /* Notif: safe bottom padding */
+  .notif {
+    left: 0.85rem;
+    right: 0.85rem;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    border-radius: 16px;
+    font-size: 0.8rem;
+    justify-content: center;
+  }
+
+  /* Empty state: más compacto */
+  .empty {
+    padding: 2rem 1rem;
+  }
+
+  /* Modal overlay: dark blur */
+  .modal-overlay {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    background: rgba(0,0,0,0.6);
+  }
+}
+
+/* ── DESKTOP: scroll personalizado ── */
+
+@media (min-width: 701px) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,.12);
+    border-radius: 99px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,.22);
+  }
+
+  /* Tablas: hover más visible */
+  tr:hover td {
+    background: rgba(255,255,255,.04);
+    transition: background 0.12s ease;
+  }
+
+  /* Cards: hover lift en desktop */
+  .card {
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+
+  .card:not(.expandable):hover {
+    transform: translateY(-2px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 24px 56px rgba(0,0,0,.32);
+  }
+
+  /* Panel body: max-width legible en pantallas muy anchas */
+  main {
+    max-width: 1200px;
+  }
+
+  /* Page title desktop: más aire */
+  .page-title {
+    margin-bottom: 1.5rem;
+  }
+}
+
+/* ── FOCUS VISIBLE: accesibilidad ── */
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible {
+  outline-offset: 3px;
+}
+
+/* ── LANDSCAPE ULTRA-COMPACTO: safe bottom ── */
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .notif {
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* =========================================================
+   NAV FUERA DEL HEADER — fix iOS Safari position:fixed
+   La nav ahora es hermana del header, no hija.
+   ========================================================= */
+
+/* DESKTOP: nav flotante centrada sobre el header */
+@media (min-width: 701px) {
+  nav.app-nav {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    /* Misma altura que el header */
+    height: calc(62px + max(env(safe-area-inset-top, 0px), 16px));
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    z-index: 101;
+    /* Sin fondo propio — el header queda visible detrás */
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  /* El header sólo necesita mostrar logo (izq) y data-btns (der) */
+  header {
+    justify-content: space-between;
+  }
+}
+
+/* MOBILE: nav fixed al fondo — sin padre sticky ni backdrop-filter que interfiera */
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) {
+  nav.app-nav {
+    position: fixed;
+    left: 4px;
+    right: 4px;
+    bottom: 6px;
+    /* Asegura que Safari no lo contenga en ningún ancestro */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    will-change: transform;
+    z-index: 200;
+  }
+}
+
+/* Eliminar gap global que antes estaba en header (ahora que nav salió) */
+@media (max-width: 700px) {
+  header {
+    gap: 0 !important;
+  }
+}

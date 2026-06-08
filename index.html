@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>💰 Mis Finanzas</title>
+  <title>finanzapp</title>
 
   <!-- PWA Manifest & Icons -->
   <script>
@@ -11,8 +11,8 @@
   var icon192 = 'icon-192.png';
   var icon512 = 'icon-512.png';
   var manifest = {
-    name: 'Mis Finanzas',
-    short_name: 'Mis Finanzas',
+    name: 'finanzapp',
+    short_name: 'finanzapp',
     description: 'Gestión de finanzas personales',
     start_url: '/',
     display: 'standalone',
@@ -137,52 +137,7 @@ onAuthStateChanged(auth, async (user) => {
 <div id="app-screen">
 
 <header>
-  <div class="logo"><img src="logo.webp" style="width:38px;height:38px;border-radius:50%;object-fit:cover;object-position:top;margin-right:10px;border:2px solid var(--accent)">mis finanzas <span>2026</span></div>
-  <nav class="app-nav" aria-label="Navegación principal">
-    <button class="active" onclick="showTab('dashboard')" aria-label="Inicio">
-      <span class="nav-icon nav-home" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M3.5 11.2 12 4l8.5 7.2"/><path d="M5.8 10.4v8.1c0 .8.6 1.4 1.4 1.4h3.1v-5.4h3.4v5.4h3.1c.8 0 1.4-.6 1.4-1.4v-8.1"/></svg>
-      </span>
-      <span class="nav-text">Inicio</span>
-    </button>
-    <button class="nav-add" onclick="showTab('gastos')" aria-label="Gastos">
-      <span class="nav-icon nav-gasto" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-      </span>
-      <span class="nav-text">Gasto</span>
-    </button>
-    <button class="nav-ingreso" onclick="showTab('ingresos')" aria-label="Ingresos">
-      <span class="nav-icon nav-income" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M9 7h8v8"/><path d="M5 20h14"/></svg>
-      </span>
-      <span class="nav-text">Ingresos</span>
-    </button>
-
-    <button onclick="showTab('ahorro')" aria-label="Ahorro">
-      <span class="nav-icon nav-save" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M7.2 11.2c-.9-.4-1.7-1.1-1.7-2.2 0-1.6 1.5-2.8 3.5-2.8h5.2c2.9 0 5.3 2.3 5.3 5.2v2.1c0 2.5-2 4.5-4.5 4.5h-.7l-.8 2h-3l-.8-2H8.2c-2.6 0-4.7-2.1-4.7-4.7v-.2c0-1 .8-1.9 1.8-1.9h1.9Z"/><path d="M14.7 9.4h.1"/><path d="M8.5 6.2V4.5c0-.8.7-1.4 1.5-1.1 1 .4 1.8 1.1 2.2 2"/></svg>
-      </span>
-      <span class="nav-text">Ahorro</span>
-    </button>
-    <button onclick="showTab('pendientes')" aria-label="Memo">
-      <span class="nav-icon nav-more" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg>
-      </span>
-      <span class="nav-text">Memo</span>
-    </button>
-    <button onclick="showTab('ajustes')" aria-label="Ajustes">
-      <span class="nav-icon nav-ajustes" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-      </span>
-      <span class="nav-text">Ajustes</span>
-    </button>
-    <button id="btn-admin" onclick="showTab('admin')" style="display:none" aria-label="Admin">
-      <span class="nav-icon nav-admin" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7.8C8 5.7 9.7 4 12 4s4 1.7 4 3.8V10"/><path d="M12 14v2"/></svg>
-      </span>
-      <span class="nav-text">Admin</span>
-    </button>
-  </nav>
+  <div class="logo"><img src="logo.webp" style="width:38px;height:38px;border-radius:50%;object-fit:cover;object-position:top;margin-right:10px;border:2px solid var(--accent)">finanzapp</div>
   <div class="data-btns">
     <div class="user-bar">
       <span id="user-email"></span>
@@ -193,6 +148,52 @@ onAuthStateChanged(auth, async (user) => {
     <input type="file" id="import-file" accept=".json" onchange="importData(event)">
   </div>
 </header>
+
+<!-- Nav fuera del header para evitar bug de position:fixed dentro de sticky+backdrop-filter en iOS Safari -->
+<nav class="app-nav" aria-label="Navegación principal">
+  <button class="active" onclick="showTab('dashboard')" aria-label="Inicio">
+    <span class="nav-icon nav-home" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M3.5 11.2 12 4l8.5 7.2"/><path d="M5.8 10.4v8.1c0 .8.6 1.4 1.4 1.4h3.1v-5.4h3.4v5.4h3.1c.8 0 1.4-.6 1.4-1.4v-8.1"/></svg>
+    </span>
+    <span class="nav-text">Inicio</span>
+  </button>
+  <button class="nav-add" onclick="showTab('gastos')" aria-label="Gastos">
+    <span class="nav-icon nav-gasto" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+    </span>
+    <span class="nav-text">Gasto</span>
+  </button>
+  <button class="nav-ingreso" onclick="showTab('ingresos')" aria-label="Ingresos">
+    <span class="nav-icon nav-income" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M9 7h8v8"/><path d="M5 20h14"/></svg>
+    </span>
+    <span class="nav-text">Ingresos</span>
+  </button>
+  <button onclick="showTab('ahorro')" aria-label="Ahorro">
+    <span class="nav-icon nav-save" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M7.2 11.2c-.9-.4-1.7-1.1-1.7-2.2 0-1.6 1.5-2.8 3.5-2.8h5.2c2.9 0 5.3 2.3 5.3 5.2v2.1c0 2.5-2 4.5-4.5 4.5h-.7l-.8 2h-3l-.8-2H8.2c-2.6 0-4.7-2.1-4.7-4.7v-.2c0-1 .8-1.9 1.8-1.9h1.9Z"/><path d="M14.7 9.4h.1"/><path d="M8.5 6.2V4.5c0-.8.7-1.4 1.5-1.1 1 .4 1.8 1.1 2.2 2"/></svg>
+    </span>
+    <span class="nav-text">Ahorro</span>
+  </button>
+  <button onclick="showTab('pendientes')" aria-label="Memo">
+    <span class="nav-icon nav-more" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg>
+    </span>
+    <span class="nav-text">Memo</span>
+  </button>
+  <button onclick="showTab('ajustes')" aria-label="Ajustes">
+    <span class="nav-icon nav-ajustes" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    </span>
+    <span class="nav-text">Ajustes</span>
+  </button>
+  <button id="btn-admin" onclick="showTab('admin')" style="display:none" aria-label="Admin">
+    <span class="nav-icon nav-admin" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7.8C8 5.7 9.7 4 12 4s4 1.7 4 3.8V10"/><path d="M12 14v2"/></svg>
+    </span>
+    <span class="nav-text">Admin</span>
+  </button>
+</nav>
 
 <!-- MODAL CATEGORÍAS -->
 <div class="modal-overlay" id="cat-modal">

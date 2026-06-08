@@ -165,7 +165,16 @@ function addGasto() {
     } else if (tarjetaUsada && tarjetaUsada.cierre) {
       // Gasto de este mes con tarjeta con fecha de cierre
       const diaGasto = parseInt(fecha.slice(8, 10));
-      offsetCuotas = diaGasto > tarjetaUsada.cierre ? 1 : 0;
+      const [fy, fm] = fecha.split('-').map(Number);
+      const diasEnMes = new Date(fy, fm, 0).getDate(); // último día del mes del gasto
+      const cierreEfectivo = Math.min(tarjetaUsada.cierre, diasEnMes);
+      // Si el cierre cae en el último día del mes (ej: cierre=31 en junio de 30 días),
+      // todos los gastos del mes van al mes siguiente porque el ciclo siempre cierra a fin de mes
+      if (cierreEfectivo >= diasEnMes) {
+        offsetCuotas = 1;
+      } else {
+        offsetCuotas = diaGasto > cierreEfectivo ? 1 : 0;
+      }
     } else {
       // Gasto de este mes sin tarjeta con cierre → preguntar
       const yacerro = document.querySelector('input[name="g-cuota-inicio"]:checked')?.value !== 'proximo';
