@@ -2365,24 +2365,43 @@ function guardarEdicionAjuste(id) {
 async function borrarDatosUsuario() {
   const emailInput = $('admin-borrar-email');
   const resultEl   = $('admin-borrar-result');
-  const email = emailInput?.value.trim().toLowerCase();
+  const email = (emailInput?.value || '').trim().toLowerCase();
   if (!email || !email.includes('@')) { notify('⚠ Ingresá un email válido'); return; }
 
   resultEl.innerHTML = '⏳ Buscando usuario...';
   try {
-    const snap = await window._fbGetDocs(
-      window._fbQuery(
-        window._fbCollection(window._fbDb, 'usuarios'),
-        window._fbWhere('email', '==', email)
-      )
-    );
-    if (snap.empty) {
-      resultEl.innerHTML = `<span style="color:var(--accent2)">✕ No se encontró ningún usuario con ese email</span>`;
+    let uid = null;
+
+    // 1. Si es el propio usuario logueado, usamos su UID directamente
+    if (window._currentUser && window._currentUser.email.toLowerCase() === email) {
+      uid = window._currentUser.uid;
+    }
+
+    // 2. Buscar en el índice email→UID guardado al hacer login
+    if (!uid) {
+      const idxSnap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'config', 'email_uid_index'));
+      if (idxSnap.exists()) {
+        uid = idxSnap.data()[email] || null;
+      }
+    }
+
+    // 3. Fallback: buscar en la colección usuarios por campo email
+    if (!uid) {
+      const snap = await window._fbGetDocs(
+        window._fbQuery(
+          window._fbCollection(window._fbDb, 'usuarios'),
+          window._fbWhere('email', '==', email)
+        )
+      );
+      if (!snap.empty) uid = snap.docs[0].id;
+    }
+
+    if (!uid) {
+      resultEl.innerHTML = `<span style="color:var(--accent2)">✕ No se encontró ningún usuario con ese email.<br><small>El usuario debe iniciar sesión al menos una vez para quedar registrado.</small></span>`;
       return;
     }
-    const docRef = snap.docs[0].ref;
-    const uid    = snap.docs[0].id;
-    // Resetear todos los datos pero mantener el documento (para que el usuario pueda seguir logueado)
+
+    const docRef = window._fbDoc(window._fbDb, 'usuarios', uid);
     await window._fbSetDoc(docRef, {
       gastos: [], ingresos: [], ahorros: [], pendientes: [],
       tarjetas: [], saldosIniciales: {}, conceptosGuardados: [],
@@ -2390,7 +2409,16 @@ async function borrarDatosUsuario() {
       updatedAt: new Date().toISOString(),
       _resetAt: new Date().toISOString()
     });
-    resultEl.innerHTML = `<span style="color:var(--accent)">✓ Datos de <b>${email}</b> (UID: ${uid.slice(0,8)}…) borrados correctamente</span>`;
+
+    // Si borramos los datos del usuario actual, resetear estado local
+    if (window._currentUser && window._currentUser.uid === uid) {
+      gastos = []; ingresos = []; ahorros = []; pendientes = [];
+      tarjetas = []; saldosIniciales = {}; conceptosGuardados = []; ajustesCuentas = [];
+      renderDashboard();
+      renderSaldoCuentas();
+    }
+
+    resultEl.innerHTML = `<span style="color:var(--accent)">✓ Datos de <b>${email}</b> borrados correctamente</span>`;
     emailInput.value = '';
     notify(`✓ Datos de ${email} eliminados`);
   } catch(e) {

@@ -103,6 +103,16 @@ onAuthStateChanged(auth, async (user) => {
       document.getElementById('btn-admin').style.display = '';
     }
     await window.loadUserData(user.uid);
+    // Guardar email→UID en índice para que el admin pueda buscar por email
+    try {
+      const idxRef = doc(db, 'config', 'email_uid_index');
+      const idxSnap = await getDoc(idxRef);
+      const idx = idxSnap.exists() ? idxSnap.data() : {};
+      if (idx[user.email] !== user.uid) {
+        idx[user.email] = user.uid;
+        await setDoc(idxRef, idx);
+      }
+    } catch(e) { console.warn('No se pudo actualizar índice email→UID', e); }
     window.renderDashboard();
   } else {
     window._currentUser = null;
