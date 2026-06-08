@@ -464,7 +464,7 @@ function renderDestinosIngreso() {
 function renderOrigenAhorro() {
   const sel = $('a-origen');
   if (!sel) return;
-  let html = '<option value="">Seleccionar...</option><option value="Efectivo">💵 Efectivo</option>';
+  let html = '<option value="">Seleccionar...</option><option value="__ya_lo_tenia__">✅ Ya lo tenía (preexistente)</option><option value="Efectivo">💵 Efectivo</option>';
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => {
     const lbl = t.label || t.banco || t.nombre;
     html += `<option value="${lbl}">📱 ${lbl}</option>`;
@@ -1516,8 +1516,9 @@ function renderSaldoCuentas() {
     if (saldos[cuenta] !== undefined) saldos[cuenta].ars += a.monto;
   });
 
-  // − Base de ahorros depositados desde cada cuenta
+  // − Base de ahorros depositados desde cada cuenta (omite los preexistentes)
   ahorros.forEach(a => {
+    if ((a.origen || '') === '__ya_lo_tenia__') return; // preexistente: ya está en saldo inicial
     const orig = normalizarDestino(a.origen || '');
     if (orig && saldos[orig] !== undefined) {
       const base = a.monto - (a.rendimientos || 0);
@@ -1581,10 +1582,11 @@ function renderSaldoCuentas() {
     const gasC    = gasCAll.filter(g => !g.cuota);
     const gasCQ   = gasCAll.filter(g => !!g.cuota);
     const ahoC = ahorros.filter(a => normalizarDestino(a.origen||'') === c);
+    const ahoCPreex = ahorros.filter(a => (a.origen||'') === '__ya_lo_tenia__');
     const ajuC = (ajustesCuentas||[]).filter(a => a.cuenta === c);
     const totalIng = ingC.reduce((s,x) => s + x.monto, 0);
     const totalGas = gasC.reduce((s,g) => s + g.monto, 0);
-    const totalAho = ahoC.reduce((s,a) => s + (a.monto-(a.rendimientos||0)), 0);
+    const totalAho = ahoC.reduce((s,a) => s + (a.monto-(a.rendimientos||0)), 0); // solo los que realmente salen de esta cuenta
     const totalAju = ajuC.reduce((s,a) => s + a.monto, 0);
     const saldoIni = saldosIniciales[c] || 0;
 
