@@ -727,6 +727,38 @@ function addIngreso() {
   renderDashboard();
 }
 
+function toggleEditIngreso(id) {
+  const row = document.getElementById('edit-ingreso-row-' + id);
+  if (!row) return;
+  const open = row.style.display !== 'none';
+  row.style.display = open ? 'none' : 'table-row';
+  // Set destino select after showing
+  if (!open) {
+    const i = ingresos.find(x => x.id === id);
+    const dest = document.getElementById('ei-dest-' + id);
+    if (i && dest) dest.value = i.sueldoDestino || '';
+  }
+}
+
+function guardarEdicionIngreso(id) {
+  const i = ingresos.find(x => x.id === id);
+  if (!i) return;
+  const sueldo = parseFloat(document.getElementById('ei-sueldo-' + id)?.value) || 0;
+  const dest   = document.getElementById('ei-dest-' + id)?.value || '';
+  const conc   = document.getElementById('ei-conc-' + id)?.value.trim() || 'Sueldo';
+  const diff   = sueldo - (i.sueldo || 0);
+  i.sueldo        = sueldo;
+  i.sueldoDestino = dest;
+  i.sueldoConcepto = conc;
+  i.totalARS      = (i.totalARS ?? i.total ?? 0) + diff;
+  i.total         = i.totalARS;
+  save();
+  renderIngresosTable();
+  renderSaldoCuentas();
+  renderDashboard();
+  notify('✓ Ingreso actualizado');
+}
+
 function deleteIngreso(id) {
   if (!confirm('¿Eliminar este ingreso?')) return;
   ingresos = ingresos.filter(i => i.id !== id);
@@ -751,8 +783,8 @@ function renderIngresosTable() {
   });
   el.innerHTML = `<table class="panel-table"><thead><tr>
     <th>Período</th>
-    <th>Sueldo</th>
-    <th>Otros</th>
+    <th class="col-hide-mobile">Sueldo</th>
+    <th class="col-hide-mobile">Otros</th>
     <th>Total ARS</th>
     <th></th>
   </tr></thead><tbody>` +
@@ -766,12 +798,51 @@ function renderIngresosTable() {
     const sueldoStr = i.sueldoMoneda === 'USD'
       ? `<span style="color:var(--accent3);font-family:'DM Mono',monospace">u$s ${fmt(i.sueldo)}</span>`
       : `<span style="font-family:'DM Mono',monospace">$${fmt(i.sueldo || 0)}</span>`;
+    // Opciones de destino: igual que renderDestinosIngreso
+    let destOptsI = '<option value="">Sin destino</option><option value="Efectivo">💵 Efectivo</option>';
+    (tarjetas||[]).filter(t => t.tipo === 'billetera').forEach(t => {
+      const lbl = t.label || t.banco || t.nombre;
+      destOptsI += `<option value="${escHtml(lbl)}">📱 ${escHtml(lbl)}</option>`;
+    });
+    (tarjetas||[]).filter(t => t.tipo === 'debito').forEach(t => {
+      let lbl = t.label || ('CA ' + t.banco);
+      if (lbl.startsWith('Débito ')) lbl = 'CA ' + lbl.slice(7);
+      destOptsI += `<option value="${escHtml(lbl)}">🏦 ${escHtml(lbl)}</option>`;
+    });
+    const sueldoDetalle = `${i.sueldoDestino ? '→ ' + i.sueldoDestino : ''}${i.sueldoConcepto && i.sueldoConcepto !== 'Sueldo' ? ' · ' + i.sueldoConcepto : ''}`.trim();
     return `<tr>
-      <td style="font-weight:600;color:var(--text2)">${periodo}</td>
-      <td>${sueldoStr}${i.sueldoDestino ? `<div style="font-size:0.72rem;color:var(--text3);padding:2px 0 0">→ ${i.sueldoDestino}</div>` : ''}${i.sueldoConcepto && i.sueldoConcepto !== 'Sueldo' ? `<div style="font-size:0.72rem;color:var(--accent4)">${i.sueldoConcepto}</div>` : ''}</td>
-      <td>${otrosHtml}</td>
-      <td class="monto">$${fmt(i.totalARS ?? i.total ?? 0)}</td>
-      <td><button class="btn-del" onclick="deleteIngreso(${i.id})">✕</button></td>
+      <td style="font-weight:600;color:var(--text2)">
+        ${periodo}
+        <div class="col-show-mobile" style="flex-direction:column;gap:2px;margin-top:4px">
+          <div style="font-size:0.75rem;color:var(--text3)">${sueldoStr}${sueldoDetalle ? ' · <span style="color:var(--accent4)">' + escHtml(sueldoDetalle) + '</span>' : ''}</div>
+          ${otros.length ? `<div style="font-size:0.72rem;color:var(--text3)">${otros.map(o=>escHtml(o.nombre)+': $'+fmt(o.monto)).join(' · ')}</div>` : ''}
+        </div>
+      </td>
+      <td class="col-hide-mobile">${sueldoStr}${i.sueldoDestino ? `<div style="font-size:0.72rem;color:var(--text3);padding:2px 0 0">→ ${escHtml(i.sueldoDestino)}</div>` : ''}${i.sueldoConcepto && i.sueldoConcepto !== 'Sueldo' ? `<div style="font-size:0.72rem;color:var(--accent4)">${escHtml(i.sueldoConcepto)}</div>` : ''}</td>
+      <td class="col-hide-mobile">${otrosHtml}</td>
+      <td class="monto" style="white-space:nowrap">$${fmt(i.totalARS ?? i.total ?? 0)}</td>
+      <td style="white-space:nowrap;display:flex;gap:4px">
+        <button class="btn-edit" onclick="toggleEditIngreso(${i.id})">✏</button>
+        <button class="btn-del" onclick="deleteIngreso(${i.id})">✕</button>
+      </td>
+    </tr>
+    <tr id="edit-ingreso-row-${i.id}" style="display:none;background:var(--surface2)">
+      <td colspan="5" style="padding:1rem">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="form-group" style="min-width:120px"><label>Sueldo</label>
+            <input type="number" id="ei-sueldo-${i.id}" value="${i.sueldo||0}" min="0" step="0.01" style="font-size:16px"></div>
+          <div class="form-group" style="min-width:140px"><label>Destino sueldo</label>
+            <select id="ei-dest-${i.id}" style="font-size:16px">
+              ${destOptsI}
+            </select></div>
+          <div class="form-group" style="min-width:120px"><label>Concepto</label>
+            <input type="text" id="ei-conc-${i.id}" value="${escHtml(i.sueldoConcepto||'Sueldo')}" style="font-size:16px"></div>
+          <div class="form-group" style="align-self:flex-end;display:flex;gap:6px">
+            <button class="btn-add" onclick="guardarEdicionIngreso(${i.id})">✓ Guardar</button>
+            <button class="btn-secondary" onclick="toggleEditIngreso(${i.id})">Cancelar</button>
+          </div>
+        </div>
+      </td>
     </tr>`;
   }).join('') +
   '</tbody></table>';
@@ -2581,6 +2652,7 @@ window.addIngreso             = addIngreso;
 window.deleteIngreso          = deleteIngreso;
 window.iniciarEdicionIngreso  = iniciarEdicionIngreso;
 window.cancelarEdicionIngreso = cancelarEdicionIngreso;
+window.toggleEditIngreso      = toggleEditIngreso;
 window.guardarEdicionIngreso  = guardarEdicionIngreso;
 window.addOtroIngreso         = addOtroIngreso;
 window.setMesIngresos         = setMesIngresos;

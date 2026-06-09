@@ -1495,8 +1495,7 @@ tr:hover td {
   }
 
   /* ── TABLAS ── */
-  .col-show-mobile { display: none; }
-.col-hide-mobile { display: none !important; }
+  .col-hide-mobile { display: none !important; }
   .col-show-mobile { display: flex !important; }
   .table-wrap {
     border-radius: 18px;
