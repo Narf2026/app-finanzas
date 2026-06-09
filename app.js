@@ -100,24 +100,53 @@ function toggleCuotas() {
   $('g-ncuotas-wrap').style.display = on ? 'flex' : 'none';
   if (on) {
     const medio = $('g-medio').value;
-    const fecha = $('g-fecha').value; // YYYY-MM-DD
+    const fecha = $('g-fecha').value;
     const mesGasto = fecha ? fecha.slice(0, 7) : null;
     const mesActual = new Date().toISOString().slice(0, 7);
     const esGastoPasado = mesGasto && mesGasto < mesActual;
     const esCreditoConCierre = tarjetas.some(t =>
       (t.tipo || 'credito') === 'credito' && t.cierre && medio === (t.label || t.nombre)
     );
-    // Ocultar la pregunta si: el gasto es de un mes pasado (ya sabemos el offset),
-    // o si es tarjeta con cierre (se calcula automático)
     $('g-cerro-wrap').style.display =
       (esGastoPasado || esCreditoConCierre) ? 'none' : 'flex';
   } else {
     $('g-cerro-wrap').style.display = 'none';
   }
+  // Si hay cuotas activas, ocultar el toggle de crédito sin cuotas
+  updateCreditoOffsetWrap();
+}
+
+function onMedioChange() {
+  if ($('g-cuota').checked) toggleCuotas();
+  updateCreditoOffsetWrap();
+}
+
+// Muestra el toggle "¿Ya cerró el resumen?" solo cuando:
+// - el medio es tarjeta de crédito
+// - NO está en modo cuotas (porque cuotas ya tiene su propio toggle)
+// - el gasto NO es de un mes pasado (offset automático = 1)
+// - la tarjeta NO tiene fecha de cierre configurada (offset automático por cierre)
+function updateCreditoOffsetWrap() {
+  const wrap = $('g-credito-offset-wrap');
+  if (!wrap) return;
+  const medio = $('g-medio')?.value || '';
+  const fecha = $('g-fecha')?.value || '';
+  const cuota = $('g-cuota')?.checked;
+  const mesGasto = fecha.slice(0, 7);
+  const mesActual = new Date().toISOString().slice(0, 7);
+  const esGastoPasado = mesGasto && mesGasto < mesActual;
+  const tarjetaCred = tarjetas.find(t =>
+    (t.tipo || 'credito') === 'credito' && medio === (t.label || t.nombre)
+  );
+  const tieneCierre = tarjetaCred && tarjetaCred.cierre;
+  // Mostrar solo si: es crédito, sin cuotas, no es pasado, sin cierre configurado
+  const mostrar = tarjetaCred && !cuota && !esGastoPasado && !tieneCierre;
+  wrap.style.display = mostrar ? 'flex' : 'none';
 }
 
 function toggleCuotasIfNeeded() {
   if ($('g-cuota').checked) toggleCuotas();
+  updateCreditoOffsetWrap();
 }
 
 function toggleOtro(selectId, inputId) {
@@ -156,33 +185,30 @@ function addGasto() {
   const ncuotas = parseInt($('g-ncuotas').value) || 1;
   // Calcular offset: cuántos meses entre la fecha del gasto y la 1ª cuota
   let offsetCuotas = 0;
-  if (cuota) {
-    const mesGasto  = fecha.slice(0, 7); // YYYY-MM
-    const mesActual = new Date().toISOString().slice(0, 7);
-    const esGastoPasado = mesGasto < mesActual;
-    const tarjetaUsada = tarjetas.find(t =>
-      (t.tipo || 'credito') === 'credito' && medio === (t.label || t.nombre)
-    );
+  const tarjetaUsada = tarjetas.find(t =>
+    (t.tipo || 'credito') === 'credito' && medio === (t.label || t.nombre)
+  );
+  const esCredito = !!tarjetaUsada;
+  const mesGasto  = fecha.slice(0, 7);
+  const mesActual = new Date().toISOString().slice(0, 7);
+  const esGastoPasado = mesGasto < mesActual;
+
+  if (cuota || esCredito) {
     if (esGastoPasado) {
-      // Gasto anterior: la 1ª cuota cayó en el mes siguiente al del gasto
-      // (comportamiento estándar de tarjeta de crédito)
       offsetCuotas = 1;
     } else if (tarjetaUsada && tarjetaUsada.cierre) {
-      // Gasto de este mes con tarjeta con fecha de cierre
       const diaGasto = parseInt(fecha.slice(8, 10));
       const [fy, fm] = fecha.split('-').map(Number);
-      const diasEnMes = new Date(fy, fm, 0).getDate(); // último día del mes del gasto
+      const diasEnMes = new Date(fy, fm, 0).getDate();
       const cierreEfectivo = Math.min(tarjetaUsada.cierre, diasEnMes);
-      // Si el cierre cae en el último día del mes (ej: cierre=31 en junio de 30 días),
-      // todos los gastos del mes van al mes siguiente porque el ciclo siempre cierra a fin de mes
-      if (cierreEfectivo >= diasEnMes) {
-        offsetCuotas = 1;
-      } else {
-        offsetCuotas = diaGasto > cierreEfectivo ? 1 : 0;
-      }
-    } else {
-      // Gasto de este mes sin tarjeta con cierre → preguntar
+      offsetCuotas = (cierreEfectivo >= diasEnMes || diaGasto > cierreEfectivo) ? 1 : 0;
+    } else if (cuota) {
+      // Cuotas sin cierre: usar el radio de cuotas
       const yacerro = document.querySelector('input[name="g-cuota-inicio"]:checked')?.value !== 'proximo';
+      offsetCuotas = yacerro ? 0 : 1;
+    } else {
+      // Crédito sin cuotas y sin cierre: usar el nuevo toggle
+      const yacerro = document.querySelector('input[name="g-credito-offset"]:checked')?.value !== 'proximo';
       offsetCuotas = yacerro ? 0 : 1;
     }
   }
@@ -209,6 +235,9 @@ function addGasto() {
   $('g-cuota').checked = false;
   $('g-ncuotas-wrap').style.display = 'none';
   $('g-cerro-wrap').style.display = 'none';
+  $('g-credito-offset-wrap').style.display = 'none';
+  const radioYa = $('g-credito-ya');
+  if (radioYa) radioYa.checked = true;
   renderGastosTable();
 }
 
@@ -492,53 +521,100 @@ function renderProductosBanco() {
   if (!banco) { wrap.style.display = 'none'; return; }
   wrap.style.display = '';
   const lista = $('tc-productos-lista');
-  lista.innerHTML = [
-    { tipo: 'credito',   icon: '💳', label: 'Tarjeta de crédito',  desc: 'Para compras en cuotas o en un pago' },
-    { tipo: 'debito',    icon: '🏦', label: 'Cuenta / Débito',      desc: 'CA, caja de ahorro, cuenta corriente' },
-    { tipo: 'billetera', icon: '📱', label: 'Billetera virtual',    desc: 'Mercado Pago, Ualá, Brubank, etc.' }
+
+  // Card de crédito: una fila por red disponible
+  const redes = [
+    { red: 'Visa',             icon: '💳' },
+    { red: 'Mastercard',       icon: '💳' },
+    { red: 'American Express', icon: '💳' },
+    { red: 'Otra',             icon: '💳' }
+  ];
+
+  const creditoRows = redes.map(r => {
+    const yaExiste = tarjetas.find(t => t.banco === banco && t.tipo === 'credito' && t.red === r.red);
+    const redId = r.red.replace(/\s/g, '_');
+    return `
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 14px;background:var(--bg);border:1px solid ${yaExiste ? 'var(--border)' : 'var(--accent4)'};border-radius:10px;opacity:${yaExiste ? 0.5 : 1};margin-bottom:8px">
+      <span style="font-size:1.4rem;margin-top:2px">${r.icon}</span>
+      <div style="flex:1">
+        <div style="font-size:0.85rem;font-weight:600;color:var(--text2)">${r.red === 'Otra' ? 'Otra red' : r.red}</div>
+        <div style="font-size:0.72rem;color:var(--text3);margin-bottom:6px">${r.red === 'Otra' ? 'Especificá la red o nombre' : r.red + ' ' + banco}</div>
+        ${r.red === 'Otra' ? `<input type="text" id="tc-red-custom-${redId}" placeholder="Ej: Cabal, Naranja X..." style="width:100%;max-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;padding:5px 8px;outline:none;display:block;margin-bottom:6px">` : ''}
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div><label style="font-size:0.7rem;color:var(--text3)">Fecha cierre</label>
+            <input type="number" id="tc-cierre-${redId}" placeholder="ej: 15" min="1" max="31" style="width:70px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;padding:5px 8px;outline:none;display:block"></div>
+          <div><label style="font-size:0.7rem;color:var(--text3)">Límite ($)</label>
+            <input type="number" id="tc-limite-${redId}" placeholder="Opcional" min="0" style="width:110px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;padding:5px 8px;outline:none;display:block"></div>
+        </div>
+      </div>
+      <input type="checkbox" id="tc-check-credito-${redId}" ${yaExiste ? 'disabled' : ''} style="width:20px;height:20px;accent-color:var(--accent4);cursor:pointer;margin-top:2px">
+    </div>`;
+  }).join('');
+
+  const otrosTipos = [
+    { tipo: 'debito',    icon: '🏦', label: 'Cuenta / Débito',   desc: 'CA, caja de ahorro, cuenta corriente' },
+    { tipo: 'billetera', icon: '📱', label: 'Billetera virtual', desc: 'Mercado Pago, Ualá, Brubank, etc.' }
   ].map(p => {
     const yaExiste = tarjetas.find(t => t.banco === banco && t.tipo === p.tipo);
-    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border:1px solid ${yaExiste?'var(--border)':'var(--accent4)'};border-radius:10px;opacity:${yaExiste?0.5:1}">
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border:1px solid ${yaExiste?'var(--border)':'var(--accent4)'};border-radius:10px;opacity:${yaExiste?0.5:1};margin-bottom:8px">
       <span style="font-size:1.5rem">${p.icon}</span>
       <div style="flex:1">
         <div style="font-size:0.85rem;font-weight:600;color:var(--text2)">${p.label}</div>
         <div style="font-size:0.72rem;color:var(--text3)">${p.desc}</div>
-        ${p.tipo === 'credito' ? `<div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap">
-          <div><label style="font-size:0.7rem;color:var(--text3)">Fecha cierre</label>
-            <input type="number" id="tc-cierre-${p.tipo}" placeholder="ej: 15" min="1" max="31" style="width:70px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;padding:5px 8px;outline:none;display:block"></div>
-          <div><label style="font-size:0.7rem;color:var(--text3)">Límite ($)</label>
-            <input type="number" id="tc-limite-${p.tipo}" placeholder="Opcional" min="0" style="width:110px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;padding:5px 8px;outline:none;display:block"></div>
-        </div>` : ''}
-        ${p.tipo !== 'credito' ? `<input type="text" id="tc-label-${p.tipo}" placeholder="Nombre personalizado (opcional)" style="width:100%;max-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;padding:5px 8px;outline:none;margin-top:6px;display:block">` : ''}
+        <input type="text" id="tc-label-${p.tipo}" placeholder="Nombre personalizado (opcional)" style="width:100%;max-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;padding:5px 8px;outline:none;margin-top:6px;display:block">
       </div>
       <input type="checkbox" id="tc-check-${p.tipo}" ${yaExiste?'disabled':''} style="width:20px;height:20px;accent-color:var(--accent4);cursor:pointer">
     </div>`;
   }).join('');
+
+  lista.innerHTML = `
+    <div style="font-size:0.7rem;font-weight:600;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px">💳 Tarjetas de crédito</div>
+    ${creditoRows}
+    <div style="font-size:0.7rem;font-weight:600;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin:12px 0 8px">🏦 Otras cuentas</div>
+    ${otrosTipos}
+  `;
 }
 
 function agregarMedioPago() {
   const banco = $('tc-banco').value.trim();
   if (!banco) { notify('⚠ Ingresá el nombre del banco'); return; }
-  const tipos = ['credito','debito','billetera'];
   let agregados = 0;
-  tipos.forEach(tipo => {
+
+  // Tarjetas de crédito: una por red
+  const redes = ['Visa', 'Mastercard', 'American_Express', 'Otra'];
+  redes.forEach((redId, idx) => {
+    const check = document.getElementById('tc-check-credito-' + redId);
+    if (!check || !check.checked) return;
+    let redNombre = redId.replace('_', ' ');
+    if (redId === 'Otra') {
+      const custom = document.getElementById('tc-red-custom-Otra')?.value.trim();
+      if (!custom) { notify('⚠ Ingresá el nombre de la red personalizada'); return; }
+      redNombre = custom;
+    }
+    const yaExiste = tarjetas.find(t => t.banco === banco && t.tipo === 'credito' && t.red === redNombre);
+    if (yaExiste) return;
+    const obj = { id: Date.now() + agregados, tipo: 'credito', banco, nombre: banco, red: redNombre, label: redNombre + ' ' + banco };
+    const cierre = parseInt(document.getElementById('tc-cierre-' + redId)?.value);
+    const limite = parseFloat(document.getElementById('tc-limite-' + redId)?.value);
+    if (!isNaN(cierre) && cierre > 0) obj.cierre = cierre;
+    if (!isNaN(limite) && limite > 0) obj.limite = limite;
+    tarjetas.push(obj);
+    agregados++;
+  });
+
+  // Débito y billetera
+  ['debito','billetera'].forEach(tipo => {
     const check = document.getElementById('tc-check-' + tipo);
     if (!check || !check.checked) return;
     const yaExiste = tarjetas.find(t => t.banco === banco && t.tipo === tipo);
     if (yaExiste) return;
     const obj = { id: Date.now() + agregados, tipo, banco, nombre: banco };
-    if (tipo === 'credito') {
-      const cierre = parseInt(document.getElementById('tc-cierre-credito')?.value);
-      const limite = parseFloat(document.getElementById('tc-limite-credito')?.value);
-      if (!isNaN(cierre) && cierre > 0) obj.cierre = cierre;
-      if (!isNaN(limite) && limite > 0) obj.limite = limite;
-    } else {
-      const labelInp = document.getElementById('tc-label-' + tipo);
-      if (labelInp?.value.trim()) obj.label = labelInp.value.trim();
-    }
+    const labelInp = document.getElementById('tc-label-' + tipo);
+    if (labelInp?.value.trim()) obj.label = labelInp.value.trim();
     tarjetas.push(obj);
     agregados++;
   });
+
   if (!agregados) { notify('⚠ Seleccioná al menos un producto'); return; }
   localStorage.setItem('gf_tarjetas', JSON.stringify(tarjetas));
   save();
@@ -588,7 +664,7 @@ function renderTarjetas() {
         const icon = tipo === 'billetera' ? '📱' : tipo === 'debito' ? '🏦' : '💳';
         const label = t.label || (tipo === 'debito' ? 'CA ' + banco : (tipo === 'billetera' ? banco : banco));
         const sub = tipo === 'credito'
-          ? (t.cierre ? 'Cierre día ' + t.cierre : 'Sin fecha de cierre') + (t.limite > 0 ? ' · $' + fmt(t.limite) : '')
+          ? (t.red ? t.red + ' · ' : '') + (t.cierre ? 'Cierre día ' + t.cierre : 'Sin fecha de cierre') + (t.limite > 0 ? ' · $' + fmt(t.limite) : '')
           : tipo === 'debito' ? 'Cuenta / Débito' : 'Billetera virtual';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)">
           <div style="display:flex;align-items:center;gap:10px">
@@ -1313,17 +1389,23 @@ function selectDashMonth(m, el) {
 // más los gastos normales (sin cuota) cuya fecha está en ym.
 function gastosDelMes(ym) {
   const items = [];
-  const [ymYear, ymMonth] = ym.split('-').map(Number);
   gastos.forEach(g => {
     if (!g.cuota) {
-      // Gasto normal: aparece en su mes de compra
-      if (g.fecha.slice(0, 7) === ym) items.push({ monto: g.monto, cat: g.cat });
+      // Gasto normal: si tiene offsetCuotas (crédito en 1 pago), calcular el mes real
+      if (g.offsetCuotas) {
+        const [fy, fm] = g.fecha.split('-').map(Number);
+        let cy = fy, cm = fm + g.offsetCuotas;
+        while (cm > 12) { cm -= 12; cy++; }
+        const gastoYm = `${cy}-${String(cm).padStart(2, '0')}`;
+        if (gastoYm === ym) items.push({ monto: g.monto, cat: g.cat });
+      } else {
+        if (g.fecha.slice(0, 7) === ym) items.push({ monto: g.monto, cat: g.cat });
+      }
     } else {
       // Cuota: calcular qué cuotas caen en ym
-      const [fy, fm, fd] = g.fecha.split('-').map(Number);
+      const [fy, fm] = g.fecha.split('-').map(Number);
       const off = g.offsetCuotas || 0;
       for (let n = 0; n < g.ncuotas; n++) {
-        // Mes en que cae la cuota n (0-indexed), con offset si la tarjeta no cerró
         let cy = fy, cm = fm + off + n;
         while (cm > 12) { cm -= 12; cy++; }
         const cuotaYm = `${cy}-${String(cm).padStart(2, '0')}`;
