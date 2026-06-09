@@ -73,6 +73,7 @@ section.active {
 
 .card .sub {
   font-size: 0.72rem; color: var(--text3); margin-top: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 
 /* FORM */
@@ -1249,10 +1250,13 @@ main {
 
 .card .value {
   font-family: 'DM Mono', monospace;
-  font-size: clamp(1.35rem, 4vw, 2rem);
+  font-size: clamp(0.78rem, 3vw, 2rem);
   font-weight: 500;
-  line-height: 1;
-  letter-spacing: -.05em;
+  line-height: 1.1;
+  letter-spacing: -.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .card.green {
@@ -1437,7 +1441,7 @@ tr:hover td {
   }
   .card { border-radius: 18px; padding: .85rem .9rem; min-height: 100px; width: 100%; }
   .card .label { font-size: .6rem; line-height: 1.3; margin-bottom: .45rem; }
-  .card .value { font-size: 1.1rem; line-height: 1.1; word-break: break-all; }
+  .card .value { font-size: clamp(0.78rem, 3.5vw, 1.15rem); line-height: 1.1; white-space: nowrap; overflow: hidden; }
   .card .sub { font-size: .6rem; margin-top: 3px; }
   /* 5 cards → última full width */
   .cards .card:nth-child(5):last-child { grid-column: span 2; min-height: 88px; }
@@ -1534,7 +1538,7 @@ tr:hover td {
   /* Columnas ocultas ya eliminadas con col-hide-mobile */
   /* Botones: columna angosta y sin wrap */
   td[style*="display:flex"] { width: 58px !important; padding: 6px 6px !important; gap: 3px !important; flex-wrap: nowrap !important; }
-  .btn-edit, .btn-del { padding: 4px 6px; font-size: .68rem; }
+  .btn-edit, .btn-del { padding: 6px 8px; font-size: .75rem; min-height: 34px; min-width: 30px; }
 
   /* Edit-row: separación visual clara de la fila anterior */
   .edit-row td {
@@ -1553,28 +1557,40 @@ tr:hover td {
     max-width: 90px;
     display: inline-block;
   }
+  /* Badges dentro de la sub-fila mobile: más espacio */
+  .col-show-mobile .badge {
+    max-width: 180px !important;
+    font-size: .62rem !important;
+  }
 
-  /* ── TABLA GASTOS: scroll horizontal suave ── */
+  /* ── TABLA GASTOS: layout fijo, sin overflow ── */
   #tab-gastos .table-wrap,
   #tab-ahorro .table-wrap,
-  #tab-ingresos .table-wrap { overflow-x: hidden; }
+  #tab-ingresos .table-wrap { overflow-x: visible; }
   #tab-gastos table,
   #tab-ahorro table,
-  #tab-ingresos table { min-width: 0; width: 100%; }
-  /* Columna de botones: ancho fijo y sin overflow */
-  #tab-gastos td:last-child,
-  #tab-ingresos td:last-child,
-  #tab-ahorro td:last-child {
-    width: 62px !important;
-    padding: 4px 6px 4px 2px !important;
+  #tab-ingresos table { min-width: 0; width: 100%; table-layout: fixed; }
+
+  /* Columnas visibles mobile: fecha | desc | monto | botones */
+  /* Fecha */
+  #tab-gastos td:first-child, #tab-gastos th:first-child,
+  #tab-ingresos td:first-child, #tab-ingresos th:first-child { width: 72px; font-size: .68rem; }
+  /* Monto */
+  #tab-gastos td:nth-child(5), #tab-gastos th:nth-child(5),
+  #tab-ingresos td:nth-child(3), #tab-ingresos th:nth-child(3) {
+    width: 68px; white-space: nowrap; font-size: .72rem !important; text-align: right;
+  }
+  /* Botones */
+  #tab-gastos td:last-child, #tab-gastos th:last-child,
+  #tab-ingresos td:last-child, #tab-ingresos th:last-child,
+  #tab-ahorro td:last-child, #tab-ahorro th:last-child {
+    width: 64px !important;
+    padding: 4px 4px 4px 2px !important;
     white-space: nowrap;
   }
-  /* Monto: no se corta */
-  #tab-ingresos td:nth-child(3),
-  #tab-gastos td:nth-child(5) {
-    white-space: nowrap;
-    font-size: .72rem !important;
-  }
+  /* Descripción: ocupa el resto */
+  #tab-gastos td:nth-child(2), #tab-gastos th:nth-child(2),
+  #tab-ingresos td:nth-child(2), #tab-ingresos th:nth-child(2) { overflow: hidden; }
 
   /* ── PANEL EXPANDIBLE ── */
   .panel-table { table-layout: auto; width: 100%; }

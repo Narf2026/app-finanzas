@@ -1677,18 +1677,18 @@ function renderSaldoCuentas() {
 
     return `
     <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <div onclick="toggleDetalleCuenta('detalle-${safeC}')" style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;cursor:pointer">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+        <div onclick="toggleDetalleCuenta('detalle-${safeC}')" style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;cursor:pointer;min-width:140px">
           <span style="font-size:1.3rem;flex-shrink:0">${icon}</span>
-          <div>
-            <div style="font-size:0.88rem;font-weight:700;color:var(--text2)">${c} <span style="font-size:0.65rem;color:var(--text3);font-weight:400">▾ ver detalle</span></div>
+          <div style="min-width:0">
+            <div style="font-size:0.88rem;font-weight:700;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">${c} <span style="font-size:0.65rem;color:var(--text3);font-weight:400">▾ ver detalle</span></div>
             <div style="font-family:'DM Mono',monospace;font-weight:700;color:${arsColor};font-size:1rem">$${fmt(ars)}</div>
             ${usd !== 0 ? `<div style="font-family:'DM Mono',monospace;font-weight:700;color:${usdColor};font-size:0.82rem">u$s ${fmt(usd)}</div>` : ''}
           </div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <button onclick="toggleCuentaPanel('ajuste-${safeC}')" style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.4);color:var(--accent3);border-radius:10px;padding:10px 14px;font-size:0.82rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">✏ Ajustar</button>
-          <button onclick="toggleCuentaPanel('mover-${safeC}')" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.4);color:var(--accent4);border-radius:10px;padding:10px 14px;font-size:0.82rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">↔ Mover</button>
+        <div style="display:flex;gap:6px;flex-shrink:0;margin-left:auto">
+          <button onclick="toggleCuentaPanel('ajuste-${safeC}')" style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.4);color:var(--accent3);border-radius:10px;padding:10px 12px;font-size:0.8rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation;white-space:nowrap">✏ Ajustar</button>
+          <button onclick="toggleCuentaPanel('mover-${safeC}')" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.4);color:var(--accent4);border-radius:10px;padding:10px 12px;font-size:0.8rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation;white-space:nowrap">↔ Mover</button>
         </div>
       </div>
       <!-- Panel Detalle -->
