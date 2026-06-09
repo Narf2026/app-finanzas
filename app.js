@@ -40,7 +40,15 @@ window.loadUserData = async function(uid) {
       ingresos        = d.ingresos        || [];
       ahorros         = d.ahorros         || [];
       saldosIniciales = d.saldosIniciales  || {};
-      if (Array.isArray(d.conceptosGuardados)) conceptosGuardados = d.conceptosGuardados;
+      if (Array.isArray(d.conceptosGuardados)) {
+        const validDefaults = ['Sueldo','Freelance','Alquiler','Facturación','Inversión','Otros'];
+        conceptosGuardados = d.conceptosGuardados.filter(c =>
+          c && typeof c === 'string' && c.trim().length > 0 && c.length <= 40
+          && !validDefaults.includes(c)
+          && !c.toLowerCase().includes('concepto')
+          && !c.includes('ej:')
+        );
+      }
       if (Array.isArray(d.ajustesCuentas)) ajustesCuentas = d.ajustesCuentas;
       // Cargar tarjetas desde Firestore; si no hay, usar localStorage como fallback
       if (d.tarjetas && d.tarjetas.length > 0) {
@@ -80,7 +88,7 @@ function showTab(tab) {
   if (btn) btn.classList.add('active');
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'gastos') { renderGastosTable(); populateFilters(); }
-  if (tab === 'ingresos') { renderIngresosTable(); renderDestinosIngreso(); renderSaldoCuentas(); renderAjustesHistorial(); renderConceptosSelect(); }
+  if (tab === 'ingresos') { renderIngresosTable(); renderDestinosIngreso(); renderSaldoCuentas(); renderAjustesHistorial(); }
   if (tab === 'ahorro') { renderAhorroTable(); renderOrigenAhorro(); }
   if (tab === 'pendientes') renderPendientesTab();
   if (tab === 'admin') renderAdminPanel();
@@ -96,57 +104,26 @@ function notify(msg) {
 }
 
 function toggleCuotas() {
-  const on = $('g-cuota').checked;
-  $('g-ncuotas-wrap').style.display = on ? 'flex' : 'none';
-  if (on) {
-    const medio = $('g-medio').value;
-    const fecha = $('g-fecha').value;
-    const mesGasto = fecha ? fecha.slice(0, 7) : null;
-    const mesActual = new Date().toISOString().slice(0, 7);
-    const esGastoPasado = mesGasto && mesGasto < mesActual;
-    const esCreditoConCierre = tarjetas.some(t =>
-      (t.tipo || 'credito') === 'credito' && t.cierre && medio === (t.label || t.nombre)
-    );
-    $('g-cerro-wrap').style.display =
-      (esGastoPasado || esCreditoConCierre) ? 'none' : 'flex';
-  } else {
-    $('g-cerro-wrap').style.display = 'none';
-  }
-  // Si hay cuotas activas, ocultar el toggle de crédito sin cuotas
-  updateCreditoOffsetWrap();
+  // no-op: el toggle fue eliminado, la lógica la maneja toggleCuotasIfNeeded
 }
 
 function onMedioChange() {
-  if ($('g-cuota').checked) toggleCuotas();
-  updateCreditoOffsetWrap();
+  toggleCuotasIfNeeded();
 }
 
-// Muestra el toggle "¿Ya cerró el resumen?" solo cuando:
-// - el medio es tarjeta de crédito
-// - NO está en modo cuotas (porque cuotas ya tiene su propio toggle)
-// - el gasto NO es de un mes pasado (offset automático = 1)
-// - la tarjeta NO tiene fecha de cierre configurada (offset automático por cierre)
 function updateCreditoOffsetWrap() {
-  const wrap = $('g-credito-offset-wrap');
-  if (!wrap) return;
+  // no-op: eliminado junto con fecha de cierre
+}
+
+// Muestra N° Cuotas y ¿Cuándo cae la 1ª cuota? automáticamente cuando se selecciona tarjeta de crédito
+function toggleCuotasIfNeeded() {
   const medio = $('g-medio')?.value || '';
-  const fecha = $('g-fecha')?.value || '';
-  const cuota = $('g-cuota')?.checked;
-  const mesGasto = fecha.slice(0, 7);
-  const mesActual = new Date().toISOString().slice(0, 7);
-  const esGastoPasado = mesGasto && mesGasto < mesActual;
-  const tarjetaCred = tarjetas.find(t =>
+  const esTarjetaCredito = tarjetas.some(t =>
     (t.tipo || 'credito') === 'credito' && medio === (t.label || t.nombre)
   );
-  const tieneCierre = tarjetaCred && tarjetaCred.cierre;
-  // Mostrar solo si: es crédito, sin cuotas, no es pasado, sin cierre configurado
-  const mostrar = tarjetaCred && !cuota && !esGastoPasado && !tieneCierre;
-  wrap.style.display = mostrar ? 'flex' : 'none';
-}
-
-function toggleCuotasIfNeeded() {
-  if ($('g-cuota').checked) toggleCuotas();
-  updateCreditoOffsetWrap();
+  $('g-ncuotas-wrap').style.display = esTarjetaCredito ? 'flex' : 'none';
+  $('g-cerro-wrap').style.display  = esTarjetaCredito ? 'flex' : 'none';
+  if (!esTarjetaCredito && $('g-ncuotas')) $('g-ncuotas').value = '';
 }
 
 function toggleOtro(selectId, inputId) {
@@ -181,35 +158,22 @@ function addGasto() {
   const cat   = resolveOtro('g-cat', 'g-cat-otro');
   const medio = $('g-medio')?.value || '';
   const monto = parseFloat($('g-monto').value);
-  const cuota = $('g-cuota').checked;
   const ncuotas = parseInt($('g-ncuotas').value) || 1;
-  // Calcular offset: cuántos meses entre la fecha del gasto y la 1ª cuota
-  let offsetCuotas = 0;
-  const tarjetaUsada = tarjetas.find(t =>
+  const esCredito = tarjetas.some(t =>
     (t.tipo || 'credito') === 'credito' && medio === (t.label || t.nombre)
   );
-  const esCredito = !!tarjetaUsada;
-  const mesGasto  = fecha.slice(0, 7);
-  const mesActual = new Date().toISOString().slice(0, 7);
-  const esGastoPasado = mesGasto < mesActual;
-
-  if (cuota || esCredito) {
+  const cuota = esCredito && ncuotas > 1;
+  // Calcular offset: cuántos meses entre la fecha del gasto y la 1ª cuota
+  let offsetCuotas = 0;
+  if (esCredito) {
+    const mesGasto  = fecha.slice(0, 7);
+    const mesActual = new Date().toISOString().slice(0, 7);
+    const esGastoPasado = mesGasto < mesActual;
     if (esGastoPasado) {
       offsetCuotas = 1;
-    } else if (tarjetaUsada && tarjetaUsada.cierre) {
-      const diaGasto = parseInt(fecha.slice(8, 10));
-      const [fy, fm] = fecha.split('-').map(Number);
-      const diasEnMes = new Date(fy, fm, 0).getDate();
-      const cierreEfectivo = Math.min(tarjetaUsada.cierre, diasEnMes);
-      offsetCuotas = (cierreEfectivo >= diasEnMes || diaGasto > cierreEfectivo) ? 1 : 0;
-    } else if (cuota) {
-      // Cuotas sin cierre: usar el radio de cuotas
-      const yacerro = document.querySelector('input[name="g-cuota-inicio"]:checked')?.value !== 'proximo';
-      offsetCuotas = yacerro ? 0 : 1;
     } else {
-      // Crédito sin cuotas y sin cierre: usar el nuevo toggle
-      const yacerro = document.querySelector('input[name="g-credito-offset"]:checked')?.value !== 'proximo';
-      offsetCuotas = yacerro ? 0 : 1;
+      const radioVal = document.querySelector('input[name="g-cuota-inicio"]:checked')?.value;
+      offsetCuotas = radioVal === 'proximo' ? 1 : 0;
     }
   }
   const notas = $('g-notas').value.trim();
@@ -232,12 +196,12 @@ function addGasto() {
   // reset
   ['g-desc','g-notas','g-cat-otro'].forEach(id => document.getElementById(id).value = '');
   $('g-cat-otro').style.display = 'none';
-  $('g-cuota').checked = false;
-  $('g-ncuotas-wrap').style.display = 'none';
-  $('g-cerro-wrap').style.display = 'none';
-  $('g-credito-offset-wrap').style.display = 'none';
-  const radioYa = $('g-credito-ya');
-  if (radioYa) radioYa.checked = true;
+  if ($('g-ncuotas')) $('g-ncuotas').value = '';
+  // Re-evaluar visibilidad de campos según el medio seleccionado
+  toggleCuotasIfNeeded();
+  // Resetear radio a "Este mes"
+  const radioEste = $('g-cerro');
+  if (radioEste) radioEste.checked = true;
   renderGastosTable();
 }
 
@@ -541,8 +505,6 @@ function renderProductosBanco() {
         <div style="font-size:0.72rem;color:var(--text3);margin-bottom:6px">${r.red === 'Otra' ? 'Especificá la red o nombre' : r.red + ' ' + banco}</div>
         ${r.red === 'Otra' ? `<input type="text" id="tc-red-custom-${redId}" placeholder="Ej: Cabal, Naranja X..." style="width:100%;max-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;padding:5px 8px;outline:none;display:block;margin-bottom:6px">` : ''}
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <div><label style="font-size:0.7rem;color:var(--text3)">Fecha cierre</label>
-            <input type="number" id="tc-cierre-${redId}" placeholder="ej: 15" min="1" max="31" style="width:70px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;padding:5px 8px;outline:none;display:block"></div>
           <div><label style="font-size:0.7rem;color:var(--text3)">Límite ($)</label>
             <input type="number" id="tc-limite-${redId}" placeholder="Opcional" min="0" style="width:110px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;padding:5px 8px;outline:none;display:block"></div>
         </div>
@@ -594,9 +556,7 @@ function agregarMedioPago() {
     const yaExiste = tarjetas.find(t => t.banco === banco && t.tipo === 'credito' && t.red === redNombre);
     if (yaExiste) return;
     const obj = { id: Date.now() + agregados, tipo: 'credito', banco, nombre: banco, red: redNombre, label: redNombre + ' ' + banco };
-    const cierre = parseInt(document.getElementById('tc-cierre-' + redId)?.value);
     const limite = parseFloat(document.getElementById('tc-limite-' + redId)?.value);
-    if (!isNaN(cierre) && cierre > 0) obj.cierre = cierre;
     if (!isNaN(limite) && limite > 0) obj.limite = limite;
     tarjetas.push(obj);
     agregados++;
@@ -664,7 +624,7 @@ function renderTarjetas() {
         const icon = tipo === 'billetera' ? '📱' : tipo === 'debito' ? '🏦' : '💳';
         const label = t.label || (tipo === 'debito' ? 'CA ' + banco : (tipo === 'billetera' ? banco : banco));
         const sub = tipo === 'credito'
-          ? (t.red ? t.red + ' · ' : '') + (t.cierre ? 'Cierre día ' + t.cierre : 'Sin fecha de cierre') + (t.limite > 0 ? ' · $' + fmt(t.limite) : '')
+          ? (t.red ? t.red : 'Crédito') + (t.limite > 0 ? ' · Límite $' + fmt(t.limite) : '')
           : tipo === 'debito' ? 'Cuenta / Débito' : 'Billetera virtual';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)">
           <div style="display:flex;align-items:center;gap:10px">
@@ -722,18 +682,15 @@ function addIngreso() {
   const sueldoConcepto = conceptoSel === 'Otros' ? (conceptoOtro || 'Otros') : conceptoSel;
 
   if (!año || !mes) { notify('⚠ Completá año y mes'); return; }
-  if (sueldo <= 0 && !otrosPendientes.length) { notify('⚠ Ingresá al menos un monto'); return; }
+  if (sueldo <= 0) { notify('⚠ Ingresá al menos un monto'); return; }
 
   const mesIdx = MESES.indexOf(mes);
   const ymBase = `${año}-${String(mesIdx + 1).padStart(2, '0')}`;
   const key = ymBase;
 
-  // Calcular total ARS (los USD se guardan como están, no se convierten)
   const totalSueldo = sueldoMoneda === 'ARS' ? sueldo : 0;
-  const totalOtrosARS = otrosPendientes.filter(o => o.moneda === 'ARS').reduce((s, o) => s + o.monto, 0);
-  const totalARS = totalSueldo + totalOtrosARS;
+  const totalARS = totalSueldo;
 
-  // Guardar como objeto
   const obj = {
     id: Date.now(),
     key,
@@ -744,13 +701,12 @@ function addIngreso() {
     sueldoMoneda,
     sueldoConcepto,
     sueldoDestino,
-    otros: otrosPendientes.map(o => ({ nombre: o.nombre, monto: o.monto, moneda: o.moneda, destino: o.destino || '' })),
+    otros: [],
     totalARS,
     total: totalARS,
     extra: 0
   };
 
-  // Reemplazar si ya existe ese mes
   const idx = ingresos.findIndex(i => (i.ymBase || i.key) === key);
   if (idx >= 0) {
     if (!confirm(`Ya existe un ingreso para ${mes} ${año}. ¿Reemplazar?`)) return;
@@ -764,10 +720,8 @@ function addIngreso() {
     conceptosGuardados.push(sueldoConcepto);
   }
 
-  otrosPendientes = [];
   save();
   notify('✓ Ingreso guardado');
-  renderOtrosPendientes();
   renderIngresosTable();
   renderSaldoCuentas();
   renderDashboard();
@@ -826,13 +780,10 @@ function renderIngresosTable() {
 // ---- CONCEPTOS / AUTOCOMPLETADO ----
 
 function renderConceptosSelect() {
+  // El select tiene sus opciones definidas en el HTML — no las tocamos.
+  // Solo ocultamos el contenedor de chips (ya no se usa).
   const container = $('conceptos-custom-lista');
-  if (!container) return;
-  if (!conceptosGuardados.length) { container.style.display = 'none'; return; }
-  container.style.display = '';
-  container.innerHTML = conceptosGuardados.map(c =>
-    `<span onclick="seleccionarConcepto('${c.replace(/'/g,"\\'")}','i-sueldo-concepto')" style="display:inline-block;padding:4px 10px;margin:3px 4px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:0.75rem;cursor:pointer;color:var(--text2)">${c}</span>`
-  ).join('');
+  if (container) container.style.display = 'none';
 }
 
 function seleccionarConcepto(val, selId) {
@@ -1467,9 +1418,9 @@ function renderDashboard() {
   })();
   const totalAhorroAcumulado = ahorros.reduce((s, a) => s + a.monto, 0);
   const totalSaldoInicial = Object.values(saldosIniciales || {}).reduce((s, v) => s + v, 0);
-  // Disponible del mes: ingreso del mes - gasto del mes - ahorro del mes + ajustes del mes
+  // Disponible del mes: ingreso del mes - gasto del mes - ahorro del mes + ajustes del mes + saldo inicial
   const ajustesDelMes = (ajustesCuentas || []).filter(a => a.fecha.slice(0,7) === ym).reduce((s, a) => s + (a.monto || 0), 0);
-  const saldo = totalIngreso - totalGasto - totalAhorroMes + ajustesDelMes;
+  const saldo = totalIngreso - totalGasto - totalAhorroMes + ajustesDelMes + totalSaldoInicial;
 
   $('d-gasto').textContent = '$' + fmt(totalGasto);
   $('d-ingreso').textContent = '$' + fmt(totalIngreso);

@@ -376,16 +376,9 @@ onAuthStateChanged(auth, async (user) => {
       <label>Monto Total ($)</label>
       <input type="number" id="g-monto" placeholder="0.00" min="0" step="0.01">
     </div>
-    <div class="form-group">
-      <label>¿En Cuotas?</label>
-      <div class="cuota-toggle">
-        <input type="checkbox" id="g-cuota" onchange="toggleCuotas()">
-        <label for="g-cuota">Sí, en cuotas</label>
-      </div>
-    </div>
     <div class="form-group" id="g-ncuotas-wrap" style="display:none">
       <label>N° Cuotas</label>
-      <input type="number" id="g-ncuotas" placeholder="ej: 6" min="2" max="60">
+      <input type="number" id="g-ncuotas" placeholder="ej: 1" min="1" max="60">
     </div>
     <div class="form-group" id="g-cerro-wrap" style="display:none">
       <label>¿Cuándo cae la 1ª cuota?</label>
@@ -484,46 +477,6 @@ onAuthStateChanged(auth, async (user) => {
       </div>
     </div>
 
-    <!-- Fila: Otros ingresos -->
-    <div style="padding:0.8rem 1.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
-      <span style="font-size:0.7rem;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase">Otros ingresos</span>
-      <button class="btn-secondary" onclick="toggleOtrosForm()" style="white-space:nowrap">+ Agregar otro ingreso</button>
-    </div>
-    <div id="otros-form" style="display:none;padding:1rem 1.4rem;border-bottom:1px solid var(--border);background:var(--surface2)">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-        <div class="form-group" style="min-width:160px;flex:2">
-          <label>Concepto</label>
-          <div style="position:relative">
-            <input type="text" id="i-otro-nombre" placeholder="ej: Freelance, Alquiler..." autocomplete="off" oninput="filtrarConceptos()" onfocus="filtrarConceptos()" onblur="setTimeout(()=>{const l=document.getElementById('conceptos-list');if(l)l.style.display='none'},200)" style="width:100%">
-            <div id="conceptos-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;z-index:50;max-height:160px;overflow-y:auto;margin-top:3px"></div>
-          </div>
-        </div>
-        <div class="form-group" style="min-width:90px;flex:1">
-          <label>Moneda</label>
-          <select id="i-otro-moneda" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.82rem;padding:9px 8px;outline:none;width:100%">
-            <option value="ARS">$ ARS</option>
-            <option value="USD">u$s USD</option>
-          </select>
-        </div>
-        <div class="form-group" style="min-width:120px;flex:1">
-          <label>Monto</label>
-          <input type="number" id="i-otro-monto" placeholder="0.00" min="0" step="0.01">
-        </div>
-        <div class="form-group" style="min-width:140px;flex:1">
-          <label>Destino</label>
-          <div id="i-otro-destino-container">
-            <select id="i-otro-destino" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;width:100%">
-              <option value="">Seleccionar...</option>
-              <option value="Efectivo">Efectivo</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-group" style="align-self:flex-end">
-          <button class="btn-add" style="padding:9px 16px" onclick="agregarOtroIngreso()">+ Agregar</button>
-        </div>
-      </div>
-    </div>
-    <div id="otros-pendientes"></div>
 
     <!-- Fila: botón guardar todo -->
     <div style="padding:1rem 1.4rem;display:flex;justify-content:flex-end;background:var(--surface2);border-radius:0 0 var(--radius) var(--radius)">
