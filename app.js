@@ -1958,8 +1958,17 @@ function calcularTotalTarjetaMes(nombreTarjeta, ym) {
 }
 // ---- DASHBOARD CUOTAS ----
 
+function toggleDashCuotas() {
+  const body = $('dash-cuotas-body');
+  const icon = $('dash-cuotas-icon');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (icon) icon.style.transform = open ? '' : 'rotate(180deg)';
+}
+
 function renderDashCuotas() {
-  const el = $('dash-cuotas');
+  const el = $('dash-cuotas-body');
   if (!el) return;
   const hoy = new Date().toISOString().slice(0,7);
   const [hy, hm] = hoy.split('-').map(Number);
@@ -1976,6 +1985,18 @@ function renderDashCuotas() {
     const endYm = ey + '-' + String(em).padStart(2,'0');
     return endYm >= hoy;
   });
+
+  // Actualizar contadores del header
+  const dcAct = $('dc-activas'); if (dcAct) dcAct.textContent = activas.length;
+  const totalAdeu = activas.reduce((s,g) => {
+    const [fy,fm] = g.fecha.split('-').map(Number);
+    const off = g.offsetCuotas||0; let sy=fy,sm=fm+off;
+    while(sm>12){sm-=12;sy++;}
+    const today2 = new Date(); const cuotaAct2 = (today2.getFullYear()-sy)*12+(today2.getMonth()+1-sm)+1;
+    const rest2 = g.ncuotas - Math.min(cuotaAct2, g.ncuotas);
+    return s + rest2 * g.montoXcuota;
+  }, 0);
+  const dcTot = $('dc-total'); if (dcTot) dcTot.textContent = '$' + fmt(totalAdeu);
 
   if (!activas.length) {
     el.innerHTML = '<div class="empty"><div class="icon">🎉</div>Sin cuotas activas</div>';
@@ -2492,27 +2513,91 @@ async function borrarDatosUsuario() {
 
 // ---- WINDOW EXPORTS ----
 window.renderDashboard    = renderDashboard;
+window.toggleDashCuotas = toggleDashCuotas;
 window.toggleCardPanel    = toggleCardPanel;
-window.renderSaldoCuentas = renderSaldoCuentas;
-window.aplicarAjusteCuenta = aplicarAjusteCuenta;
-window.eliminarAjuste        = eliminarAjuste;
-window.iniciarEdicionAjuste  = iniciarEdicionAjuste;
-window.cancelarEdicionAjuste = cancelarEdicionAjuste;
-window.guardarEdicionAjuste  = guardarEdicionAjuste;
-window.renderAjustesHistorial = renderAjustesHistorial;
-window.moverEntreCuentas  = moverEntreCuentas;
-window.borrarTodosLosAjustes = borrarTodosLosAjustes;
-window.toggleDetalleCuenta = toggleDetalleCuenta;
-window.toggleCuentaPanel  = toggleCuentaPanel;
-window.renderCardPanel    = renderCardPanel;
-window.addEmailHabilitado = addEmailHabilitado;
-window.removeEmailHabilitado = removeEmailHabilitado;
-window.renderAdminPanel   = renderAdminPanel;
-window.diagUsuario        = diagUsuario;
-window.recuperarPendientes = recuperarPendientes;
-window.verFirestoreRaw    = verFirestoreRaw;
-window.limpiarAjustesViejos = limpiarAjustesViejos;
 
-// ---- INIT ----
-loadCats();
-initCatSelects();
+// ---- WINDOW EXPORTS ----
+window.renderSaldoCuentas     = renderSaldoCuentas;
+window.renderAhorroTable      = renderAhorroTable;
+window.renderFondos           = renderFondos;
+window.renderDashCuotas       = renderDashCuotas;
+window.renderAjustesHistorial = renderAjustesHistorial;
+window.renderPendientesTab    = renderPendientesTab;
+window.renderConceptosSelect  = renderConceptosSelect;
+window.renderOrigenAhorro     = renderOrigenAhorro;
+window.renderAdminPanel       = renderAdminPanel;
+
+window.addAhorro              = addAhorro;
+window.deleteAhorro           = deleteAhorro;
+window.agregarRendimiento     = agregarRendimiento;
+window.agregarRendimientoFondo = agregarRendimientoFondo;
+window.addPendiente           = addPendiente;
+window.togglePendiente        = togglePendiente;
+window.deletePendiente        = deletePendiente;
+window.limpiarCompletados     = limpiarCompletados;
+window.setPendienteFiltro     = setPendienteFiltro;
+
+window.showTab                = showTab;
+window.toggleDetalleCuenta    = toggleDetalleCuenta;
+window.toggleCuentaPanel      = toggleCuentaPanel;
+window.toggleCardPanel        = toggleCardPanel;
+window.renderCardPanel        = renderCardPanel;
+window.toggleDashCuotas       = toggleDashCuotas;
+window.renderDashboard        = renderDashboard;
+window.selectDashMonth        = selectDashMonth;
+
+window.aplicarAjusteCuenta    = aplicarAjusteCuenta;
+window.eliminarAjuste         = eliminarAjuste;
+window.moverEntreCuentas      = moverEntreCuentas;
+window.borrarTodosLosAjustes  = borrarTodosLosAjustes;
+window.iniciarEdicionAjuste   = iniciarEdicionAjuste;
+window.cancelarEdicionAjuste  = cancelarEdicionAjuste;
+window.guardarEdicionAjuste   = guardarEdicionAjuste;
+
+window.exportData             = exportData;
+window.importData             = importData;
+window.cancelImport           = cancelImport;
+window.confirmImport          = confirmImport;
+
+window.onCatSelect            = onCatSelect;
+window.saveNewCat             = saveNewCat;
+window.openCatModal           = openCatModal;
+window.closeCatModal          = closeCatModal;
+window.addCatFromModal        = addCatFromModal;
+window.deleteCat              = deleteCat;
+window.toggleOtro             = toggleOtro;
+window.onMedioChange          = onMedioChange;
+window.toggleCuotasIfNeeded   = toggleCuotasIfNeeded;
+
+window.addGasto               = addGasto;
+window.deleteGasto            = deleteGasto;
+window.iniciarEdicion         = iniciarEdicion;
+window.cancelarEdicion        = cancelarEdicion;
+window.guardarEdicion         = guardarEdicion;
+window.setMesGastos           = setMesGastos;
+window.filtrarGastos          = filtrarGastos;
+
+window.addIngreso             = addIngreso;
+window.deleteIngreso          = deleteIngreso;
+window.iniciarEdicionIngreso  = iniciarEdicionIngreso;
+window.cancelarEdicionIngreso = cancelarEdicionIngreso;
+window.guardarEdicionIngreso  = guardarEdicionIngreso;
+window.addOtroIngreso         = addOtroIngreso;
+window.setMesIngresos         = setMesIngresos;
+
+window.addTarjeta             = addTarjeta;
+window.deleteTarjeta          = deleteTarjeta;
+window.setSaldoInicial        = setSaldoInicial;
+
+window.addEmailHabilitado     = addEmailHabilitado;
+window.removeEmailHabilitado  = removeEmailHabilitado;
+window.borrarDatosUsuario     = borrarDatosUsuario;
+window.verFirestoreRaw        = verFirestoreRaw;
+window.limpiarAjustesViejos   = limpiarAjustesViejos;
+window.recuperarPendientes    = recuperarPendientes;
+
+window.seleccionarConcepto    = seleccionarConcepto;
+window.toggleConceptoOtro     = toggleConceptoOtro;
+window.filtrarConceptos       = filtrarConceptos;
+window.seleccionarConceptoOtro = seleccionarConceptoOtro;
+window.saveNewCatConcepto     = saveNewCatConcepto;
