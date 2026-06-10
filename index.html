@@ -432,18 +432,9 @@ onAuthStateChanged(auth, async (user) => {
 
     <!-- Fila: Año / Mes / Sueldo -->
     <div style="padding:1.4rem 1.4rem 1rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;border-bottom:1px solid var(--border)">
-      <div class="form-group" style="min-width:100px;flex:1">
-        <label>Año</label>
-        <input type="number" id="i-año" value="2026">
-      </div>
-      <div class="form-group" style="min-width:140px;flex:2">
-        <label>Mes</label>
-        <select id="i-mes">
-          <option>Enero</option><option>Febrero</option><option>Marzo</option>
-          <option>Abril</option><option>Mayo</option><option selected>Junio</option>
-          <option>Julio</option><option>Agosto</option><option>Septiembre</option>
-          <option>Octubre</option><option>Noviembre</option><option>Diciembre</option>
-        </select>
+      <div class="form-group" style="min-width:150px;flex:2">
+        <label>Fecha</label>
+        <input type="date" id="i-fecha">
       </div>
       <div class="form-group" style="min-width:200px;flex:3">
         <label>Sueldo / Salario</label>
@@ -522,17 +513,8 @@ onAuthStateChanged(auth, async (user) => {
 
   <div class="ingreso-grid">
     <div class="form-group">
-      <label>Año</label>
-      <input type="number" id="a-año" value="2026">
-    </div>
-    <div class="form-group">
-      <label>Mes</label>
-      <select id="a-mes">
-        <option>Enero</option><option>Febrero</option><option>Marzo</option>
-        <option>Abril</option><option>Mayo</option><option selected>Junio</option>
-        <option>Julio</option><option>Agosto</option><option>Septiembre</option>
-        <option>Octubre</option><option>Noviembre</option><option>Diciembre</option>
-      </select>
+      <label>Fecha</label>
+      <input type="date" id="a-fecha">
     </div>
     <div class="form-group">
       <label>Moneda</label>

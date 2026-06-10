@@ -672,8 +672,9 @@ function quitarOtroPendiente(id) {
 }
 
 function addIngreso() {
-  const año  = parseInt($('i-año').value);
-  const mes  = $('i-mes').value;
+  const fechaI = $('i-fecha').value; // yyyy-mm-dd
+  const año  = parseInt((fechaI || '').slice(0, 4));
+  const mes  = fechaI ? MESES[parseInt(fechaI.slice(5, 7)) - 1] : '';
   const sueldo  = parseFloat($('i-sueldo').value) || 0;
   const sueldoMoneda  = $('i-sueldo-moneda').value || 'ARS';
   const sueldoDestino = $('i-sueldo-destino').value || '';
@@ -681,11 +682,10 @@ function addIngreso() {
   const conceptoOtro = $('i-sueldo-concepto-otro')?.value.trim() || '';
   const sueldoConcepto = conceptoSel === 'Otros' ? (conceptoOtro || 'Otros') : conceptoSel;
 
-  if (!año || !mes) { notify('⚠ Completá año y mes'); return; }
+  if (!fechaI) { notify('⚠ Completá la fecha'); return; }
   if (sueldo <= 0) { notify('⚠ Ingresá al menos un monto'); return; }
 
-  const mesIdx = MESES.indexOf(mes);
-  const ymBase = `${año}-${String(mesIdx + 1).padStart(2, '0')}`;
+  const ymBase = fechaI.slice(0, 7);
   const key = ymBase;
 
   const totalSueldo = sueldoMoneda === 'ARS' ? sueldo : 0;
@@ -695,6 +695,7 @@ function addIngreso() {
     id: Date.now(),
     key,
     ymBase,
+    fecha: fechaI,
     año,
     mes,
     sueldo,
@@ -709,8 +710,14 @@ function addIngreso() {
 
   const idx = ingresos.findIndex(i => (i.ymBase || i.key) === key);
   if (idx >= 0) {
-    if (!confirm(`Ya existe un ingreso para ${mes} ${año}. ¿Reemplazar?`)) return;
-    ingresos[idx] = obj;
+    // Ya hay un ingreso este mes → sumarlo como ingreso adicional (no reemplazar)
+    const ex = ingresos[idx];
+    ex.otros = ex.otros || [];
+    ex.otros.push({ id: Date.now(), nombre: sueldoConcepto || 'Ingreso', monto: sueldo, moneda: sueldoMoneda, destino: sueldoDestino, fecha: fechaI });
+    if (sueldoMoneda === 'ARS') {
+      ex.totalARS = (ex.totalARS || 0) + sueldo;
+      ex.total = (ex.total || 0) + sueldo;
+    }
   } else {
     ingresos.push(obj);
   }
@@ -790,7 +797,9 @@ function renderIngresosTable() {
   </tr></thead><tbody>` +
   sorted.map(i => {
     const ym = i.ymBase || i.key || '';
-    const periodo = ym ? `${MESES[parseInt(ym.slice(5,7))-1]} ${ym.slice(0,4)}` : (i.mes + ' ' + i.año);
+    const periodo = i.fecha
+      ? i.fecha.split('-').reverse().join('/')
+      : (ym ? `${MESES[parseInt(ym.slice(5,7))-1]} ${ym.slice(0,4)}` : (i.mes + ' ' + i.año));
     const otros = i.otros || [];
     const otrosHtml = otros.length
       ? otros.map(o => `<div style="font-size:0.75rem;color:var(--text2)">${o.nombre}${o.destino ? ' → <span style="color:var(--accent4)">' + o.destino + '</span>' : ''}: ${o.moneda==='USD'?'u$s ':'$'}${fmt(o.monto)}</div>`).join('')
@@ -900,26 +909,26 @@ function seleccionarConceptoOtro(val) {
 // ---- AHORRO ----
 
 function addAhorro() {
-  const año   = parseInt($('a-año').value);
-  const mes   = $('a-mes').value;
+  const fechaA = $('a-fecha').value; // yyyy-mm-dd
+  const año   = parseInt((fechaA || '').slice(0, 4));
+  const mes   = fechaA ? MESES[parseInt(fechaA.slice(5, 7)) - 1] : '';
   const monto = parseFloat($('a-monto').value);
   const moneda= $('a-moneda').value || 'ARS';
   const tipo  = resolveOtro('a-tipo', 'a-tipo-otro');
   const notas = $('a-notas').value.trim();
   const origen= $('a-origen').value || '';
 
-  if (!año || !mes || !monto || monto <= 0 || !tipo) {
-    notify('⚠ Completá año, mes, tipo y monto');
+  if (!fechaA || !monto || monto <= 0 || !tipo) {
+    notify('⚠ Completá fecha, tipo y monto');
     return;
   }
 
-  const mesIdx = MESES.indexOf(mes);
-  const ymBase = `${año}-${String(mesIdx + 1).padStart(2, '0')}`;
+  const ymBase = fechaA.slice(0, 7);
 
   autoSaveNewCat(tipo, 'ahorro');
 
   ahorros.push({
-    id: Date.now(), ymBase, key: ymBase, año, mes,
+    id: Date.now(), ymBase, key: ymBase, fecha: fechaA, año, mes,
     monto, moneda, tipo, concepto: tipo, notas, origen,
     rendimientos: 0
   });
@@ -977,7 +986,9 @@ function renderAhorroTable() {
   </tr></thead><tbody>` +
   sorted.map(a => {
     const ym = a.ymBase || a.key || '';
-    const periodo = ym ? `${MESES[parseInt(ym.slice(5,7))-1]} ${ym.slice(0,4)}` : (a.mes + ' ' + a.año);
+    const periodo = a.fecha
+      ? a.fecha.split('-').reverse().join('/')
+      : (ym ? `${MESES[parseInt(ym.slice(5,7))-1]} ${ym.slice(0,4)}` : (a.mes + ' ' + a.año));
     const monedaLabel = a.moneda === 'USD' ? 'u$s ' : '$';
     const color = a.moneda === 'USD' ? 'var(--accent3)' : 'var(--accent)';
     const rend = a.rendimientos || 0;
