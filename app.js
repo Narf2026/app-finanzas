@@ -360,6 +360,16 @@ function saveSaldosIniciales() {
   }).catch(e => console.error('Error guardando saldos iniciales:', e));
 }
 
+// ---- BOT DE TELEGRAM ----
+function abrirBotTelegram() {
+  const email = window._currentUser?.email;
+  if (!email) { notify('⚠ Iniciá sesión primero'); return; }
+  // Email codificado en base64 url-safe para que el bot vincule automáticamente
+  const payload = btoa(email).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  window.open('https://t.me/Misfinanzasrobot?start=' + payload, '_blank');
+}
+window.abrirBotTelegram = abrirBotTelegram;
+
 function renderSaldoInicial() {
   const el = $('saldo-inicial-lista');
   if (!el) return;
