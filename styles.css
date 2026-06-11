@@ -1493,6 +1493,12 @@ tr:hover td {
     border-radius: 18px; font-size: .88rem;
     justify-content: center; display: flex;
   }
+  /* En el modal de categorías el botón no se estira: el input necesita el espacio */
+  #cat-modal .btn-add {
+    width: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
 
   /* ── TABLAS ── */
   .col-hide-mobile { display: none !important; }
@@ -1572,8 +1578,16 @@ tr:hover td {
 
   /* Columnas visibles mobile: fecha | desc | monto | botones */
   /* Fecha */
-  #tab-gastos td:first-child, #tab-gastos th:first-child,
-  #tab-ingresos td:first-child, #tab-ingresos th:first-child { width: 72px; font-size: .68rem; }
+  #tab-gastos td:first-child, #tab-gastos th:first-child { width: 72px; font-size: .68rem; }
+  /* Ingresos: el período lleva el detalle debajo — ancho flexible y sin desborde */
+  #tab-ingresos td:first-child, #tab-ingresos th:first-child {
+    width: auto; font-size: .68rem;
+    overflow: hidden; word-break: break-word;
+  }
+  /* Ingresos: columna Total ARS con ancho propio */
+  #tab-ingresos td:nth-child(4), #tab-ingresos th:nth-child(4) {
+    width: 88px; white-space: nowrap; font-size: .72rem !important; text-align: right;
+  }
   /* Monto */
   #tab-gastos td:nth-child(5), #tab-gastos th:nth-child(5),
   #tab-ingresos td:nth-child(3), #tab-ingresos th:nth-child(3) {

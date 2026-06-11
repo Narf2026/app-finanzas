@@ -356,7 +356,7 @@ function saveSaldosIniciales() {
   const uid = window._currentUser?.uid;
   if (!uid) return;
   window._fbSetDoc(window._fbDoc(window._fbDb, 'usuarios', uid), {
-    gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, updatedAt: new Date().toISOString()
+    gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, email: window._currentUser.email, updatedAt: new Date().toISOString()
   }).catch(e => console.error('Error guardando saldos iniciales:', e));
 }
 
