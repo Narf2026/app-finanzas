@@ -14,6 +14,8 @@ let saldosIniciales = {};
 let conceptosGuardados = [];
 let otrosPendientes = [];
 let ajustesCuentas = [];
+let presupuestos = {}; // { "2026-06": { "Alimentación": 50000, ... }, ... }
+let presupuestosExplicitos = {}; // { "Alimentación": ["2026-06", "2026-07"], ... } — meses donde el usuario fijó el valor manualmente
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 let selectedDashMonth = new Date().toISOString().slice(0,7);
@@ -39,7 +41,7 @@ async function save() {
       pendientes = mergeById(pendientes, remote.pendientes);
     }
     await window._fbSetDoc(ref, {
-      gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, email: window._currentUser.email, updatedAt: new Date().toISOString()
+      gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, presupuestos, presupuestosExplicitos, email: window._currentUser.email, updatedAt: new Date().toISOString()
     });
   } catch(e) { console.error('Error guardando:', e); }
 }
@@ -47,7 +49,7 @@ async function save() {
 window.loadUserData = async function(uid) {
   // Resetear todo antes de cargar para evitar datos de sesiones anteriores
   gastos = []; ingresos = []; ahorros = []; saldosIniciales = {}; pendientes = [];
-  conceptosGuardados = []; otrosPendientes = []; ajustesCuentas = [];
+  conceptosGuardados = []; otrosPendientes = []; ajustesCuentas = []; presupuestos = {}; presupuestosExplicitos = {};
   try {
     const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid));
     if (snap.exists()) {
@@ -66,6 +68,8 @@ window.loadUserData = async function(uid) {
         );
       }
       if (Array.isArray(d.ajustesCuentas)) ajustesCuentas = d.ajustesCuentas;
+      if (d.presupuestos && typeof d.presupuestos === 'object') presupuestos = d.presupuestos;
+      if (d.presupuestosExplicitos && typeof d.presupuestosExplicitos === 'object') presupuestosExplicitos = d.presupuestosExplicitos;
       // Cargar tarjetas desde Firestore; si no hay, usar localStorage como fallback
       if (d.tarjetas && d.tarjetas.length > 0) {
         tarjetas = d.tarjetas;
@@ -111,6 +115,8 @@ function showUtilSubtab(sub, btn) {
   if (panel) panel.style.display = '';
   if (sub === 'compartir') ccRenderGrupos();
   if (sub === 'cotizaciones') cargarCotizaciones();
+  if (sub === 'presupuesto') renderPresupuesto();
+  if (sub === 'reportes') renderReportes();
 }
 
 // ---- COTIZACIONES (USD/ARS y ARS/CLP) ----
@@ -2243,6 +2249,92 @@ window.resetPassword = resetPassword;
 // ---- EXPORT / IMPORT ----
 let importPendingData = null;
 
+function exportarExcel() {
+  try {
+    if (typeof XLSX === 'undefined') { notify('⚠ Librería Excel no cargada, esperá un momento y volvé a intentar'); return; }
+
+    console.log('Exportando Excel — gastos:', gastos.length, 'ingresos:', ingresos.length, 'ahorros:', ahorros.length);
+
+    const wb = XLSX.utils.book_new();
+
+    // ── Hoja 1: Gastos ──────────────────────────────────────────────────────
+    const gastosRows = [['Fecha','Descripción','Categoría','Medio de pago','Monto','Moneda','Cuotas','Monto x cuota','Notas']];
+    [...(gastos || [])].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')).forEach(g => {
+      gastosRows.push([
+        g.fecha || '', g.desc || '', g.cat || '', g.medio || '',
+        g.monto || 0, g.moneda || 'ARS',
+        g.cuota ? (g.ncuotas || 1) : 1,
+        g.cuota ? (g.montoXcuota || 0) : (g.monto || 0),
+        g.notas || ''
+      ]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(gastosRows), 'Gastos');
+
+    // ── Hoja 2: Ingresos ────────────────────────────────────────────────────
+    const ingresosRows = [['Mes','Concepto','Monto','Moneda','Destino']];
+    (ingresos || []).forEach(ing => {
+      const mes = ing.ymBase || (ing.key || '').slice(0, 7);
+      // Sueldo principal
+      if ((ing.sueldo || 0) > 0) {
+        ingresosRows.push([mes, ing.sueldoConcepto || 'Sueldo', ing.sueldo, ing.sueldoMoneda || 'ARS', ing.sueldoDestino || '']);
+      }
+      // Otros ingresos del mes
+      (ing.otros || []).forEach(o => {
+        ingresosRows.push([mes, o.nombre || o.concepto || o.desc || 'Ingreso', o.monto || 0, o.moneda || 'ARS', o.destino || '']);
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ingresosRows), 'Ingresos');
+
+    // ── Hoja 3: Ahorros ─────────────────────────────────────────────────────
+    const ahorrosRows = [['Fecha','Tipo / Concepto','Monto','Moneda','Rendimientos','Origen']];
+    (ahorros || []).forEach(a => {
+      ahorrosRows.push([
+        a.ymBase || (a.key || '').slice(0, 7),
+        a.concepto || a.tipo || '',
+        a.monto || 0,
+        a.moneda || 'ARS',
+        a.rendimientos || 0,
+        a.origen || ''
+      ]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ahorrosRows), 'Ahorros');
+
+    // ── Hoja 4: Pendientes ──────────────────────────────────────────────────
+    const pendientesRows = [['Concepto','Monto estimado','Estado']];
+    (pendientes || []).forEach(p => {
+      pendientesRows.push([p.desc || '', p.monto || 0, p.done ? 'Completado' : 'Pendiente']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pendientesRows), 'Pendientes');
+
+    // ── Hoja 5: Resumen mensual ──────────────────────────────────────────────
+    const mesesUnicos = [...new Set([
+      ...(gastos || []).map(g => (g.fecha || '').slice(0, 7)),
+      ...(ingresos || []).map(i => i.ymBase || (i.key || '').slice(0, 7))
+    ].filter(Boolean))].sort().reverse();
+
+    const resumenRows = [['Mes','Ingresos ARS','Gastos ARS','Balance ARS']];
+    mesesUnicos.forEach(ym => {
+      let ingTotal = 0;
+      (ingresos || []).forEach(ing => {
+        const m = ing.ymBase || (ing.key || '').slice(0, 7);
+        if (m !== ym) return;
+        if ((ing.sueldoMoneda || 'ARS') === 'ARS') ingTotal += (ing.sueldo || 0);
+        (ing.otros || []).forEach(o => { if ((o.moneda || 'ARS') === 'ARS') ingTotal += (o.monto || 0); });
+      });
+      const gasTotal = gastosDelMes(ym).filter(g => (g.moneda || 'ARS') === 'ARS').reduce((s, g) => s + g.monto, 0);
+      resumenRows.push([ym, ingTotal, gasTotal, ingTotal - gasTotal]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumenRows), 'Resumen mensual');
+
+    XLSX.writeFile(wb, `finanzas_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    notify('✓ Excel exportado correctamente');
+  } catch(e) {
+    console.error('Error exportando Excel:', e);
+    notify('⚠ Error al exportar: ' + e.message);
+  }
+}
+window.exportarExcel = exportarExcel;
+
 function exportData() {
   const data = { gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, exportedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -2356,6 +2448,310 @@ function gastosDelMes(ym) {
 function totalDelMes(ym) {
   return gastosDelMes(ym).reduce((s, x) => s + x.monto, 0);
 }
+
+// ---- PRESUPUESTO MENSUAL ----
+let presupuestoMes = new Date().toISOString().slice(0,7);
+
+function cambiarMesPresupuesto(delta) {
+  const [y, m] = presupuestoMes.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  presupuestoMes = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  renderPresupuesto();
+}
+
+function renderPresupuesto() {
+  const body = $('presupuesto-body');
+  const label = $('presupuesto-mes-label');
+  if (!body) return;
+
+  const ym = presupuestoMes;
+  const [y, m] = ym.split('-').map(Number);
+  if (label) label.textContent = MESES[m - 1] + ' ' + y;
+
+  // Total gastado por categoría este mes (solo ARS)
+  const gastadoPorCat = {};
+  gastosDelMes(ym).forEach(g => {
+    if ((g.moneda || 'ARS') !== 'ARS') return;
+    gastadoPorCat[g.cat] = (gastadoPorCat[g.cat] || 0) + g.monto;
+  });
+
+  const presMes = presupuestos[ym] || {};
+  const categorias = cats.gastos;
+
+  // Separar categorías con presupuesto asignado de las que no
+  const conPresupuesto = categorias.filter(c => (presMes[c] || 0) > 0);
+  const sinPresupuesto = categorias.filter(c => !((presMes[c] || 0) > 0));
+  // Ordenar: las que tienen gasto este mes primero (de mayor a menor), luego el resto
+  sinPresupuesto.sort((a, b) => (gastadoPorCat[b] || 0) - (gastadoPorCat[a] || 0));
+
+  // Ordenar por monto gastado (de mayor a menor)
+  conPresupuesto.sort((a, b) => (gastadoPorCat[b] || 0) - (gastadoPorCat[a] || 0));
+
+  // Totales generales
+  const totalPres = conPresupuesto.reduce((s, c) => s + presMes[c], 0);
+  const totalGastado = conPresupuesto.reduce((s, c) => s + (gastadoPorCat[c] || 0), 0);
+
+  const renderCard = (cat) => {
+    const pres = presMes[cat] || 0;
+    const gastado = gastadoPorCat[cat] || 0;
+    const pct = pres > 0 ? Math.min(100, (gastado / pres) * 100) : 0;
+    const sobre = pres > 0 && gastado > pres;
+    const barColor = sobre ? 'var(--accent2)' : (pct > 80 ? 'var(--accent4)' : 'var(--accent3)');
+    const safeId = cat.replace(/[^a-zA-Z0-9]/g, '_');
+
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:0.9rem 1rem">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <span style="font-size:0.85rem;color:var(--text2);font-weight:600">${escHtml(cat)}</span>
+        ${pres > 0 ? `<span style="font-size:0.72rem;font-weight:700;color:${sobre ? 'var(--accent2)' : 'var(--text3)'}">${Math.round(pct)}%</span>` : ''}
+      </div>
+      ${pres > 0 ? `<div style="height:6px;border-radius:4px;background:var(--bg);overflow:hidden;margin-bottom:8px">
+        <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px"></div>
+      </div>
+      <div style="font-size:0.78rem;color:${sobre ? 'var(--accent2)' : 'var(--text3)'};margin-bottom:8px">
+        $${fmt(gastado)} de $${fmt(pres)}${sobre ? ' · excedido' : ''}
+      </div>` : `<div style="font-size:0.78rem;color:var(--text3);margin-bottom:8px">
+        $${fmt(gastado)} gastado · sin presupuesto
+      </div>`}
+      <div style="display:flex;gap:6px">
+        <input type="number" id="pres-${safeId}" value="${pres || ''}" placeholder="Asignar presupuesto" min="0" step="0.01"
+          style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.8rem;padding:6px 8px;outline:none;text-align:right">
+        <button onclick="guardarPresupuestoCat('${cat.replace(/'/g, "\\'")}','${safeId}')" style="background:var(--accent3);border:none;color:#0d0f14;border-radius:8px;padding:6px 12px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700">✓</button>
+      </div>
+    </div>`;
+  };
+
+  let html = '';
+
+  if (conPresupuesto.length) {
+    const pctTotal = totalPres > 0 ? Math.min(100, (totalGastado / totalPres) * 100) : 0;
+    const sobreTotal = totalGastado > totalPres;
+    html += `<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:1.2rem">
+      <div class="card blue">
+        <div class="label">Presupuestado</div>
+        <div class="value">$${fmt(totalPres)}</div>
+      </div>
+      <div class="card ${sobreTotal ? 'red' : 'green'}">
+        <div class="label">Gastado</div>
+        <div class="value">$${fmt(totalGastado)}</div>
+        <div class="sub">${Math.round(pctTotal)}% del total</div>
+      </div>
+      <div class="card ${sobreTotal ? 'red' : 'yellow'}">
+        <div class="label">Disponible</div>
+        <div class="value">$${fmt(totalPres - totalGastado)}</div>
+      </div>
+    </div>`;
+
+    html += `<div style="font-size:0.72rem;color:var(--text3);font-weight:600;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:0.6rem">Con presupuesto asignado</div>`;
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:1.5rem">`;
+    html += conPresupuesto.map(renderCard).join('');
+    html += `</div>`;
+  }
+
+  if (sinPresupuesto.length) {
+    html += `<div style="font-size:0.72rem;color:var(--text3);font-weight:600;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:0.6rem">Sin presupuesto asignado</div>`;
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">`;
+    html += sinPresupuesto.map(renderCard).join('');
+    html += `</div>`;
+  }
+
+  body.innerHTML = html || '<div class="panel-empty">No hay categorías de gastos configuradas</div>';
+}
+
+function guardarPresupuestoCat(cat, safeId) {
+  const input = document.getElementById('pres-' + safeId);
+  const val = parseFloat(input?.value);
+  const mes = presupuestoMes;
+
+  if (!presupuestos[mes]) presupuestos[mes] = {};
+  if (isNaN(val) || val <= 0) {
+    delete presupuestos[mes][cat];
+    // Quitar de explícitos
+    if (presupuestosExplicitos[cat]) {
+      presupuestosExplicitos[cat] = presupuestosExplicitos[cat].filter(m => m !== mes);
+    }
+  } else {
+    presupuestos[mes][cat] = val;
+    // Marcar este mes como explícito para esta categoría
+    if (!presupuestosExplicitos[cat]) presupuestosExplicitos[cat] = [];
+    if (!presupuestosExplicitos[cat].includes(mes)) presupuestosExplicitos[cat].push(mes);
+
+    // Propagar hacia adelante: hasta 24 meses futuros,
+    // solo en meses que NO fueron fijados explícitamente por el usuario
+    const [y, m] = mes.split('-').map(Number);
+    for (let i = 1; i <= 24; i++) {
+      const fd = new Date(y, m - 1 + i, 1);
+      const fym = fd.getFullYear() + '-' + String(fd.getMonth() + 1).padStart(2, '0');
+      const esExplicito = (presupuestosExplicitos[cat] || []).includes(fym);
+      if (!esExplicito) {
+        if (!presupuestos[fym]) presupuestos[fym] = {};
+        presupuestos[fym][cat] = val;
+      }
+    }
+  }
+
+  save();
+  notify('✓ Presupuesto guardado y propagado a meses futuros');
+  renderPresupuesto();
+}
+window.cambiarMesPresupuesto = cambiarMesPresupuesto;
+window.guardarPresupuestoCat = guardarPresupuestoCat;
+
+// ---- REPORTES Y GRÁFICOS ----
+let repPeriodo = 3;
+const _charts = {};
+
+function setRepPeriodo(n, btn) {
+  repPeriodo = n;
+  document.querySelectorAll('[id^="rep-per-"]').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderReportes();
+}
+window.setRepPeriodo = setRepPeriodo;
+
+function _cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function _destroyChart(id) {
+  if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
+}
+
+function _getMeses(n) {
+  const meses = [];
+  const now = new Date();
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    meses.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+  }
+  return meses;
+}
+
+function _totalIngresosYm(ym) {
+  let total = 0;
+  ingresos.forEach(ing => {
+    const base = ing.ymBase || ing.key?.slice(0, 7) || '';
+    if (base !== ym) return;
+    if ((ing.sueldoMoneda || 'ARS') === 'ARS') total += (ing.sueldo || 0);
+    (ing.otros || []).forEach(o => { if ((o.moneda || 'ARS') === 'ARS') total += (o.monto || 0); });
+  });
+  return total;
+}
+
+function renderReportes() {
+  const meses = _getMeses(repPeriodo);
+  const labels = meses.map(m => MESES[parseInt(m.slice(5, 7)) - 1].slice(0, 3) + ' ' + m.slice(2, 4));
+  const text2 = _cssVar('--text2') || '#ccc';
+  const border = _cssVar('--border') || '#333';
+
+  // Paleta de colores
+  const PALETTE = ['#6ee7b7','#93c5fd','#fcd34d','#f9a8d4','#a5b4fc','#86efac','#fdba74','#67e8f9','#c4b5fd','#fb923c'];
+
+  // ── 1. Ingresos vs Gastos ────────────────────────────────────────────────
+  _destroyChart('ing-gasto');
+  const ingData = meses.map(m => _totalIngresosYm(m));
+  const gasData = meses.map(m => gastosDelMes(m).filter(g => (g.moneda || 'ARS') === 'ARS').reduce((s, g) => s + g.monto, 0));
+
+  _charts['ing-gasto'] = new Chart($('chart-ing-gasto'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Ingresos', data: ingData, backgroundColor: '#6ee7b766', borderColor: '#6ee7b7', borderWidth: 2, borderRadius: 6 },
+        { label: 'Gastos',   data: gasData, backgroundColor: '#f87171aa', borderColor: '#f87171', borderWidth: 2, borderRadius: 6 }
+      ]
+    },
+    options: {
+      responsive: true, plugins: { legend: { labels: { color: text2 } } },
+      scales: {
+        x: { ticks: { color: text2 }, grid: { color: border } },
+        y: { ticks: { color: text2, callback: v => '$' + fmt(v) }, grid: { color: border } }
+      }
+    }
+  });
+
+  // ── 2. Gastos por categoría (donut) ─────────────────────────────────────
+  _destroyChart('cats');
+  const gastadoCat = {};
+  meses.forEach(m => gastosDelMes(m).forEach(g => {
+    if ((g.moneda || 'ARS') !== 'ARS') return;
+    gastadoCat[g.cat] = (gastadoCat[g.cat] || 0) + g.monto;
+  }));
+  const catEntries = Object.entries(gastadoCat).sort((a, b) => b[1] - a[1]);
+  const totalCat = catEntries.reduce((s, [, v]) => s + v, 0);
+
+  if (catEntries.length) {
+    _charts['cats'] = new Chart($('chart-cats'), {
+      type: 'doughnut',
+      data: {
+        labels: catEntries.map(([c]) => c),
+        datasets: [{ data: catEntries.map(([, v]) => v), backgroundColor: PALETTE, borderWidth: 0 }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+    $('chart-cats-legend').innerHTML = catEntries.map(([c, v], i) =>
+      `<div style="display:flex;justify-content:space-between;gap:12px">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PALETTE[i % PALETTE.length]};margin-right:6px"></span>${escHtml(c)}</span>
+        <span style="color:var(--text3)">${totalCat > 0 ? Math.round(v / totalCat * 100) : 0}% · $${fmt(v)}</span>
+      </div>`).join('');
+  } else {
+    $('chart-cats-legend').innerHTML = '<span style="color:var(--text3)">Sin datos</span>';
+  }
+
+  // ── 3. Evolución del ahorro total ────────────────────────────────────────
+  _destroyChart('ahorro');
+  const ahorroData = meses.map(m => {
+    return ahorros.filter(a => {
+      const aym = a.ymBase || a.key?.slice(0, 7) || '';
+      return aym <= m;
+    }).reduce((s, a) => s + ((a.moneda || 'ARS') === 'ARS' ? (a.monto || 0) : 0), 0);
+  });
+
+  _charts['ahorro'] = new Chart($('chart-ahorro'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Ahorro acumulado ARS',
+        data: ahorroData,
+        borderColor: '#fcd34d', backgroundColor: '#fcd34d22',
+        borderWidth: 2, pointRadius: 4, fill: true, tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true, plugins: { legend: { labels: { color: text2 } } },
+      scales: {
+        x: { ticks: { color: text2 }, grid: { color: border } },
+        y: { ticks: { color: text2, callback: v => '$' + fmt(v) }, grid: { color: border } }
+      }
+    }
+  });
+
+  // ── 4. Top categorías (barra horizontal) ────────────────────────────────
+  _destroyChart('top-cats');
+  const top = catEntries.slice(0, 8);
+
+  _charts['top-cats'] = new Chart($('chart-top-cats'), {
+    type: 'bar',
+    data: {
+      labels: top.map(([c]) => c),
+      datasets: [{
+        label: 'Gasto total ARS',
+        data: top.map(([, v]) => v),
+        backgroundColor: top.map((_, i) => PALETTE[i % PALETTE.length]),
+        borderRadius: 6, borderWidth: 0
+      }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: text2, callback: v => '$' + fmt(v) }, grid: { color: border } },
+        y: { ticks: { color: text2 }, grid: { color: border } }
+      }
+    }
+  });
+}
+window.renderReportes = renderReportes;
 
 function renderDashboard() {
   buildDashMonths();

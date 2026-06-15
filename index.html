@@ -161,8 +161,6 @@ onAuthStateChanged(auth, async (user) => {
       <span id="user-email"></span>
       <button class="btn-logout" onclick="window.doLogout()">Salir</button>
     </div>
-    <button class="btn-export" onclick="exportData()">⬇ Exportar</button>
-    <button class="btn-import" onclick="document.getElementById('import-file').click()">⬆ Importar</button>
     <input type="file" id="import-file" accept=".json" onchange="importData(event)">
   </div>
 </header>
@@ -203,7 +201,7 @@ onAuthStateChanged(auth, async (user) => {
     <span class="nav-icon nav-ajustes" aria-hidden="true">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
     </span>
-    <span class="nav-text">Ajustes</span>
+    <span class="nav-text">Bancos</span>
   </button>
   <button id="btn-admin" onclick="showTab('admin')" style="display:none" aria-label="Admin">
     <span class="nav-icon nav-admin" aria-hidden="true">
@@ -617,6 +615,42 @@ onAuthStateChanged(auth, async (user) => {
     <button class="month-btn" id="util-tab-lista" onclick="showUtilSubtab('lista',this)">Lista</button>
     <button class="month-btn" id="util-tab-compartir" onclick="showUtilSubtab('compartir',this)">Compartir gastos</button>
     <button class="month-btn" id="util-tab-cotizaciones" onclick="showUtilSubtab('cotizaciones',this)">💱 Cotizaciones</button>
+    <button class="month-btn" id="util-tab-presupuesto" onclick="showUtilSubtab('presupuesto',this)">📊 Presupuesto</button>
+    <button class="month-btn" id="util-tab-reportes" onclick="showUtilSubtab('reportes',this)">📈 Reportes</button>
+    <button class="month-btn" id="util-tab-datos" onclick="showUtilSubtab('datos',this)">💾 Datos</button>
+    <button class="month-btn" id="util-tab-telegram" onclick="showUtilSubtab('telegram',this)">🤖 Bot de Telegram</button>
+  </div>
+
+  <!-- TELEGRAM -->
+  <div id="util-telegram" style="display:none">
+    <div class="table-wrap">
+      <div class="table-header"><h3>✈ Bot de Telegram</h3></div>
+      <div style="padding:1.5rem">
+        <p style="font-size:0.85rem;color:var(--text3);margin-bottom:1.2rem">Registrá gastos e ingresos desde Telegram, por texto o audio. Tocá el botón y después «Iniciar» en el chat: tu cuenta se vincula sola.</p>
+        <button class="btn-add" style="padding:10px 18px;font-size:0.85rem" onclick="abrirBotTelegram()">✈ Conectar con Telegram</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATOS -->
+  <div id="util-datos" style="display:none">
+    <div class="table-wrap">
+      <div class="table-header"><h3>💾 Datos</h3></div>
+      <div style="padding:1.2rem;display:flex;flex-direction:column;gap:1rem">
+        <div>
+          <div style="font-size:0.78rem;color:var(--text3);margin-bottom:6px">Exportá todos tus datos como respaldo en formato JSON</div>
+          <button class="btn-secondary" onclick="exportData()" style="width:100%;justify-content:center">⬇ Exportar backup (JSON)</button>
+        </div>
+        <div>
+          <div style="font-size:0.78rem;color:var(--text3);margin-bottom:6px">Importá un backup previamente exportado</div>
+          <button class="btn-secondary" onclick="document.getElementById('import-file').click()" style="width:100%;justify-content:center">⬆ Importar backup (JSON)</button>
+        </div>
+        <div>
+          <div style="font-size:0.78rem;color:var(--text3);margin-bottom:6px">Exportá tus gastos, ingresos, ahorros y resumen mensual en Excel</div>
+          <button class="btn-secondary" onclick="exportarExcel()" style="width:100%;justify-content:center;border-color:var(--accent3);color:var(--accent3)">📊 Exportar a Excel</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="util-lista" style="display:none">
@@ -707,6 +741,61 @@ onAuthStateChanged(auth, async (user) => {
     </div>
   </div>
 
+  <!-- REPORTES -->
+  <div id="util-reportes" style="display:none">
+
+    <!-- Período -->
+    <div style="display:flex;gap:8px;margin-bottom:1.2rem;flex-wrap:wrap;align-items:center">
+      <span style="font-size:0.72rem;color:var(--text3);font-weight:600;letter-spacing:0.8px;text-transform:uppercase">Período:</span>
+      <button class="month-btn active" id="rep-per-3" onclick="setRepPeriodo(3,this)">3 meses</button>
+      <button class="month-btn" id="rep-per-6" onclick="setRepPeriodo(6,this)">6 meses</button>
+      <button class="month-btn" id="rep-per-12" onclick="setRepPeriodo(12,this)">1 año</button>
+    </div>
+
+    <!-- Ingresos vs Gastos -->
+    <div class="table-wrap" style="margin-bottom:1.2rem">
+      <div class="table-header"><h3>📊 Ingresos vs Gastos</h3></div>
+      <div style="padding:1.2rem"><canvas id="chart-ing-gasto" height="220"></canvas></div>
+    </div>
+
+    <!-- Gastos por categoría -->
+    <div class="table-wrap" style="margin-bottom:1.2rem">
+      <div class="table-header"><h3>🍩 Gastos por categoría</h3></div>
+      <div style="padding:1.2rem;display:flex;flex-wrap:wrap;gap:1.5rem;align-items:flex-start">
+        <div style="flex:1;min-width:200px;max-width:300px"><canvas id="chart-cats"></canvas></div>
+        <div id="chart-cats-legend" style="flex:1;min-width:160px;font-size:0.8rem;color:var(--text2);line-height:2"></div>
+      </div>
+    </div>
+
+    <!-- Evolución del ahorro -->
+    <div class="table-wrap" style="margin-bottom:1.2rem">
+      <div class="table-header"><h3>💰 Evolución del ahorro total</h3></div>
+      <div style="padding:1.2rem"><canvas id="chart-ahorro" height="180"></canvas></div>
+    </div>
+
+    <!-- Top categorías -->
+    <div class="table-wrap" style="margin-bottom:1.2rem">
+      <div class="table-header"><h3>🏆 Top categorías de gasto</h3></div>
+      <div style="padding:1.2rem"><canvas id="chart-top-cats" height="220"></canvas></div>
+    </div>
+
+  </div>
+
+  <!-- PRESUPUESTO -->
+  <div id="util-presupuesto" style="display:none">
+    <div class="table-wrap">
+      <div class="table-header">
+        <h3>📊 Presupuesto mensual</h3>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn-secondary" onclick="cambiarMesPresupuesto(-1)">‹</button>
+          <span id="presupuesto-mes-label" style="font-size:0.85rem;color:var(--text2);font-weight:600;min-width:90px;text-align:center"></span>
+          <button class="btn-secondary" onclick="cambiarMesPresupuesto(1)">›</button>
+        </div>
+      </div>
+      <div id="presupuesto-body" style="padding:1.2rem"></div>
+    </div>
+  </div>
+
   <!-- COMPARTIR GASTOS (Cuenta Clara) -->
   <div id="util-compartir" style="display:none">
 
@@ -791,23 +880,9 @@ onAuthStateChanged(auth, async (user) => {
 <!-- AJUSTES -->
 <section id="tab-ajustes">
   <div style="max-width:900px;margin:0 auto;padding:2rem 1.5rem">
-    <div class="page-title">Ajustes</div>
+    <div class="page-title">Bancos</div>
 
-    <!-- Exportar/Importar — en desktop está en el header, en mobile aparece acá -->
-    <div class="card data-io-mobile" style="margin-bottom:1.5rem;display:none">
-      <div style="font-size:0.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">💾 Datos</div>
-      <div style="display:flex;gap:10px">
-        <button class="btn-secondary" onclick="exportData()" style="flex:1;justify-content:center">⬇ Exportar</button>
-        <button class="btn-secondary" onclick="document.getElementById('import-file').click()" style="flex:1;justify-content:center">⬆ Importar</button>
-      </div>
-    </div>
 
-    <!-- Bot de Telegram -->
-    <div class="card" style="margin-bottom:1.5rem">
-      <div class="card-title" style="margin-bottom:0.3rem">🤖 Bot de Telegram</div>
-      <p style="font-size:0.82rem;color:var(--text3);margin-bottom:1.2rem">Registrá gastos e ingresos desde Telegram, por texto o audio. Tocá el botón y después «Iniciar» en el chat: tu cuenta se vincula sola.</p>
-      <button class="btn-add" style="padding:10px 18px;font-size:0.85rem" onclick="abrirBotTelegram()">✈ Conectar con Telegram</button>
-    </div>
 
     <!-- Medios de pago -->
     <div class="card" style="margin-bottom:1.5rem">
@@ -1051,6 +1126,8 @@ onAuthStateChanged(auth, async (user) => {
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="app.js"></script>
 </body>
