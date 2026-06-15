@@ -993,7 +993,7 @@ function renderGastosTable() {
           <div class="form-group" style="min-width:130px"><label>Fecha</label>
             <input type="date" id="edit-fecha-${g.id}" value="${g.fecha}"></div>
           <div class="form-group" style="min-width:180px"><label>Descripción</label>
-            <input type="text" id="edit-desc-${g.id}" value="${g.desc}"></div>
+            <input type="text" id="edit-desc-${g.id}" value="${escHtml(g.desc)}"></div>
           <div class="form-group" style="min-width:140px"><label>Categoría</label>
             <select id="edit-cat-${g.id}">${catOpts}</select></div>
           <div class="form-group" style="min-width:140px"><label>Medio</label>
@@ -1001,7 +1001,7 @@ function renderGastosTable() {
           <div class="form-group" style="min-width:120px"><label>Monto</label>
             <input type="number" id="edit-monto-${g.id}" value="${g.monto}" min="0" step="0.01"></div>
           <div class="form-group" style="min-width:180px"><label>Notas</label>
-            <input type="text" id="edit-notas-${g.id}" value="${g.notas || ''}"></div>
+            <input type="text" id="edit-notas-${g.id}" value="${escHtml(g.notas || '')}"></div>
           <div class="form-group" style="align-self:flex-end">
             <button class="btn-add" onclick="editGasto(${g.id})">✓ Guardar</button>
           </div>
@@ -1043,7 +1043,7 @@ function renderOtrosPendientes() {
     <span style="font-size:0.7rem;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-right:4px">PENDIENTES DE GUARDAR:</span>
     ${otrosPendientes.map(o => `
       <span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:0.78rem">
-        <span style="color:var(--text2)">${o.nombre}</span>
+        <span style="color:var(--text2)">${escHtml(o.nombre)}</span>
         <span style="font-family:'DM Mono',monospace;color:${o.moneda==='USD'?'var(--accent3)':'var(--accent)'}">${o.moneda==='USD'?'u$s ':' $'}${fmt(o.monto)}</span>
         <button onclick="quitarOtroPendiente(${o.id})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem;padding:0;line-height:1">✕</button>
       </span>`).join('')}
@@ -1630,13 +1630,6 @@ function renderIngresosTable() {
 }
 
 // ---- CONCEPTOS / AUTOCOMPLETADO ----
-
-function renderConceptosSelect() {
-  // El select tiene sus opciones definidas en el HTML — no las tocamos.
-  // Solo ocultamos el contenedor de chips (ya no se usa).
-  const container = $('conceptos-custom-lista');
-  if (container) container.style.display = 'none';
-}
 
 function seleccionarConcepto(val, selId) {
   const sel = document.getElementById(selId);
@@ -3175,18 +3168,6 @@ function _renderSaldoUSDPanel(ym) {
     </div>`;
 }
 
-// ---- renderConceptosSelect ----
-function renderConceptosSelect() {
-  const sel = $('i-sueldo-concepto');
-  if (!sel) return;
-  const saved = conceptosGuardados || [];
-  const current = sel.value;
-  sel.innerHTML = `<option value="">Concepto (ej: Sueldo, Freelance...)</option>` +
-    saved.map(c => `<option value="${c}">${c}</option>`).join('') +
-    `<option value="__nueva__">+ Nuevo concepto...</option>`;
-  if (current && saved.includes(current)) sel.value = current;
-}
-
 // ---- ADMIN ----
 
 async function addEmailHabilitado() {
@@ -3500,7 +3481,6 @@ window.renderFondos           = renderFondos;
 window.renderDashCuotas       = renderDashCuotas;
 window.renderAjustesHistorial = renderAjustesHistorial;
 window.renderPendientesTab    = renderPendientesTab;
-window.renderConceptosSelect  = renderConceptosSelect;
 window.renderOrigenAhorro     = renderOrigenAhorro;
 window.renderAdminPanel       = renderAdminPanel;
 
