@@ -22,7 +22,23 @@ async function save() {
   const uid = window._currentUser?.uid;
   if (!uid) return;
   try {
-    await window._fbSetDoc(window._fbDoc(window._fbDb, 'usuarios', uid), {
+    // Fusionar con lo que haya en Firestore para no pisar cambios del bot de Telegram
+    const ref = window._fbDoc(window._fbDb, 'usuarios', uid);
+    const remoteSnap = await window._fbGetDoc(ref);
+    if (remoteSnap.exists()) {
+      const remote = remoteSnap.data();
+      const mergeById = (local, remoteArr) => {
+        if (!Array.isArray(remoteArr)) return local;
+        const ids = new Set(local.map(x => String(x.id)));
+        const extra = remoteArr.filter(x => !ids.has(String(x.id)));
+        return extra.length ? [...local, ...extra] : local;
+      };
+      gastos     = mergeById(gastos, remote.gastos);
+      ingresos   = mergeById(ingresos, remote.ingresos);
+      ahorros    = mergeById(ahorros, remote.ahorros);
+      pendientes = mergeById(pendientes, remote.pendientes);
+    }
+    await window._fbSetDoc(ref, {
       gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, email: window._currentUser.email, updatedAt: new Date().toISOString()
     });
   } catch(e) { console.error('Error guardando:', e); }
@@ -77,6 +93,9 @@ window.loadUserData = async function(uid) {
   renderDestinosIngreso();
   renderOrigenAhorro();
   renderSaldoInicial();
+  // Cargar categorías guardadas y poblar los selects (antes esto solo pasaba al abrir/cerrar el modal)
+  loadCats();
+  initCatSelects();
 };
 
 // ---- UTILIDADES (sub-tabs dentro de "Utilidades") ----
@@ -841,7 +860,7 @@ function toggleOtro(selectId, inputId) {
 function resolveOtro(selectId, inputId) {
   const sel = document.getElementById(selectId);
   const inp = document.getElementById(inputId);
-  const isNueva = sel.value === '__nueva__' || sel.value === 'Otros' || sel.value === 'Otro';
+  const isNueva = sel.value === '__nueva__';
   if (isNueva) return inp.value.trim() || '';
   return sel.value;
 }
@@ -910,30 +929,6 @@ function addGasto() {
   renderGastosTable();
 }
 
-function toggleEditGasto(id) {
-  const row = document.getElementById('edit-row-' + id);
-  if (!row) return;
-  row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
-}
-
-function editGasto(id) {
-  const g = gastos.find(x => x.id === id);
-  if (!g) return;
-  const fecha  = document.getElementById('edit-fecha-'  + id)?.value || g.fecha;
-  const desc   = document.getElementById('edit-desc-'   + id)?.value.trim() || g.desc;
-  const cat    = document.getElementById('edit-cat-'    + id)?.value || g.cat;
-  const medio  = document.getElementById('edit-medio-'  + id)?.value || g.medio;
-  const monto  = parseFloat(document.getElementById('edit-monto-' + id)?.value) || g.monto;
-  const notas  = document.getElementById('edit-notas-'  + id)?.value.trim() ?? g.notas;
-  if (!fecha || !desc || !cat || !monto || monto <= 0) { notify('⚠ Completá todos los campos'); return; }
-  const mes = MESES[parseInt(fecha.slice(5,7)) - 1];
-  const montoXcuota = g.cuota ? +(monto / g.ncuotas).toFixed(2) : monto;
-  Object.assign(g, { fecha, desc, cat, medio, monto, montoXcuota, mes, notas });
-  save();
-  notify('Gasto actualizado');
-  renderGastosTable();
-}
-
 function deleteGasto(id) {
   if (!confirm('¿Eliminar este gasto?')) return;
   gastos = gastos.filter(g => g.id !== id);
@@ -955,8 +950,6 @@ function renderGastosTable() {
     el.innerHTML = '<div class="panel-empty">Sin gastos registrados</div>';
     return;
   }
-  const medioOpts = ['Efectivo', ...tarjetas.map(t => t.label || t.nombre || t.banco)].map(m => `<option value="${m}">${m}</option>`).join('');
-  const catOpts = cats.gastos.map(c => `<option value="${c}">${c}</option>`).join('');
   el.innerHTML = `<table class="panel-table"><thead><tr>
     <th>Fecha</th><th>Descripción</th>
     <th class="col-hide-mobile">Categoría</th>
@@ -967,7 +960,7 @@ function renderGastosTable() {
     <th></th>
   </tr></thead><tbody>` +
   rows.map(g => `
-    <tr>
+    <tr id="gasto-row-${g.id}">
       <td style="color:var(--text3);font-size:0.8rem;white-space:nowrap">${g.fecha}</td>
       <td>
         <div style="font-weight:600;color:var(--text2)">${escHtml(g.desc)}</div>
@@ -983,39 +976,56 @@ function renderGastosTable() {
       <td class="col-hide-mobile">${g.cuota ? `<span class="badge badge-cuota">${g.ncuotas}x $${fmt(g.montoXcuota)}</span>` : '—'}</td>
       <td class="col-hide-mobile" style="color:var(--text3);font-size:0.78rem">${escHtml(g.notas || '—')}</td>
       <td style="display:flex;gap:4px">
-        <button class="btn-edit" onclick="toggleEditGasto(${g.id})">✏</button>
+        <button class="btn-edit" onclick="openEditGastoModal(${g.id})">✏</button>
         <button class="btn-del" onclick="deleteGasto(${g.id})">✕</button>
-      </td>
-    </tr>
-    <tr id="edit-row-${g.id}" style="display:none;background:var(--surface2)">
-      <td colspan="8" style="padding:1rem">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-          <div class="form-group" style="min-width:130px"><label>Fecha</label>
-            <input type="date" id="edit-fecha-${g.id}" value="${g.fecha}"></div>
-          <div class="form-group" style="min-width:180px"><label>Descripción</label>
-            <input type="text" id="edit-desc-${g.id}" value="${escHtml(g.desc)}"></div>
-          <div class="form-group" style="min-width:140px"><label>Categoría</label>
-            <select id="edit-cat-${g.id}">${catOpts}</select></div>
-          <div class="form-group" style="min-width:140px"><label>Medio</label>
-            <select id="edit-medio-${g.id}"><option value="">Sin medio</option>${medioOpts}</select></div>
-          <div class="form-group" style="min-width:120px"><label>Monto</label>
-            <input type="number" id="edit-monto-${g.id}" value="${g.monto}" min="0" step="0.01"></div>
-          <div class="form-group" style="min-width:180px"><label>Notas</label>
-            <input type="text" id="edit-notas-${g.id}" value="${escHtml(g.notas || '')}"></div>
-          <div class="form-group" style="align-self:flex-end">
-            <button class="btn-add" onclick="editGasto(${g.id})">✓ Guardar</button>
-          </div>
-        </div>
       </td>
     </tr>`).join('') +
   '</tbody></table>';
-  // Set selected values for edit rows
-  rows.forEach(g => {
-    const catSel = document.getElementById('edit-cat-' + g.id);
-    if (catSel) catSel.value = g.cat;
-    const medioSel = document.getElementById('edit-medio-' + g.id);
-    if (medioSel) medioSel.value = g.medio || '';
-  });
+}
+
+// ---- MODAL EDITAR GASTO ----
+let editGastoId = null;
+
+function openEditGastoModal(id) {
+  const g = gastos.find(x => x.id === id);
+  if (!g) return;
+  editGastoId = id;
+  const medioOpts = ['Efectivo', ...tarjetas.map(t => t.label || t.nombre || t.banco)].map(m => `<option value="${m}">${m}</option>`).join('');
+  const catOpts = cats.gastos.map(c => `<option value="${c}">${c}</option>`).join('');
+  $('eg-fecha').value = g.fecha;
+  $('eg-desc').value = g.desc;
+  $('eg-cat').innerHTML = catOpts;
+  $('eg-cat').value = g.cat;
+  $('eg-medio').innerHTML = '<option value="">Sin medio</option>' + medioOpts;
+  $('eg-medio').value = g.medio || '';
+  $('eg-monto').value = g.monto;
+  $('eg-notas').value = g.notas || '';
+  $('edit-gasto-modal').style.display = 'flex';
+}
+
+function closeEditGastoModal() {
+  $('edit-gasto-modal').style.display = 'none';
+  editGastoId = null;
+}
+
+function saveEditGastoModal() {
+  const id = editGastoId;
+  const g = gastos.find(x => x.id === id);
+  if (!g) return;
+  const fecha = $('eg-fecha').value;
+  const desc  = $('eg-desc').value.trim();
+  const cat   = $('eg-cat').value;
+  const medio = $('eg-medio').value;
+  const monto = parseFloat($('eg-monto').value);
+  const notas = $('eg-notas').value.trim();
+  if (!fecha || !desc || !cat || !monto || monto <= 0) { notify('⚠ Completá todos los campos'); return; }
+  const mes = MESES[parseInt(fecha.slice(5,7)) - 1];
+  const montoXcuota = g.cuota ? +(monto / g.ncuotas).toFixed(2) : monto;
+  Object.assign(g, { fecha, desc, cat, medio, monto, montoXcuota, mes, notas });
+  save();
+  notify('Gasto actualizado');
+  closeEditGastoModal();
+  renderGastosTable();
 }
 
 function populateFilters() {
@@ -1967,7 +1977,7 @@ function initCatSelects() {
     const v = gSel.value;
     gSel.innerHTML = '<option value="">Seleccionar...</option>' +
       cats.gastos.map(c => `<option value="${c}">${c}</option>`).join('') +
-      '<option value="Otros">✏ Nueva...</option>';
+      '<option value="__nueva__">✏ Nueva...</option>';
     gSel.value = v;
   }
   // Ahorro
@@ -1976,7 +1986,7 @@ function initCatSelects() {
     const v = aSel.value;
     aSel.innerHTML = '<option value="">Seleccionar...</option>' +
       cats.ahorro.map(c => `<option value="${c}">${c}</option>`).join('') +
-      '<option value="Otros">✏ Nueva...</option>';
+      '<option value="__nueva__">✏ Nueva...</option>';
     aSel.value = v;
   }
 }
@@ -1984,7 +1994,7 @@ function initCatSelects() {
 function onCatSelect(selId, inputId, tipo) {
   const sel = document.getElementById(selId);
   const inp = document.getElementById(inputId);
-  const isNew = sel.value === 'Otros' || sel.value === '__nueva__';
+  const isNew = sel.value === '__nueva__';
   if (inp) {
     inp.style.display = isNew ? 'block' : 'none';
     if (isNew) inp.focus();

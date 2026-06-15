@@ -651,6 +651,10 @@ tr:last-child td {
     border-bottom: 1px solid var(--border);
 }
 
+/* Fila de edición (gastos): oculta por defecto, visible al togglear */
+tr.edit-row { display: none; }
+tr.edit-row.edit-open { display: table-row; }
+
 .panel-table {
   width: 100%;
     border-collapse: collapse;
@@ -1560,6 +1564,39 @@ tr:hover td {
     border-top: 3px solid var(--accent) !important;
     padding-top: 14px !important;
     box-shadow: 0 6px 24px rgba(0,0,0,0.4) !important;
+  }
+
+  /* Edit-row (gastos/ingresos/ahorro): sacarla del layout fijo de la tabla
+     (que le imponía el ancho de la columna "Fecha") para que ocupe todo
+     el ancho disponible y el formulario se apile en una columna */
+  #tab-gastos tr.edit-row.edit-open,
+  #tab-ingresos tr.edit-row.edit-open,
+  #tab-ahorro tr.edit-row.edit-open {
+    display: block !important;
+    width: 100% !important;
+  }
+  #tab-gastos tr.edit-row.edit-open td,
+  #tab-ingresos tr.edit-row.edit-open td,
+  #tab-ahorro tr.edit-row.edit-open td {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    box-sizing: border-box !important;
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+  #tab-gastos tr.edit-row.edit-open td > div,
+  #tab-ingresos tr.edit-row.edit-open td > div,
+  #tab-ahorro tr.edit-row.edit-open td > div {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  #tab-gastos tr.edit-row.edit-open .form-group,
+  #tab-ingresos tr.edit-row.edit-open .form-group,
+  #tab-ahorro tr.edit-row.edit-open .form-group {
+    min-width: 0 !important;
+    width: 100% !important;
   }
 
   /* Badges: texto corto, sin partir */
