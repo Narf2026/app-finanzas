@@ -3362,9 +3362,6 @@ window.toggleCuotasIfNeeded   = toggleCuotasIfNeeded;
 
 window.addGasto               = addGasto;
 window.deleteGasto            = deleteGasto;
-window.iniciarEdicion         = iniciarEdicion;
-window.cancelarEdicion        = cancelarEdicion;
-window.guardarEdicion         = guardarEdicion;
 window.setMesGastos           = setMesGastos;
 window.filtrarGastos          = filtrarGastos;
 
