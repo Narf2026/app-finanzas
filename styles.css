@@ -1493,6 +1493,16 @@ tr:hover td {
     border-radius: 18px; font-size: .88rem;
     justify-content: center; display: flex;
   }
+  /* Selector de moneda + monto del gasto: evitar que el 100% !important rompa el flex */
+  #g-moneda {
+    width: 90px !important;
+    flex-shrink: 0;
+  }
+  #g-monto {
+    width: auto !important;
+    flex: 1;
+    min-width: 0;
+  }
   /* En el modal de categorías el botón no se estira: el input necesita el espacio */
   #cat-modal .btn-add {
     width: auto;

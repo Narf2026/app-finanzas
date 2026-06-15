@@ -820,7 +820,8 @@ function updateCreditoOffsetWrap() {
 // Muestra N° Cuotas y ¿Cuándo cae la 1ª cuota? automáticamente cuando se selecciona tarjeta de crédito
 function toggleCuotasIfNeeded() {
   const medio = $('g-medio')?.value || '';
-  const esTarjetaCredito = tarjetas.some(t =>
+  const moneda = $('g-moneda')?.value || 'ARS';
+  const esTarjetaCredito = moneda === 'ARS' && tarjetas.some(t =>
     (t.tipo || 'credito') === 'credito' && medio === (t.label || t.nombre)
   );
   $('g-ncuotas-wrap').style.display = esTarjetaCredito ? 'flex' : 'none';
@@ -859,9 +860,10 @@ function addGasto() {
   const desc  = $('g-desc').value.trim();
   const cat   = resolveOtro('g-cat', 'g-cat-otro');
   const medio = $('g-medio')?.value || '';
+  const moneda = $('g-moneda')?.value || 'ARS';
   const monto = parseFloat($('g-monto').value);
   const ncuotas = parseInt($('g-ncuotas').value) || 1;
-  const esCredito = tarjetas.some(t =>
+  const esCredito = moneda === 'ARS' && tarjetas.some(t =>
     (t.tipo || 'credito') === 'credito' && medio === (t.label || t.nombre)
   );
   const cuota = esCredito && ncuotas > 1;
@@ -891,13 +893,14 @@ function addGasto() {
   // Si la categoría es nueva, guardarla automáticamente
   autoSaveNewCat(cat, 'gastos');
 
-  gastos.push({ id: Date.now(), fecha, desc, cat, medio, monto, cuota, ncuotas: cuota ? ncuotas : 1, montoXcuota, mes, notas, offsetCuotas });
+  gastos.push({ id: Date.now(), fecha, desc, cat, medio, monto, moneda, cuota, ncuotas: cuota ? ncuotas : 1, montoXcuota, mes, notas, offsetCuotas });
   save();
   notify('Gasto agregado correctamente');
 
   // reset
-  ['g-desc','g-notas','g-cat-otro'].forEach(id => document.getElementById(id).value = '');
+  ['g-desc','g-notas','g-cat-otro','g-monto'].forEach(id => document.getElementById(id).value = '');
   $('g-cat-otro').style.display = 'none';
+  if ($('g-moneda')) $('g-moneda').value = 'ARS';
   if ($('g-ncuotas')) $('g-ncuotas').value = '';
   // Re-evaluar visibilidad de campos según el medio seleccionado
   toggleCuotasIfNeeded();
@@ -976,7 +979,7 @@ function renderGastosTable() {
       </td>
       <td class="col-hide-mobile"><span class="badge badge-cat">${escHtml(g.cat)}</span></td>
       <td class="col-hide-mobile"><span class="badge badge-medio">${escHtml(g.medio || '—')}</span></td>
-      <td class="monto" style="white-space:nowrap">$${fmt(g.monto)}</td>
+      <td class="monto" style="white-space:nowrap${g.moneda==='USD' ? ';color:var(--accent3)' : ''}">${g.moneda==='USD' ? 'u$s ' : '$'}${fmt(g.monto)}</td>
       <td class="col-hide-mobile">${g.cuota ? `<span class="badge badge-cuota">${g.ncuotas}x $${fmt(g.montoXcuota)}</span>` : '—'}</td>
       <td class="col-hide-mobile" style="color:var(--text3);font-size:0.78rem">${escHtml(g.notas || '—')}</td>
       <td style="display:flex;gap:4px">
@@ -1594,7 +1597,7 @@ function renderIngresosTable() {
     <th>Período</th>
     <th class="col-hide-mobile">Sueldo</th>
     <th class="col-hide-mobile">Otros</th>
-    <th>Total ARS</th>
+    <th class="col-hide-mobile">Total ARS</th>
   </tr></thead><tbody>` +
   sorted.map(i => {
     const ym = i.ymBase || i.key || '';
@@ -1612,11 +1615,15 @@ function renderIngresosTable() {
         <div class="col-show-mobile" style="flex-direction:column;gap:2px;margin-top:4px">
           ${sueldoHtml}
           ${otros.length ? otros.map(o => otroIngresoRowHtml(i.id, o)).join('') : ''}
+          <div style="display:flex;justify-content:space-between;padding-top:4px;margin-top:2px;border-top:1px solid var(--border)">
+            <span style="font-size:0.7rem;color:var(--text3)">Total ARS</span>
+            <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--accent)">$${fmt(i.totalARS ?? i.total ?? 0)}</span>
+          </div>
         </div>
       </td>
       <td class="col-hide-mobile">${sueldoHtml || '—'}</td>
       <td class="col-hide-mobile">${otrosHtml}</td>
-      <td class="monto" style="white-space:nowrap">$${fmt(i.totalARS ?? i.total ?? 0)}</td>
+      <td class="monto col-hide-mobile" style="white-space:nowrap;color:var(--accent)">$${fmt(i.totalARS ?? i.total ?? 0)}</td>
     </tr>`;
   }).join('') +
   '</tbody></table>';
@@ -2194,9 +2201,9 @@ function gastosDelMes(ym) {
         let cy = fy, cm = fm + g.offsetCuotas;
         while (cm > 12) { cm -= 12; cy++; }
         const gastoYm = `${cy}-${String(cm).padStart(2, '0')}`;
-        if (gastoYm === ym) items.push({ monto: g.monto, cat: g.cat });
+        if (gastoYm === ym) items.push({ monto: g.monto, cat: g.cat, moneda: g.moneda || 'ARS' });
       } else {
-        if (g.fecha.slice(0, 7) === ym) items.push({ monto: g.monto, cat: g.cat });
+        if (g.fecha.slice(0, 7) === ym) items.push({ monto: g.monto, cat: g.cat, moneda: g.moneda || 'ARS' });
       }
     } else {
       // Cuota: calcular qué cuotas caen en ym
@@ -2206,7 +2213,7 @@ function gastosDelMes(ym) {
         let cy = fy, cm = fm + off + n;
         while (cm > 12) { cm -= 12; cy++; }
         const cuotaYm = `${cy}-${String(cm).padStart(2, '0')}`;
-        if (cuotaYm === ym) items.push({ monto: g.montoXcuota, cat: g.cat });
+        if (cuotaYm === ym) items.push({ monto: g.montoXcuota, cat: g.cat, moneda: g.moneda || 'ARS' });
       }
     }
   });
@@ -2233,7 +2240,8 @@ function renderDashboard() {
     return n0 >= 0 && n0 < g.ncuotas;
   });
 
-  const totalGasto = itemsM.reduce((s, x) => s + x.monto, 0);
+  const totalGasto = itemsM.filter(x => (x.moneda||'ARS')==='ARS').reduce((s, x) => s + x.monto, 0);
+  const totalGastoUSDMes = itemsM.filter(x => x.moneda==='USD').reduce((s, x) => s + x.monto, 0);
   const ingM = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym);
   const ahorrosM = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym);
   const totalIngreso = ingM.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
@@ -2246,6 +2254,7 @@ function renderDashboard() {
     const hoy = new Date().toISOString().slice(0,7);
     let total = 0;
     gastos.forEach(g => {
+      if ((g.moneda||'ARS') !== 'ARS') return;
       if (!g.cuota) {
         total += g.monto;
       } else {
@@ -2292,6 +2301,7 @@ function renderDashboard() {
   if (subCuotas) subCuotas.textContent = totalAdeudado > 0 ? '$' + fmt(totalAdeudado) + ' adeudado' : 'todo pago';
 
   renderDashCuotas();
+  _renderSaldoUSDPanel(ym);
 
   // Saldo sub label
   const subEl = $('d-saldo-sub');
@@ -2303,7 +2313,7 @@ function renderDashboard() {
 
   // Category bars (incluye cuotas del mes)
   const catMap = {};
-  itemsM.forEach(x => { catMap[x.cat] = (catMap[x.cat] || 0) + x.monto; });
+  itemsM.filter(x => (x.moneda||'ARS')==='ARS').forEach(x => { catMap[x.cat] = (catMap[x.cat] || 0) + x.monto; });
   const sorted = Object.entries(catMap).sort((a,b) => b[1]-a[1]);
   const catEl = $('cat-bars');
   if (catEl) {
@@ -2367,8 +2377,8 @@ function toggleCuentaPanel(panelId) {
   if (!panel) return;
   const isOpen = panel.style.display !== 'none';
   // Cerrar todos los paneles de esta cuenta
-  const safeC = panelId.replace(/^(ajuste-|mover-)/, '');
-  ['ajuste-' + safeC, 'mover-' + safeC].forEach(id => {
+  const safeC = panelId.replace(/^(ajuste-|mover-|cambio-)/, '');
+  ['ajuste-' + safeC, 'mover-' + safeC, 'cambio-' + safeC].forEach(id => {
     const p = document.getElementById(id);
     if (p) p.style.display = 'none';
   });
@@ -2535,6 +2545,7 @@ function renderSaldoCuentas() {
         <div style="display:flex;gap:6px;flex-shrink:0;margin-left:auto">
           <button onclick="toggleCuentaPanel('ajuste-${safeC}')" style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.4);color:var(--accent3);border-radius:10px;padding:10px 12px;font-size:0.8rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation;white-space:nowrap">✏ Ajustar</button>
           <button onclick="toggleCuentaPanel('mover-${safeC}')" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.4);color:var(--accent4);border-radius:10px;padding:10px 12px;font-size:0.8rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation;white-space:nowrap">↔ Mover</button>
+          <button onclick="toggleCuentaPanel('cambio-${safeC}')" style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.4);color:var(--accent3);border-radius:10px;padding:10px 12px;font-size:0.8rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation;white-space:nowrap">💱 USD</button>
         </div>
       </div>
       <!-- Panel Detalle -->
@@ -2664,6 +2675,17 @@ function renderSaldoCuentas() {
         <button onclick="moverEntreCuentas('${c}', '${safeC}')"
           style="background:var(--accent4);border:none;color:#fff;border-radius:10px;padding:14px;font-size:0.9rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700;min-height:48px;width:100%;touch-action:manipulation">↔ Confirmar movimiento</button>
       </div>
+      <!-- Panel Cambio (compra de USD) -->
+      <div id="cambio-${safeC}" style="display:none;margin-top:10px;flex-direction:column;gap:8px;background:rgba(45,212,191,0.06);border:1px solid rgba(45,212,191,0.2);border-radius:12px;padding:12px">
+        <div style="font-size:0.72rem;color:var(--accent3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Comprar USD desde ${c}</div>
+        <input id="cambio-ars-${safeC}" type="number" placeholder="Monto en pesos ($)" min="0" step="0.01" oninput="actualizarCotizacion('${safeC}')"
+          style="background:var(--bg);border:1px solid var(--accent3);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;padding:12px 14px;outline:none;width:100%;box-sizing:border-box;min-height:46px">
+        <input id="cambio-usd-${safeC}" type="number" placeholder="Monto en u$s recibido" min="0" step="0.01" oninput="actualizarCotizacion('${safeC}')"
+          style="background:var(--bg);border:1px solid var(--accent3);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;padding:12px 14px;outline:none;width:100%;box-sizing:border-box;min-height:46px">
+        <div id="cambio-cotiz-${safeC}" style="font-size:0.72rem;color:var(--text3)">Cotización: —</div>
+        <button onclick="comprarUSD('${c}', '${safeC}')"
+          style="background:var(--accent3);border:none;color:#0d0f14;border-radius:10px;padding:14px;font-size:0.9rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700;min-height:48px;width:100%;touch-action:manipulation">💱 Confirmar compra</button>
+      </div>
     </div>`;
   }).join('') + extraRow;
 
@@ -2742,6 +2764,55 @@ function moverEntreCuentas(origen, safeC) {
   notify(`✓ $${fmt(monto)} movido de ${origen} a ${destino}`);
   input.value = '';
   destSel.value = '';
+  renderSaldoCuentas();
+  renderDashboard();
+}
+
+function actualizarCotizacion(safeC) {
+  const ars = parseFloat(document.getElementById('cambio-ars-' + safeC)?.value);
+  const usd = parseFloat(document.getElementById('cambio-usd-' + safeC)?.value);
+  const el = document.getElementById('cambio-cotiz-' + safeC);
+  if (!el) return;
+  if (ars > 0 && usd > 0) {
+    el.textContent = `Cotización: $${(ars/usd).toLocaleString('es-AR', {maximumFractionDigits: 2})} por u$s`;
+  } else {
+    el.textContent = 'Cotización: —';
+  }
+}
+
+function comprarUSD(origen, safeC) {
+  const montoARS = parseFloat(document.getElementById('cambio-ars-' + safeC)?.value);
+  const montoUSD = parseFloat(document.getElementById('cambio-usd-' + safeC)?.value);
+
+  if (!montoARS || montoARS <= 0) { notify('⚠ Ingresá el monto en pesos'); return; }
+  if (!montoUSD || montoUSD <= 0) { notify('⚠ Ingresá el monto en u$s recibido'); return; }
+
+  const hoy = new Date().toISOString().slice(0,10);
+  // Salida en pesos del origen
+  gastos.push({
+    id: Date.now(), fecha: hoy,
+    desc: `Compra de USD`, cat: 'Compra de USD',
+    medio: origen, monto: montoARS, moneda: 'ARS',
+    notas: `Cotización $${(montoARS/montoUSD).toLocaleString('es-AR', {maximumFractionDigits: 2})}`,
+    cuota: false, ncuotas: 1, montoXcuota: montoARS, offsetCuotas: 0
+  });
+  // Entrada en USD
+  ingresos.push({
+    id: Date.now() + 1,
+    key: hoy.slice(0,7),
+    ymBase: hoy.slice(0,7),
+    año: parseInt(hoy.slice(0,4)),
+    mes: MESES[parseInt(hoy.slice(5,7))-1],
+    sueldo: 0, sueldoMoneda: 'ARS', sueldoConcepto: '', sueldoDestino: '',
+    otros: [{ nombre: `Compra de USD`, monto: montoUSD, moneda: 'USD', destino: origen }],
+    totalARS: 0, total: 0
+  });
+
+  save();
+  notify(`✓ Comprados u$s ${fmt(montoUSD)} con $${fmt(montoARS)} de ${origen}`);
+  document.getElementById('cambio-ars-' + safeC).value = '';
+  document.getElementById('cambio-usd-' + safeC).value = '';
+  document.getElementById('cambio-cotiz-' + safeC).textContent = 'Cotización: —';
   renderSaldoCuentas();
   renderDashboard();
 }
@@ -2887,7 +2958,7 @@ function toggleCardPanel(panelId) {
   const panel = document.getElementById(panelId);
   const icon = document.getElementById('icon-' + panelId);
   const isOpen = panel.style.display !== 'none';
-  ['panel-gasto','panel-ingreso','panel-ahorro','panel-saldo'].forEach(id => {
+  ['panel-gasto','panel-ingreso','panel-ahorro','panel-saldo','panel-saldo-usd'].forEach(id => {
     const p = document.getElementById(id);
     if (p) p.style.display = 'none';
     const ic = document.getElementById('icon-' + id);
@@ -2905,15 +2976,20 @@ function renderCardPanel(type) {
   else if (type === 'ingreso') _renderIngresoPanel();
   else if (type === 'ahorro') _renderAhorroPanel();
   else if (type === 'saldo') _renderSaldoPanel(selectedDashMonth);
+  else if (type === 'saldo-usd') _renderSaldoUSDPanel(selectedDashMonth);
 }
 
 function _renderGastoPanel() {
   const el = $('panel-gasto-body');
   if (!el) return;
   const ym = selectedDashMonth;
-  const items = gastosDelMes(ym);
+  const allItems = gastosDelMes(ym);
+  const items = allItems.filter(x => (x.moneda||'ARS')==='ARS');
+  const itemsUSD = allItems.filter(x => x.moneda==='USD');
+  const totalUSD = itemsUSD.reduce((s,x)=>s+x.monto,0);
   if (!items.length) {
-    el.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3);font-size:0.82rem">Sin gastos en este período</div>';
+    el.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3);font-size:0.82rem">Sin gastos en este período</div>' +
+      (totalUSD ? `<div style="text-align:center;padding-top:8px;font-family:'DM Mono',monospace;color:var(--accent3);font-size:0.85rem">u$s ${fmt(totalUSD)} en gastos USD</div>` : '');
     return;
   }
   const catMap = {};
@@ -2937,7 +3013,7 @@ function _renderGastoPanel() {
   </div>
   <div style="padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
     <span style="font-size:0.8rem;color:var(--text3)">${items.length} gastos</span>
-    <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:1rem;color:var(--accent2)">$${fmt(total)}</span>
+    <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:1rem;color:var(--accent2)">$${fmt(total)}${totalUSD ? ` <span style="color:var(--accent3);font-size:0.75rem">(+u$s ${fmt(totalUSD)})</span>` : ''}</span>
   </div>`;
 }
 
@@ -3005,26 +3081,16 @@ function _renderSaldoPanel(ym) {
   const el = $('panel-saldo-body');
   if (!el) return;
 
-  const ingresosMes = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym);
-  const totalIngresosMes = ingresosMes.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
-  const totalIngresosUSD = ingresosMes.reduce((s, i) => {
-    let usd = 0;
-    if (i.sueldoMoneda === 'USD') usd += i.sueldo || 0;
-    (i.otros || []).forEach(o => { if (o.moneda === 'USD') usd += o.monto || 0; });
-    return s + usd;
-  }, 0);
+  const totalIngresosMes = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym).reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
   const totalGastosMes   = gastosDelMes(ym).reduce((s, x) => s + x.monto, 0);
-  const ahorrosMes       = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym);
-  const totalAhorroMes   = ahorrosMes.filter(a => (a.moneda || 'ARS') === 'ARS').reduce((s, a) => s + a.monto, 0);
-  const totalAhorroUSD   = ahorrosMes.filter(a => a.moneda === 'USD').reduce((s, a) => s + a.monto, 0);
+  const totalAhorroMes   = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym && (a.moneda||'ARS')==='ARS').reduce((s, a) => s + a.monto, 0);
   const ajustesMes       = (ajustesCuentas || []).filter(a => a.fecha.slice(0,7) === ym).reduce((s, a) => s + (a.monto || 0), 0);
   const balanceReal      = totalIngresosMes - totalGastosMes - totalAhorroMes + ajustesMes;
-  const balanceUSD       = totalIngresosUSD - totalAhorroUSD;
 
   const filas = [
-    { label: '💵 Ingresos del mes', val: totalIngresosMes, color: 'var(--accent)', extraUSD: totalIngresosUSD },
+    { label: '💵 Ingresos del mes', val: totalIngresosMes, color: 'var(--accent)' },
     { label: '💸 Gastos del mes',   val: -totalGastosMes,  color: 'var(--accent2)' },
-    { label: '🏦 Ahorro del mes',   val: -totalAhorroMes,  color: 'var(--accent4)', extraUSD: totalAhorroUSD ? -totalAhorroUSD : 0 },
+    { label: '🏦 Ahorro del mes',   val: -totalAhorroMes,  color: 'var(--accent4)' },
     ...(ajustesMes !== 0 ? [{ label: '🔧 Ajustes del mes', val: ajustesMes, color: 'var(--accent3)' }] : []),
   ];
 
@@ -3036,7 +3102,7 @@ function _renderSaldoPanel(ym) {
       <div>
         <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px">
           <span style="color:var(--text2)">${f.label}</span>
-          <span style="font-family:monospace;color:${f.color};font-weight:700">${fmt2(f.val)}${f.extraUSD ? ` <span style="color:var(--accent3);font-size:0.72rem;font-weight:600">(${f.extraUSD>0?'+':'−'}u$s ${fmt(Math.abs(f.extraUSD))})</span>` : ''}</span>
+          <span style="font-family:monospace;color:${f.color};font-weight:700">${fmt2(f.val)}</span>
         </div>
         <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden">
           <div style="height:100%;width:${(Math.abs(f.val)/maxAbs*100).toFixed(1)}%;background:${f.color};border-radius:4px;opacity:0.75"></div>
@@ -3046,14 +3112,66 @@ function _renderSaldoPanel(ym) {
     <div style="border-top:1px solid var(--border);padding-top:12px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:0.85rem;color:var(--text3)">Disponible del mes</span>
-        <div style="text-align:right">
-          <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:1.05rem;color:${balanceReal>=0?'var(--accent)':'var(--accent2)'}">
-            ${balanceReal>=0?'+':''} $${fmt(Math.abs(balanceReal))}
-          </div>
-          ${balanceUSD ? `<div style="font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--accent3)">${balanceUSD>=0?'+':'−'} u$s ${fmt(Math.abs(balanceUSD))}</div>` : ''}
-        </div>
+        <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:1.05rem;color:${balanceReal>=0?'var(--accent)':'var(--accent2)'}">
+          ${balanceReal>=0?'+':''} $${fmt(Math.abs(balanceReal))}
+        </span>
       </div>
       ${balanceReal < 0 ? `<div style="margin-top:6px;font-size:0.72rem;color:var(--accent2);text-align:right">Déficit del mes</div>` : ''}
+    </div>`;
+}
+
+function _renderSaldoUSDPanel(ym) {
+  const fmt2 = v => (v < 0 ? '−' : '+') + ' u$s ' + fmt(Math.abs(v));
+  const el = $('panel-saldo-usd-body');
+  const card = $('card-saldo-usd');
+  if (!el || !card) return;
+
+  const ingresosMes = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym);
+  const totalIngresosUSD = ingresosMes.reduce((s, i) => {
+    let usd = 0;
+    if (i.sueldoMoneda === 'USD') usd += i.sueldo || 0;
+    (i.otros || []).forEach(o => { if (o.moneda === 'USD') usd += o.monto || 0; });
+    return s + usd;
+  }, 0);
+  const totalAhorroUSD = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym && a.moneda === 'USD').reduce((s, a) => s + a.monto, 0);
+  const totalGastoUSD = gastosDelMes(ym).filter(x => x.moneda === 'USD').reduce((s, x) => s + x.monto, 0);
+  const balanceUSD = totalIngresosUSD - totalAhorroUSD - totalGastoUSD;
+
+  if (!totalIngresosUSD && !totalAhorroUSD && !totalGastoUSD) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+  $('d-saldo-usd').textContent = (balanceUSD>=0?'':'−') + 'u$s ' + fmt(Math.abs(balanceUSD));
+  $('d-saldo-usd').style.color = balanceUSD >= 0 ? 'var(--accent3)' : 'var(--accent2)';
+
+  const filas = [
+    { label: '💵 Ingresos del mes', val: totalIngresosUSD, color: 'var(--accent3)' },
+    ...(totalGastoUSD ? [{ label: '💸 Gastos del mes', val: -totalGastoUSD, color: 'var(--accent2)' }] : []),
+    ...(totalAhorroUSD ? [{ label: '🏦 Ahorro del mes', val: -totalAhorroUSD, color: 'var(--accent4)' }] : []),
+  ];
+  const maxAbs = Math.max(...filas.map(f => Math.abs(f.val)), 1);
+
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+      ${filas.map(f => `
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px">
+          <span style="color:var(--text2)">${f.label}</span>
+          <span style="font-family:monospace;color:${f.color};font-weight:700">${fmt2(f.val)}</span>
+        </div>
+        <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${(Math.abs(f.val)/maxAbs*100).toFixed(1)}%;background:${f.color};border-radius:4px;opacity:0.75"></div>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:0.85rem;color:var(--text3)">Disponible USD del mes</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:1.05rem;color:${balanceUSD>=0?'var(--accent3)':'var(--accent2)'}">
+          ${fmt2(balanceUSD)}
+        </span>
+      </div>
     </div>`;
 }
 
@@ -3408,6 +3526,8 @@ window.selectDashMonth        = selectDashMonth;
 window.aplicarAjusteCuenta    = aplicarAjusteCuenta;
 window.eliminarAjuste         = eliminarAjuste;
 window.moverEntreCuentas      = moverEntreCuentas;
+window.actualizarCotizacion   = actualizarCotizacion;
+window.comprarUSD             = comprarUSD;
 window.borrarTodosLosAjustes  = borrarTodosLosAjustes;
 window.iniciarEdicionAjuste   = iniciarEdicionAjuste;
 window.cancelarEdicionAjuste  = cancelarEdicionAjuste;
