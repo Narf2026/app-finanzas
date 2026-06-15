@@ -60,7 +60,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCbiRrXVS_R-NhH0ZBlHa06zzdBdK9zdSE",
@@ -90,6 +90,10 @@ window._fbCollection = collection;
 window._fbQuery = query;
 window._fbWhere = where;
 window._fbGetDocs = getDocs;
+window._fbDeleteDoc = deleteDoc;
+window._fbUpdateDoc = updateDoc;
+window._fbArrayUnion = arrayUnion;
+window._fbArrayRemove = arrayRemove;
 
 // Escuchar cambios de sesión
 onAuthStateChanged(auth, async (user) => {
@@ -189,11 +193,11 @@ onAuthStateChanged(auth, async (user) => {
     </span>
     <span class="nav-text">Ahorro</span>
   </button>
-  <button onclick="showTab('pendientes')" aria-label="Memo">
+  <button onclick="showTab('pendientes')" aria-label="Utilidades">
     <span class="nav-icon nav-more" aria-hidden="true">
       <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg>
     </span>
-    <span class="nav-text">Memo</span>
+    <span class="nav-text">Utilidades</span>
   </button>
   <button onclick="showTab('ajustes')" aria-label="Ajustes">
     <span class="nav-icon nav-ajustes" aria-hidden="true">
@@ -589,9 +593,16 @@ onAuthStateChanged(auth, async (user) => {
 <!-- PENDIENTES -->
 <section id="tab-pendientes">
   <div class="page-title">
-    Memo
-    <small>RECORDATORIO PERSONAL — NO AFECTA TUS REGISTROS</small>
+    Utilidades
+    <small>HERRAMIENTAS ADICIONALES</small>
   </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:1.2rem;flex-wrap:wrap;align-items:center">
+    <button class="month-btn" id="util-tab-lista" onclick="showUtilSubtab('lista',this)">Lista</button>
+    <button class="month-btn" id="util-tab-compartir" onclick="showUtilSubtab('compartir',this)">Compartir gastos</button>
+  </div>
+
+  <div id="util-lista" style="display:none">
 
   <div class="form-grid" style="margin-bottom:1.5rem">
     <div class="form-group">
@@ -640,6 +651,88 @@ onAuthStateChanged(auth, async (user) => {
   </div>
 
   <div id="pendientes-list"></div>
+
+  </div>
+
+  <!-- COMPARTIR GASTOS (Cuenta Clara) -->
+  <div id="util-compartir" style="display:none">
+
+    <!-- VISTA GRUPOS -->
+    <div id="cc-vista-grupos">
+      <div class="table-wrap" style="margin-bottom:1.2rem">
+        <div class="table-header"><h3>💸 MIS GRUPOS</h3></div>
+        <div id="cc-grupos-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:1.2rem"></div>
+      </div>
+    </div>
+
+    <!-- VISTA GRUPO -->
+    <div id="cc-vista-grupo" style="display:none">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:1.2rem;flex-wrap:wrap">
+        <button class="btn-secondary" onclick="ccVolverAGrupos()">← Grupos</button>
+        <h3 style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text2);margin:0" id="cc-breadcrumb-nombre"></h3>
+        <span id="cc-badge-compartido" class="cc-shared-badge" style="display:none">👥 Compartido</span>
+        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-secondary" onclick="ccAbrirModalCompartir()">👥 Compartir</button>
+          <button class="btn-secondary" onclick="ccAbrirModalPDF()">📄 Generar resumen PDF</button>
+        </div>
+      </div>
+
+      <!-- Miembros (solo grupos compartidos) -->
+      <div id="cc-miembros-wrap" style="display:none;margin-bottom:1.2rem">
+        <div class="table-wrap">
+          <div class="table-header"><h3>👥 MIEMBROS</h3></div>
+          <div id="cc-miembros-list" style="padding:1rem 1.2rem"></div>
+        </div>
+      </div>
+
+      <!-- Personas -->
+      <div class="form-grid" style="margin-bottom:1.2rem">
+        <div class="form-group">
+          <label>Agregar persona</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="cc-nuevoNombre" placeholder="Nombre" onkeydown="if(event.key==='Enter')ccAgregarPersona()">
+            <button class="btn-add" style="width:auto;padding:9px 18px" onclick="ccAgregarPersona()">+ Agregar</button>
+          </div>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Personas</label>
+          <div id="cc-personas"></div>
+        </div>
+      </div>
+
+      <!-- Nuevo gasto -->
+      <div class="form-grid" style="margin-bottom:1.2rem">
+        <div class="form-group">
+          <label>Pagado por</label>
+          <select id="cc-pagadoPor"></select>
+        </div>
+        <div class="form-group">
+          <label>Descripción</label>
+          <input type="text" id="cc-descripcion" placeholder="ej: Carne" onkeydown="if(event.key==='Enter')ccAgregarGasto()">
+        </div>
+        <div class="form-group">
+          <label>Monto</label>
+          <input type="number" id="cc-monto" placeholder="0.00" min="0" step="0.01" onkeydown="if(event.key==='Enter')ccAgregarGasto()">
+        </div>
+        <div class="form-group" style="align-self:flex-end">
+          <button class="btn-add" onclick="ccAgregarGasto()">+ Agregar gasto</button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+        <button class="month-btn active" id="cc-tab-balance" onclick="ccMostrarTab('balance',this)">Balance</button>
+        <button class="month-btn" id="cc-tab-transferencias" onclick="ccMostrarTab('transferencias',this)">Cómo saldar</button>
+        <button class="month-btn" id="cc-tab-historial" onclick="ccMostrarTab('historial',this)">Historial</button>
+      </div>
+      <div class="table-wrap">
+        <div id="cc-panel-balance" style="padding:1.2rem"></div>
+        <div id="cc-panel-transferencias" style="padding:1.2rem;display:none"></div>
+        <div id="cc-panel-historial" style="padding:0;display:none"></div>
+      </div>
+    </div>
+
+  </div>
 </section>
 
 <!-- AJUSTES -->
@@ -803,6 +896,83 @@ onAuthStateChanged(auth, async (user) => {
   </div>
 </div>
 
+<!-- CUENTA CLARA: MODAL BORRAR GRUPO -->
+<div class="modal-overlay" id="cc-modal-borrar-grupo">
+  <div class="modal">
+    <h3>Borrar grupo</h3>
+    <p id="cc-modal-borrar-grupo-msg">¿Seguro que querés borrar este grupo? Se perderán todos los gastos.</p>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="ccCerrarModal()">Cancelar</button>
+      <button class="btn-confirm" style="background:var(--accent2);color:#fff" onclick="ccConfirmarBorrarGrupo()">Borrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUENTA CLARA: MODAL BORRAR PERSONA -->
+<div class="modal-overlay" id="cc-modal-borrar-persona">
+  <div class="modal">
+    <h3>Eliminar persona</h3>
+    <p id="cc-modal-borrar-persona-msg">¿Seguro? Se eliminarán también todos los gastos registrados a nombre de esta persona.</p>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="ccCerrarModal()">Cancelar</button>
+      <button class="btn-confirm" style="background:var(--accent2);color:#fff" onclick="ccConfirmarBorrarPersona()">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUENTA CLARA: MODAL EDITAR GASTO -->
+<div class="modal-overlay" id="cc-modal-editar-gasto">
+  <div class="modal" style="max-width:420px;text-align:left">
+    <h3>Editar gasto</h3>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Pagado por</label>
+      <select id="cc-edit-pagadoPor"></select>
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Descripción</label>
+      <input type="text" id="cc-edit-descripcion">
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Monto</label>
+      <input type="number" id="cc-edit-monto" min="0" step="0.01">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="ccCerrarModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="ccConfirmarEditarGasto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUENTA CLARA: MODAL COMPARTIR -->
+<div class="modal-overlay" id="cc-modal-compartir">
+  <div class="modal" style="max-width:420px;text-align:left">
+    <h3>Compartir grupo</h3>
+    <p id="cc-modal-compartir-info">Invitá a otra persona por su email de finanzapp. Va a poder ver el grupo y agregar/editar gastos.</p>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Email a invitar</label>
+      <input type="email" id="cc-invitar-email" placeholder="persona@email.com" onkeydown="if(event.key==='Enter')ccInvitar()">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="ccCerrarModal()">Cerrar</button>
+      <button class="btn-confirm" onclick="ccInvitar()">Invitar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUENTA CLARA: MODAL PDF -->
+<div class="modal-overlay" id="cc-modal-pdf">
+  <div class="modal" style="max-width:480px;max-height:90vh;overflow-y:auto;text-align:left">
+    <h3>Generar resumen PDF</h3>
+    <p style="margin-bottom:1rem">Completá los datos bancarios de cada persona para incluirlos en el PDF. Son opcionales.</p>
+    <div id="cc-pdf-personas-form"></div>
+    <div class="modal-btns" style="margin-top:1rem">
+      <button class="btn-cancel" onclick="ccCerrarModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="ccGenerarPDF()">📄 Descargar PDF</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

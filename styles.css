@@ -2540,3 +2540,285 @@ button:focus-visible {
     justify-content: center;
   }
 }
+
+/* =========================================================
+   CUENTA CLARA — Compartir gastos (tema oscuro)
+   ========================================================= */
+
+/* Grilla de grupos */
+.cc-grupo-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+
+.cc-grupo-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.cc-grupo-card .gc-nombre {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1rem;
+  color: var(--text);
+  margin-bottom: 4px;
+  padding-right: 22px;
+  word-break: break-word;
+}
+
+.cc-grupo-card .gc-info {
+  font-size: 0.72rem;
+  color: var(--text3);
+}
+
+.cc-grupo-card .gc-del {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text3);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.cc-grupo-card .gc-del:hover {
+  color: var(--accent2);
+  background: rgba(255,79,94,.1);
+}
+
+.cc-grupo-card.nuevo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text3);
+  font-size: 0.82rem;
+  font-weight: 600;
+  min-height: 70px;
+}
+
+.cc-grupo-card.nuevo:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Chips de personas */
+.cc-persona-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,229,160,0.1);
+  color: var(--accent);
+  border: 1px solid rgba(24,212,123,.25);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin: 0 6px 6px 0;
+}
+
+.cc-persona-chip .pc-del {
+  background: transparent;
+  border: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.cc-persona-chip .pc-del:hover {
+  opacity: 1;
+  color: var(--accent2);
+}
+
+/* Filas de balance */
+.cc-balance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.cc-balance-row:last-child {
+  border-bottom: none;
+}
+
+.cc-balance-row .cb-nombre {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.cc-balance-row .cb-monto {
+  font-family: 'DM Mono', monospace;
+  font-weight: 600;
+}
+
+.cc-balance-row.pos .cb-monto {
+  color: var(--accent);
+}
+
+.cc-balance-row.neg .cb-monto {
+  color: var(--accent2);
+}
+
+.cc-balance-row.cero .cb-monto {
+  color: var(--text3);
+}
+
+/* Transferencias sugeridas */
+.cc-transfer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.cc-transfer-row:last-child {
+  border-bottom: none;
+}
+
+.cc-transfer-row .ct-nombre {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.cc-transfer-row .ct-arrow {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.cc-transfer-row .ct-monto {
+  margin-left: auto;
+  font-family: 'DM Mono', monospace;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* Historial de gastos */
+.cc-gasto-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 1.2rem;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.cc-gasto-row:last-child {
+  border-bottom: none;
+}
+
+.cc-gasto-row .cg-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cc-gasto-row .cg-desc {
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.cc-gasto-row .cg-sub {
+  color: var(--text3);
+  font-size: 0.72rem;
+}
+
+.cc-gasto-row .cg-monto {
+  font-family: 'DM Mono', monospace;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.cc-gasto-row .cg-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 700px) {
+  .cc-grupo-card { padding: .85rem; }
+  .cc-gasto-row { padding: 10px .9rem; }
+}
+
+/* Badge "compartido" */
+.cc-shared-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(59,130,246,.14);
+  color: var(--accent4);
+  border: 1px solid rgba(59,130,246,.28);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.cc-grupo-card .gc-shared {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent4);
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+/* Lista de miembros */
+.cc-miembro-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--text2);
+}
+
+.cc-miembro-row:last-child {
+  border-bottom: none;
+}
+
+.cc-miembro-row .cm-owner {
+  font-size: 0.68rem;
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.cc-miembro-row .cm-del {
+  background: transparent;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 2px 4px;
+}
+
+.cc-miembro-row .cm-del:hover {
+  color: var(--accent2);
+}
