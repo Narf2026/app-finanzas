@@ -93,8 +93,12 @@ window.loadUserData = async function(uid) {
   renderDestinosIngreso();
   renderOrigenAhorro();
   renderSaldoInicial();
-  // Cargar categorías guardadas y poblar los selects (antes esto solo pasaba al abrir/cerrar el modal)
+  // Cargar categorías guardadas (local) y fusionar con las de Firestore para sincronizar entre dispositivos
   loadCats();
+  try {
+    const snapCats = await window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid));
+    if (snapCats.exists()) mergeCatsRemote(snapCats.data().cats);
+  } catch(e) { console.error('Error sincronizando categorías:', e); }
   initCatSelects();
 };
 
@@ -106,7 +110,109 @@ function showUtilSubtab(sub, btn) {
   const panel = document.getElementById('util-' + sub);
   if (panel) panel.style.display = '';
   if (sub === 'compartir') ccRenderGrupos();
+  if (sub === 'cotizaciones') cargarCotizaciones();
 }
+
+// ---- COTIZACIONES (USD/ARS y ARS/CLP) ----
+let cotizacionesActuales = null;
+
+async function cargarCotizaciones() {
+  const el = $('cotizaciones-body');
+  const fechaEl = $('cotizaciones-fecha');
+  if (!el) return;
+  el.innerHTML = '<div class="panel-empty">Cargando...</div>';
+  if (fechaEl) fechaEl.textContent = '';
+
+  try {
+    // USD/ARS (oficial y blue) desde dolarapi.com
+    const dolaresResp = await fetch('https://dolarapi.com/v1/dolares');
+    const dolares = await dolaresResp.json();
+    const oficial = dolares.find(d => d.casa === 'oficial');
+    const blue = dolares.find(d => d.casa === 'blue');
+
+    // ARS/CLP cruzado desde open.er-api.com (base USD)
+    const erResp = await fetch('https://open.er-api.com/v6/latest/USD');
+    const er = await erResp.json();
+    const usdToArs = er.rates?.ARS;
+    const usdToClp = er.rates?.CLP;
+    const arsToClp = (usdToArs && usdToClp) ? (usdToClp / usdToArs) : null;
+
+    const cards = [];
+    if (oficial) cards.push({ label: 'Dólar oficial', value: `$${fmt(oficial.venta)}`, sub: `compra $${fmt(oficial.compra)}`, color: 'blue' });
+    if (blue) cards.push({ label: 'Dólar blue', value: `$${fmt(blue.venta)}`, sub: `compra $${fmt(blue.compra)}`, color: 'green' });
+    if (arsToClp) cards.push({ label: '1 peso ARS', value: `${fmt(arsToClp)} CLP`, sub: `1 CLP = $${fmt(1/arsToClp)} ARS`, color: 'yellow' });
+
+    if (!cards.length) throw new Error('Sin datos');
+
+    el.innerHTML = `<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">` +
+      cards.map(c => `<div class="card ${c.color}">
+        <div class="label">${c.label}</div>
+        <div class="value">${c.value}</div>
+        <div class="sub">${c.sub}</div>
+      </div>`).join('') + '</div>';
+
+    if (fechaEl) fechaEl.textContent = 'Actualizado: ' + new Date().toLocaleString('es-AR');
+
+    // Guardar tasas para el conversor
+    cotizacionesActuales = {
+      oficialVenta: oficial?.venta || null,
+      oficialCompra: oficial?.compra || null,
+      blueVenta: blue?.venta || null,
+      blueCompra: blue?.compra || null,
+      arsToClp: arsToClp || null
+    };
+    convertirMoneda();
+  } catch (e) {
+    console.error('Error cargando cotizaciones:', e);
+    el.innerHTML = '<div class="panel-empty">⚠ No se pudieron cargar las cotizaciones. Probá actualizar de nuevo.</div>';
+    cotizacionesActuales = null;
+  }
+}
+window.cargarCotizaciones = cargarCotizaciones;
+
+function convertirMoneda() {
+  const el = $('conv-resultado');
+  if (!el) return;
+  const input = $('conv-monto');
+  const monedaSel = $('conv-moneda')?.value || 'ARS';
+  const monto = parseFloat(input?.value);
+
+  if (!cotizacionesActuales) {
+    el.innerHTML = '<span style="color:var(--text3)">Esperando cotizaciones...</span>';
+    return;
+  }
+  if (isNaN(monto) || monto <= 0) {
+    el.innerHTML = '<span style="color:var(--text3)">Ingresá un monto para convertir</span>';
+    return;
+  }
+
+  const { oficialVenta, blueVenta, arsToClp } = cotizacionesActuales;
+
+  // Convertir el monto de origen a ARS primero, usando la tasa correspondiente
+  let montoEnArs = null;
+  if (monedaSel === 'ARS') montoEnArs = monto;
+  else if (monedaSel === 'USD' && oficialVenta) montoEnArs = monto * oficialVenta;
+  else if (monedaSel === 'USD_BLUE' && blueVenta) montoEnArs = monto * blueVenta;
+  else if (monedaSel === 'CLP' && arsToClp) montoEnArs = monto / arsToClp;
+
+  if (montoEnArs === null) {
+    el.innerHTML = '<span style="color:var(--text3)">No hay tasa disponible para esta moneda</span>';
+    return;
+  }
+
+  const filas = [];
+  if (monedaSel !== 'ARS') filas.push(`$${fmt(montoEnArs)} ARS`);
+  if (monedaSel !== 'USD' && oficialVenta) filas.push(`u$s ${fmt(montoEnArs / oficialVenta)} <span style="color:var(--text3)">(dólar oficial)</span>`);
+  if (monedaSel !== 'USD_BLUE' && blueVenta) filas.push(`u$s ${fmt(montoEnArs / blueVenta)} <span style="color:var(--text3)">(dólar blue)</span>`);
+  if (monedaSel !== 'CLP' && arsToClp) filas.push(`${fmt(montoEnArs * arsToClp)} CLP <span style="color:var(--text3)">(pesos chilenos)</span>`);
+
+  const nombreOrigen = { ARS: 'ARS', USD: 'USD (oficial)', USD_BLUE: 'USD (blue)', CLP: 'CLP' }[monedaSel];
+
+  el.innerHTML = filas.length
+    ? `${fmt(monto)} ${nombreOrigen} equivale a:<br>` + filas.join('<br>')
+    : '<span style="color:var(--text3)">No hay tasas disponibles</span>';
+}
+window.convertirMoneda = convertirMoneda;
 
 // ---- CUENTA CLARA (Compartir gastos) ----
 let ccGrupos = JSON.parse(localStorage.getItem('cc_grupos')) || [];
@@ -1966,8 +2072,32 @@ function loadCats() {
   } catch(e) {}
 }
 
+// Guarda las categorías en Firestore para que sincronicen entre dispositivos
+async function saveCatsToCloud() {
+  const uid = window._currentUser?.uid;
+  if (!uid) return;
+  try {
+    const ref = window._fbDoc(window._fbDb, 'usuarios', uid);
+    await window._fbSetDoc(ref, { cats }, { merge: true });
+  } catch(e) { console.error('Error guardando categorías:', e); }
+}
+
+// Fusiona las categorías locales con las guardadas en Firestore (unión, sin duplicados)
+function mergeCatsRemote(remoteCats) {
+  if (!remoteCats) return;
+  ['gastos', 'ahorro'].forEach(tipo => {
+    if (Array.isArray(remoteCats[tipo])) {
+      const set = new Set([...(cats[tipo] || []), ...remoteCats[tipo]]);
+      cats[tipo] = Array.from(set);
+    }
+  });
+  saveCats('gastos');
+  saveCats('ahorro');
+}
+
 function saveCats(tipo) {
   localStorage.setItem('gf_cats_' + tipo, JSON.stringify(cats[tipo]));
+  saveCatsToCloud();
 }
 
 function initCatSelects() {

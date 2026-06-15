@@ -616,6 +616,7 @@ onAuthStateChanged(auth, async (user) => {
   <div style="display:flex;gap:8px;margin-bottom:1.2rem;flex-wrap:wrap;align-items:center">
     <button class="month-btn" id="util-tab-lista" onclick="showUtilSubtab('lista',this)">Lista</button>
     <button class="month-btn" id="util-tab-compartir" onclick="showUtilSubtab('compartir',this)">Compartir gastos</button>
+    <button class="month-btn" id="util-tab-cotizaciones" onclick="showUtilSubtab('cotizaciones',this)">💱 Cotizaciones</button>
   </div>
 
   <div id="util-lista" style="display:none">
@@ -668,6 +669,42 @@ onAuthStateChanged(auth, async (user) => {
 
   <div id="pendientes-list"></div>
 
+  </div>
+
+  <!-- COTIZACIONES -->
+  <div id="util-cotizaciones" style="display:none">
+    <div class="table-wrap" style="margin-bottom:1.2rem">
+      <div class="table-header">
+        <h3>💱 Cotizaciones</h3>
+        <button class="btn-secondary" onclick="cargarCotizaciones()">🔄 Actualizar</button>
+      </div>
+      <div id="cotizaciones-body" style="padding:1.2rem">
+        <div class="panel-empty">Cargando...</div>
+      </div>
+      <div style="padding:0 1.2rem 1.2rem;color:var(--text3);font-size:0.72rem" id="cotizaciones-fecha"></div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header"><h3>🧮 Conversor</h3></div>
+      <div style="padding:1.2rem">
+        <div class="form-grid" style="margin-bottom:0.8rem">
+          <div class="form-group">
+            <label>Monto</label>
+            <input type="number" id="conv-monto" placeholder="0.00" min="0" step="0.01" oninput="convertirMoneda()">
+          </div>
+          <div class="form-group">
+            <label>Moneda de origen</label>
+            <select id="conv-moneda" onchange="convertirMoneda()">
+              <option value="ARS">Pesos argentinos (ARS)</option>
+              <option value="USD">Dólares (USD, oficial)</option>
+              <option value="USD_BLUE">Dólares (USD, blue)</option>
+              <option value="CLP">Pesos chilenos (CLP)</option>
+            </select>
+          </div>
+        </div>
+        <div id="conv-resultado" style="color:var(--text2);font-size:0.95rem;line-height:1.8"></div>
+      </div>
+    </div>
   </div>
 
   <!-- COMPARTIR GASTOS (Cuenta Clara) -->
