@@ -97,6 +97,15 @@ window.loadUserData = async function(uid) {
   renderDestinosIngreso();
   renderOrigenAhorro();
   renderSaldoInicial();
+  // Bienvenida para usuarios sin cuentas configuradas
+  if (!tarjetas || tarjetas.length === 0) {
+    setTimeout(() => {
+      const m = $('bienvenida-modal');
+      if (m) m.style.display = 'flex';
+    }, 800);
+  }
+  // Chequear invitaciones pendientes a grupos compartidos
+  ccCheckInvitaciones();
   // Cargar categorías guardadas (local) y fusionar con las de Firestore para sincronizar entre dispositivos
   loadCats();
   try {
@@ -458,18 +467,80 @@ async function ccInvitar() {
   const email = input.value.trim().toLowerCase();
   if (!email || !email.includes('@')) { alert('Ingresá un email válido.'); return; }
   if ((g.miembros || []).includes(email)) { alert('Esa persona ya es miembro del grupo.'); return; }
+  if ((g.pendientesMiembros || []).includes(email)) { alert('Ya hay una invitación pendiente para ese email.'); return; }
   const ref = window._fbDoc(window._fbDb, 'grupos_compartidos', g.id);
   try {
-    await window._fbUpdateDoc(ref, { miembros: window._fbArrayUnion(email) });
-    g.miembros = [...(g.miembros || []), email];
+    await window._fbUpdateDoc(ref, { pendientesMiembros: window._fbArrayUnion(email) });
+    g.pendientesMiembros = [...(g.pendientesMiembros || []), email];
     input.value = '';
     ccRenderMiembros();
-    alert('Invitación enviada. Cuando esa persona entre a "Compartir gastos" va a ver el grupo.');
+    notify('✓ Invitación enviada — verá la notificación al entrar a la app');
   } catch (e) {
     console.error('Error invitando', e);
     alert('No se pudo invitar. Verificá el email.');
   }
 }
+
+// ── Invitaciones pendientes ──────────────────────────────────────────────────
+async function ccCheckInvitaciones() {
+  const email = window._currentUser?.email?.toLowerCase();
+  if (!email) return;
+  try {
+    const ref = window._fbCollection(window._fbDb, 'grupos_compartidos');
+    const q = window._fbQuery(ref, window._fbWhere('pendientesMiembros', 'array-contains', email));
+    const snap = await window._fbGetDocs(q);
+    if (snap.empty) return;
+
+    const grupos = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    const lista = document.getElementById('invitaciones-lista');
+    if (!lista) return;
+
+    lista.innerHTML = grupos.map(g => `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:0.9rem 1rem">
+        <div style="font-weight:600;color:var(--text2);margin-bottom:4px">👥 ${escHtml(g.nombre || 'Grupo sin nombre')}</div>
+        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Invitado por: ${escHtml(g.owner || g.miembros?.[0] || '—')}</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-confirm" onclick="ccAceptarInvitacion('${g.id}')" style="flex:1;padding:7px;font-size:0.82rem">✓ Aceptar</button>
+          <button class="btn-cancel" onclick="ccRechazarInvitacion('${g.id}')" style="flex:1;padding:7px;font-size:0.82rem">✕ Rechazar</button>
+        </div>
+      </div>`).join('');
+
+    document.getElementById('invitaciones-modal').style.display = 'flex';
+  } catch(e) { console.error('Error chequeando invitaciones:', e); }
+}
+
+async function ccAceptarInvitacion(grupoId) {
+  const email = window._currentUser?.email?.toLowerCase();
+  const ref = window._fbDoc(window._fbDb, 'grupos_compartidos', grupoId);
+  try {
+    await window._fbUpdateDoc(ref, {
+      miembros: window._fbArrayUnion(email),
+      pendientesMiembros: window._fbArrayRemove(email)
+    });
+    notify('✓ Invitación aceptada — ya podés ver el grupo en "Compartir gastos"');
+    document.getElementById('invitaciones-modal').style.display = 'none';
+  } catch(e) { console.error('Error aceptando invitación:', e); notify('⚠ Error al aceptar'); }
+}
+
+async function ccRechazarInvitacion(grupoId) {
+  const email = window._currentUser?.email?.toLowerCase();
+  const ref = window._fbDoc(window._fbDb, 'grupos_compartidos', grupoId);
+  try {
+    await window._fbUpdateDoc(ref, { pendientesMiembros: window._fbArrayRemove(email) });
+    // Quitar del modal
+    const lista = document.getElementById('invitaciones-lista');
+    if (lista) {
+      const items = lista.querySelectorAll('div[style]');
+      // Re-render without this group
+      lista.innerHTML = [...lista.children].filter(el => !el.innerHTML.includes(grupoId)).map(el => el.outerHTML).join('');
+      if (!lista.children.length) document.getElementById('invitaciones-modal').style.display = 'none';
+    }
+    notify('Invitación rechazada');
+  } catch(e) { console.error('Error rechazando invitación:', e); notify('⚠ Error al rechazar'); }
+}
+
+window.ccAceptarInvitacion  = ccAceptarInvitacion;
+window.ccRechazarInvitacion = ccRechazarInvitacion;
 
 function ccRenderPersonas() {
   const g = ccGrupoActual();
