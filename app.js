@@ -149,12 +149,13 @@ function ccPintarGrupos() {
   ccGruposCompartidos.forEach(g => {
     const total = g.gastos.reduce((s, x) => s + x.monto, 0);
     const esOwner = g.ownerEmail === ccEmail();
+    const compartidoConOtros = (g.miembros || []).length > 1;
     html += `
       <div class="cc-grupo-card" onclick="ccAbrirGrupo('${g.id}')">
         <button class="gc-del" onclick="event.stopPropagation();ccPedirBorrarGrupo('${g.id}')" title="${esOwner ? 'Borrar grupo' : 'Salir del grupo'}">✕</button>
         <div class="gc-nombre">${escHtml(g.nombre)}</div>
         <div class="gc-info">${g.personas.length} persona${g.personas.length !== 1 ? 's' : ''} · $${fmt(total)}</div>
-        <div class="gc-shared">👥 Compartido</div>
+        ${compartidoConOtros ? '<div class="gc-shared">👥 Compartido</div>' : ''}
       </div>`;
   });
   html += `<div class="cc-grupo-card nuevo" onclick="ccCrearGrupo()">+ Nuevo grupo</div>`;
@@ -236,7 +237,7 @@ async function ccAbrirGrupo(id) {
   document.getElementById('cc-vista-grupos').style.display = 'none';
   document.getElementById('cc-vista-grupo').style.display = '';
   document.getElementById('cc-breadcrumb-nombre').textContent = g.nombre;
-  document.getElementById('cc-badge-compartido').style.display = g.compartido ? '' : 'none';
+  document.getElementById('cc-badge-compartido').style.display = (g.compartido && (g.miembros || []).length > 1) ? '' : 'none';
   document.getElementById('cc-miembros-wrap').style.display = g.compartido ? '' : 'none';
   if (g.compartido) ccRenderMiembros();
   ccMostrarTab('balance', document.getElementById('cc-tab-balance'));
@@ -275,6 +276,7 @@ async function ccQuitarMiembro(email) {
     await window._fbUpdateDoc(ref, { miembros: window._fbArrayRemove(email) });
     g.miembros = (g.miembros || []).filter(m => m !== email);
     ccRenderMiembros();
+    document.getElementById('cc-badge-compartido').style.display = g.miembros.length > 1 ? '' : 'none';
   } catch (e) {
     console.error('Error quitando miembro', e);
     alert('No se pudo quitar al miembro.');
@@ -1393,7 +1395,7 @@ function addIngreso() {
   const sueldoConcepto = conceptoSel === 'Otros' ? (conceptoOtro || 'Otros') : conceptoSel;
 
   if (!fechaI) { notify('⚠ Completá la fecha'); return; }
-  if (sueldo <= 0) { notify('⚠ Ingresá al menos un monto'); return; }
+  if (sueldo <= 0 && !otrosPendientes.length) { notify('⚠ Ingresá al menos un monto'); return; }
 
   const ymBase = fechaI.slice(0, 7);
   const key = ymBase;
@@ -1419,18 +1421,33 @@ function addIngreso() {
   };
 
   const idx = ingresos.findIndex(i => (i.ymBase || i.key) === key);
+  let target;
   if (idx >= 0) {
-    // Ya hay un ingreso este mes → sumarlo como ingreso adicional (no reemplazar)
-    const ex = ingresos[idx];
-    ex.otros = ex.otros || [];
-    ex.otros.push({ id: Date.now(), nombre: sueldoConcepto || 'Ingreso', monto: sueldo, moneda: sueldoMoneda, destino: sueldoDestino, fecha: fechaI });
-    if (sueldoMoneda === 'ARS') {
-      ex.totalARS = (ex.totalARS || 0) + sueldo;
-      ex.total = (ex.total || 0) + sueldo;
+    target = ingresos[idx];
+    target.otros = target.otros || [];
+    if (sueldo > 0) {
+      target.otros.push({ id: Date.now(), nombre: sueldoConcepto || 'Ingreso', monto: sueldo, moneda: sueldoMoneda, destino: sueldoDestino, fecha: fechaI });
+      if (sueldoMoneda === 'ARS') {
+        target.totalARS = (target.totalARS || 0) + sueldo;
+        target.total = (target.total || 0) + sueldo;
+      }
     }
   } else {
+    target = obj;
     ingresos.push(obj);
   }
+
+  // Agregar los "otros ingresos" pendientes (incluye USD y ARS)
+  otrosPendientes.forEach(o => {
+    target.otros = target.otros || [];
+    target.otros.push({ id: o.id, nombre: o.nombre, monto: o.monto, moneda: o.moneda, destino: o.destino, fecha: fechaI });
+    if (o.moneda === 'ARS') {
+      target.totalARS = (target.totalARS || 0) + o.monto;
+      target.total = (target.total || 0) + o.monto;
+    }
+  });
+  otrosPendientes = [];
+  renderOtrosPendientes();
 
   // Guardar concepto personalizado
   if (sueldoConcepto && conceptoSel === 'Otros' && !conceptosGuardados.includes(sueldoConcepto)) {
@@ -1444,31 +1461,23 @@ function addIngreso() {
   renderDashboard();
 }
 
-function toggleEditIngreso(id) {
-  const row = document.getElementById('edit-ingreso-row-' + id);
-  if (!row) return;
-  const open = row.style.display !== 'none';
-  row.style.display = open ? 'none' : 'table-row';
-  // Set destino select after showing
-  if (!open) {
-    const i = ingresos.find(x => x.id === id);
-    const dest = document.getElementById('ei-dest-' + id);
-    if (i && dest) dest.value = i.sueldoDestino || '';
-  }
-}
-
-function guardarEdicionIngreso(id) {
+function editarSueldoIngreso(id) {
   const i = ingresos.find(x => x.id === id);
   if (!i) return;
-  const sueldo = parseFloat(document.getElementById('ei-sueldo-' + id)?.value) || 0;
-  const dest   = document.getElementById('ei-dest-' + id)?.value || '';
-  const conc   = document.getElementById('ei-conc-' + id)?.value.trim() || 'Sueldo';
-  const diff   = sueldo - (i.sueldo || 0);
-  i.sueldo        = sueldo;
-  i.sueldoDestino = dest;
-  i.sueldoConcepto = conc;
-  i.totalARS      = (i.totalARS ?? i.total ?? 0) + diff;
-  i.total         = i.totalARS;
+  const nombre = i.sueldoConcepto || 'Sueldo';
+  const nuevo = prompt(`Nuevo monto para "${nombre}" (${i.sueldoMoneda === 'USD' ? 'u$s' : '$'}):`, i.sueldo || 0);
+  if (nuevo === null) return;
+  const monto = parseFloat(nuevo);
+  if (isNaN(monto) || monto < 0) { notify('⚠ Monto inválido'); return; }
+  const diff = monto - (i.sueldo || 0);
+  i.sueldo = monto;
+  if ((i.sueldoMoneda || 'ARS') === 'ARS') {
+    i.totalARS = (i.totalARS ?? i.total ?? 0) + diff;
+    i.total = i.totalARS;
+  }
+  if (monto <= 0 && !(i.otros && i.otros.length)) {
+    ingresos = ingresos.filter(x => x.id !== id);
+  }
   save();
   renderIngresosTable();
   renderSaldoCuentas();
@@ -1476,14 +1485,97 @@ function guardarEdicionIngreso(id) {
   notify('✓ Ingreso actualizado');
 }
 
-function deleteIngreso(id) {
-  if (!confirm('¿Eliminar este ingreso?')) return;
-  ingresos = ingresos.filter(i => i.id !== id);
+function eliminarSueldoIngreso(id) {
+  const i = ingresos.find(x => x.id === id);
+  if (!i) return;
+  if (!confirm(`¿Eliminar "${i.sueldoConcepto || 'Sueldo'}"?`)) return;
+  if ((i.sueldoMoneda || 'ARS') === 'ARS') {
+    i.totalARS = (i.totalARS ?? i.total ?? 0) - (i.sueldo || 0);
+    i.total = i.totalARS;
+  }
+  i.sueldo = 0;
+  if (!(i.otros && i.otros.length)) {
+    ingresos = ingresos.filter(x => x.id !== id);
+  }
   save();
-  notify('Ingreso eliminado');
   renderIngresosTable();
   renderSaldoCuentas();
   renderDashboard();
+  notify('Ingreso eliminado');
+}
+
+function sueldoRowHtml(i) {
+  if (!i.sueldo || i.sueldo <= 0) return '';
+  const montoStr = `${i.sueldoMoneda === 'USD' ? 'u$s ' : '$'}${fmt(i.sueldo)}`;
+  const nombre = i.sueldoConcepto || 'Sueldo';
+  const destino = i.sueldoDestino;
+  return `<div class="oi-row">
+    <div class="oi-nombre">${escHtml(nombre)}${destino ? ' → <span style="color:var(--accent4)">' + escHtml(destino) + '</span>' : ''}</div>
+    <div class="oi-main">
+      <span class="oi-monto" style="font-family:'DM Mono',monospace;${i.sueldoMoneda === 'USD' ? 'color:var(--accent3)' : ''}">${montoStr}</span>
+      <span class="oi-actions">
+        <button onclick="editarSueldoIngreso(${i.id})" title="Editar">✏</button>
+        <button onclick="eliminarSueldoIngreso(${i.id})" title="Eliminar">✕</button>
+      </span>
+    </div>
+  </div>`;
+}
+
+function otroIngresoRowHtml(ingresoId, o) {
+  const montoStr = `${o.moneda === 'USD' ? 'u$s ' : '$'}${fmt(o.monto)}`;
+  return `<div class="oi-row">
+    <div class="oi-nombre">${escHtml(o.nombre)}${o.destino ? ' → <span style="color:var(--accent4)">' + escHtml(o.destino) + '</span>' : ''}</div>
+    <div class="oi-main">
+      <span class="oi-monto" style="font-family:'DM Mono',monospace;${o.moneda === 'USD' ? 'color:var(--accent3)' : ''}">${montoStr}</span>
+      <span class="oi-actions">
+        <button onclick="editarOtroIngreso(${ingresoId},${o.id})" title="Editar">✏</button>
+        <button onclick="eliminarOtroIngreso(${ingresoId},${o.id})" title="Eliminar">✕</button>
+      </span>
+    </div>
+  </div>`;
+}
+
+function editarOtroIngreso(ingresoId, otroId) {
+  const ing = ingresos.find(i => i.id === ingresoId);
+  if (!ing) return;
+  const o = (ing.otros || []).find(x => x.id === otroId);
+  if (!o) return;
+  const nuevo = prompt(`Nuevo monto para "${o.nombre}" (${o.moneda === 'USD' ? 'u$s' : '$'}):`, o.monto);
+  if (nuevo === null) return;
+  const monto = parseFloat(nuevo);
+  if (isNaN(monto) || monto < 0) { notify('⚠ Monto inválido'); return; }
+  if (o.moneda === 'ARS') {
+    ing.totalARS = (ing.totalARS || 0) - o.monto + monto;
+    ing.total = ing.totalARS;
+  }
+  o.monto = monto;
+  save();
+  renderIngresosTable();
+  renderSaldoCuentas();
+  renderDashboard();
+  notify('✓ Ingreso actualizado');
+}
+
+function eliminarOtroIngreso(ingresoId, otroId) {
+  const ing = ingresos.find(i => i.id === ingresoId);
+  if (!ing) return;
+  const idx = (ing.otros || []).findIndex(x => x.id === otroId);
+  if (idx < 0) return;
+  const o = ing.otros[idx];
+  if (!confirm(`¿Eliminar "${o.nombre}"?`)) return;
+  if (o.moneda === 'ARS') {
+    ing.totalARS = (ing.totalARS || 0) - o.monto;
+    ing.total = ing.totalARS;
+  }
+  ing.otros.splice(idx, 1);
+  if ((!ing.sueldo || ing.sueldo <= 0) && !ing.otros.length) {
+    ingresos = ingresos.filter(x => x.id !== ing.id);
+  }
+  save();
+  renderIngresosTable();
+  renderSaldoCuentas();
+  renderDashboard();
+  notify('Ingreso eliminado');
 }
 
 function renderIngresosTable() {
@@ -1503,7 +1595,6 @@ function renderIngresosTable() {
     <th class="col-hide-mobile">Sueldo</th>
     <th class="col-hide-mobile">Otros</th>
     <th>Total ARS</th>
-    <th></th>
   </tr></thead><tbody>` +
   sorted.map(i => {
     const ym = i.ymBase || i.key || '';
@@ -1511,57 +1602,21 @@ function renderIngresosTable() {
       ? i.fecha.split('-').reverse().join('/')
       : (ym ? `${MESES[parseInt(ym.slice(5,7))-1]} ${ym.slice(0,4)}` : (i.mes + ' ' + i.año));
     const otros = i.otros || [];
+    const sueldoHtml = sueldoRowHtml(i);
     const otrosHtml = otros.length
-      ? otros.map(o => `<div style="font-size:0.75rem;color:var(--text2)">${o.nombre}${o.destino ? ' → <span style="color:var(--accent4)">' + o.destino + '</span>' : ''}: ${o.moneda==='USD'?'u$s ':'$'}${fmt(o.monto)}</div>`).join('')
+      ? otros.map(o => otroIngresoRowHtml(i.id, o)).join('')
       : (i.extra > 0 ? `<div style="font-size:0.75rem;color:var(--text2)">Extra: $${fmt(i.extra)}</div>` : '—');
-    const sueldoStr = i.sueldoMoneda === 'USD'
-      ? `<span style="color:var(--accent3);font-family:'DM Mono',monospace">u$s ${fmt(i.sueldo)}</span>`
-      : `<span style="font-family:'DM Mono',monospace">$${fmt(i.sueldo || 0)}</span>`;
-    // Opciones de destino: igual que renderDestinosIngreso
-    let destOptsI = '<option value="">Sin destino</option><option value="Efectivo">💵 Efectivo</option>';
-    (tarjetas||[]).filter(t => t.tipo === 'billetera').forEach(t => {
-      const lbl = t.label || t.banco || t.nombre;
-      destOptsI += `<option value="${escHtml(lbl)}">📱 ${escHtml(lbl)}</option>`;
-    });
-    (tarjetas||[]).filter(t => t.tipo === 'debito').forEach(t => {
-      let lbl = t.label || ('CA ' + t.banco);
-      if (lbl.startsWith('Débito ')) lbl = 'CA ' + lbl.slice(7);
-      destOptsI += `<option value="${escHtml(lbl)}">🏦 ${escHtml(lbl)}</option>`;
-    });
-    const sueldoDetalle = `${i.sueldoDestino ? '→ ' + i.sueldoDestino : ''}${i.sueldoConcepto && i.sueldoConcepto !== 'Sueldo' ? ' · ' + i.sueldoConcepto : ''}`.trim();
     return `<tr>
       <td style="font-weight:600;color:var(--text2)">
         ${periodo}
         <div class="col-show-mobile" style="flex-direction:column;gap:2px;margin-top:4px">
-          <div style="font-size:0.75rem;color:var(--text3)">${sueldoStr}${sueldoDetalle ? ' · <span style="color:var(--accent4)">' + escHtml(sueldoDetalle) + '</span>' : ''}</div>
-          ${otros.length ? `<div style="font-size:0.72rem;color:var(--text3)">${otros.map(o=>escHtml(o.nombre)+': $'+fmt(o.monto)).join(' · ')}</div>` : ''}
+          ${sueldoHtml}
+          ${otros.length ? otros.map(o => otroIngresoRowHtml(i.id, o)).join('') : ''}
         </div>
       </td>
-      <td class="col-hide-mobile">${sueldoStr}${i.sueldoDestino ? `<div style="font-size:0.72rem;color:var(--text3);padding:2px 0 0">→ ${escHtml(i.sueldoDestino)}</div>` : ''}${i.sueldoConcepto && i.sueldoConcepto !== 'Sueldo' ? `<div style="font-size:0.72rem;color:var(--accent4)">${escHtml(i.sueldoConcepto)}</div>` : ''}</td>
+      <td class="col-hide-mobile">${sueldoHtml || '—'}</td>
       <td class="col-hide-mobile">${otrosHtml}</td>
       <td class="monto" style="white-space:nowrap">$${fmt(i.totalARS ?? i.total ?? 0)}</td>
-      <td style="white-space:nowrap;display:flex;gap:4px">
-        <button class="btn-edit" onclick="toggleEditIngreso(${i.id})">✏</button>
-        <button class="btn-del" onclick="deleteIngreso(${i.id})">✕</button>
-      </td>
-    </tr>
-    <tr id="edit-ingreso-row-${i.id}" style="display:none;background:var(--surface2)">
-      <td colspan="5" style="padding:1rem">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-          <div class="form-group" style="min-width:120px"><label>Sueldo</label>
-            <input type="number" id="ei-sueldo-${i.id}" value="${i.sueldo||0}" min="0" step="0.01" style="font-size:16px"></div>
-          <div class="form-group" style="min-width:140px"><label>Destino sueldo</label>
-            <select id="ei-dest-${i.id}" style="font-size:16px">
-              ${destOptsI}
-            </select></div>
-          <div class="form-group" style="min-width:120px"><label>Concepto</label>
-            <input type="text" id="ei-conc-${i.id}" value="${escHtml(i.sueldoConcepto||'Sueldo')}" style="font-size:16px"></div>
-          <div class="form-group" style="align-self:flex-end;display:flex;gap:6px">
-            <button class="btn-add" onclick="guardarEdicionIngreso(${i.id})">✓ Guardar</button>
-            <button class="btn-secondary" onclick="toggleEditIngreso(${i.id})">Cancelar</button>
-          </div>
-        </div>
-      </td>
     </tr>`;
   }).join('') +
   '</tbody></table>';
@@ -2950,16 +3005,26 @@ function _renderSaldoPanel(ym) {
   const el = $('panel-saldo-body');
   if (!el) return;
 
-  const totalIngresosMes = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym).reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
+  const ingresosMes = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym);
+  const totalIngresosMes = ingresosMes.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
+  const totalIngresosUSD = ingresosMes.reduce((s, i) => {
+    let usd = 0;
+    if (i.sueldoMoneda === 'USD') usd += i.sueldo || 0;
+    (i.otros || []).forEach(o => { if (o.moneda === 'USD') usd += o.monto || 0; });
+    return s + usd;
+  }, 0);
   const totalGastosMes   = gastosDelMes(ym).reduce((s, x) => s + x.monto, 0);
-  const totalAhorroMes   = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym).reduce((s, a) => s + a.monto, 0);
+  const ahorrosMes       = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym);
+  const totalAhorroMes   = ahorrosMes.filter(a => (a.moneda || 'ARS') === 'ARS').reduce((s, a) => s + a.monto, 0);
+  const totalAhorroUSD   = ahorrosMes.filter(a => a.moneda === 'USD').reduce((s, a) => s + a.monto, 0);
   const ajustesMes       = (ajustesCuentas || []).filter(a => a.fecha.slice(0,7) === ym).reduce((s, a) => s + (a.monto || 0), 0);
   const balanceReal      = totalIngresosMes - totalGastosMes - totalAhorroMes + ajustesMes;
+  const balanceUSD       = totalIngresosUSD - totalAhorroUSD;
 
   const filas = [
-    { label: '💵 Ingresos del mes', val: totalIngresosMes, color: 'var(--accent)' },
+    { label: '💵 Ingresos del mes', val: totalIngresosMes, color: 'var(--accent)', extraUSD: totalIngresosUSD },
     { label: '💸 Gastos del mes',   val: -totalGastosMes,  color: 'var(--accent2)' },
-    { label: '🏦 Ahorro del mes',   val: -totalAhorroMes,  color: 'var(--accent4)' },
+    { label: '🏦 Ahorro del mes',   val: -totalAhorroMes,  color: 'var(--accent4)', extraUSD: totalAhorroUSD ? -totalAhorroUSD : 0 },
     ...(ajustesMes !== 0 ? [{ label: '🔧 Ajustes del mes', val: ajustesMes, color: 'var(--accent3)' }] : []),
   ];
 
@@ -2971,7 +3036,7 @@ function _renderSaldoPanel(ym) {
       <div>
         <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px">
           <span style="color:var(--text2)">${f.label}</span>
-          <span style="font-family:monospace;color:${f.color};font-weight:700">${fmt2(f.val)}</span>
+          <span style="font-family:monospace;color:${f.color};font-weight:700">${fmt2(f.val)}${f.extraUSD ? ` <span style="color:var(--accent3);font-size:0.72rem;font-weight:600">(${f.extraUSD>0?'+':'−'}u$s ${fmt(Math.abs(f.extraUSD))})</span>` : ''}</span>
         </div>
         <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden">
           <div style="height:100%;width:${(Math.abs(f.val)/maxAbs*100).toFixed(1)}%;background:${f.color};border-radius:4px;opacity:0.75"></div>
@@ -2981,9 +3046,12 @@ function _renderSaldoPanel(ym) {
     <div style="border-top:1px solid var(--border);padding-top:12px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:0.85rem;color:var(--text3)">Disponible del mes</span>
-        <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:1.05rem;color:${balanceReal>=0?'var(--accent)':'var(--accent2)'}">
-          ${balanceReal>=0?'+':''} $${fmt(Math.abs(balanceReal))}
-        </span>
+        <div style="text-align:right">
+          <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:1.05rem;color:${balanceReal>=0?'var(--accent)':'var(--accent2)'}">
+            ${balanceReal>=0?'+':''} $${fmt(Math.abs(balanceReal))}
+          </div>
+          ${balanceUSD ? `<div style="font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--accent3)">${balanceUSD>=0?'+':'−'} u$s ${fmt(Math.abs(balanceUSD))}</div>` : ''}
+        </div>
       </div>
       ${balanceReal < 0 ? `<div style="margin-top:6px;font-size:0.72rem;color:var(--accent2);text-align:right">Déficit del mes</div>` : ''}
     </div>`;
@@ -3362,21 +3430,14 @@ window.toggleCuotasIfNeeded   = toggleCuotasIfNeeded;
 
 window.addGasto               = addGasto;
 window.deleteGasto            = deleteGasto;
-window.setMesGastos           = setMesGastos;
-window.filtrarGastos          = filtrarGastos;
 
 window.addIngreso             = addIngreso;
-window.deleteIngreso          = deleteIngreso;
-window.iniciarEdicionIngreso  = iniciarEdicionIngreso;
-window.cancelarEdicionIngreso = cancelarEdicionIngreso;
-window.toggleEditIngreso      = toggleEditIngreso;
-window.guardarEdicionIngreso  = guardarEdicionIngreso;
-window.addOtroIngreso         = addOtroIngreso;
-window.setMesIngresos         = setMesIngresos;
+window.editarOtroIngreso      = editarOtroIngreso;
+window.eliminarOtroIngreso    = eliminarOtroIngreso;
+window.editarSueldoIngreso    = editarSueldoIngreso;
+window.eliminarSueldoIngreso  = eliminarSueldoIngreso;
 
-window.addTarjeta             = addTarjeta;
 window.deleteTarjeta          = deleteTarjeta;
-window.setSaldoInicial        = setSaldoInicial;
 
 window.addEmailHabilitado     = addEmailHabilitado;
 window.removeEmailHabilitado  = removeEmailHabilitado;
@@ -3389,4 +3450,3 @@ window.seleccionarConcepto    = seleccionarConcepto;
 window.toggleConceptoOtro     = toggleConceptoOtro;
 window.filtrarConceptos       = filtrarConceptos;
 window.seleccionarConceptoOtro = seleccionarConceptoOtro;
-window.saveNewCatConcepto     = saveNewCatConcepto;

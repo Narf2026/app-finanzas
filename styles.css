@@ -2822,3 +2822,66 @@ button:focus-visible {
 .cc-miembro-row .cm-del:hover {
   color: var(--accent2);
 }
+
+/* Filas de "otros ingresos" (incluye USD) dentro del historial de ingresos */
+.oi-row {
+  padding: 6px 8px;
+  margin: 4px 0;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  color: var(--text2);
+  line-height: 1.4;
+}
+
+.oi-row .oi-nombre {
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.oi-row .oi-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.oi-row .oi-monto {
+  font-weight: 600;
+}
+
+.oi-row .oi-actions {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.oi-row .oi-actions button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 0.65rem;
+  line-height: 1;
+  padding: 2px 6px;
+  min-height: 0;
+  min-width: 0;
+  transition: all 0.15s ease;
+}
+
+.oi-row .oi-actions button:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+@media (max-width: 700px) {
+  #tab-ingresos .panel-table td:first-child,
+  #tab-ingresos td:first-child {
+    white-space: normal;
+  }
+  .oi-row {
+    font-size: 0.7rem;
+  }
+}
