@@ -2,7 +2,7 @@
   "name": "finanzapp",
   "short_name": "finanzapp",
   "description": "Gestión de finanzas personales",
-  "start_url": "/",
+  "start_url": "/app-finanzas/",
   "display": "standalone",
   "background_color": "#070d16",
   "theme_color": "#18d47b",
