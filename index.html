@@ -68,11 +68,27 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'block';
     document.getElementById('user-email').textContent = user.email;
+    const parts = user.email.split('@')[0].split(/[._\-]/);
+    const initials = (parts[0][0] + (parts[1]?.[0] || parts[0][1] || '')).toUpperCase();
+    const avatarEl = document.getElementById('user-avatar');
+    if (avatarEl) { avatarEl.textContent = initials; avatarEl.title = user.email; }
     // Mostrar pestaña admin solo para el administrador
     if (user.email === 'pachadofran@gmail.com') {
       document.getElementById('btn-admin').style.display = '';
     }
     await window.loadUserData(user.uid);
+    // Posicionar pill del nav en el tab activo por defecto
+    requestAnimationFrame(() => {
+      const activeBtn = document.querySelector('nav button.active');
+      const pill = document.getElementById('nav-pill');
+      if (activeBtn && pill) {
+        const nav = activeBtn.closest('nav');
+        const navRect = nav.getBoundingClientRect();
+        const btnRect = activeBtn.getBoundingClientRect();
+        pill.style.width = btnRect.width + 'px';
+        pill.style.transform = `translateX(${btnRect.left - navRect.left}px) translateY(-50%)`;
+      }
+    });
     // Guardar email→UID en índice para que el admin pueda buscar por email
     try {
       const idxRef = doc(db, 'config', 'email_uid_index');
@@ -97,8 +113,12 @@ onAuthStateChanged(auth, async (user) => {
 
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
+  <div class="auth-header">
+    <img src="logo.webp" class="auth-logo">
+    <div class="auth-brand">finanzapp</div>
+    <div class="auth-tagline">Tus finanzas, en orden</div>
+  </div>
   <div class="auth-box">
-    <h2>mis finanzas</h2>
     <p id="auth-subtitle">Ingresá con tu cuenta para continuar</p>
     <div class="auth-error" id="auth-error"></div>
     <input class="auth-input" type="email" id="auth-email" placeholder="tu@email.com" autocomplete="email">
@@ -124,6 +144,7 @@ onAuthStateChanged(auth, async (user) => {
   <div class="logo"><img src="logo.webp" style="width:38px;height:38px;border-radius:50%;object-fit:cover;object-position:top;margin-right:10px;border:2px solid var(--accent)">finanzapp</div>
   <div class="data-btns">
     <div class="user-bar">
+      <div class="user-avatar" id="user-avatar" title="" ></div>
       <span id="user-email"></span>
       <button class="btn-logout" onclick="window.doLogout()">Salir</button>
     </div>
@@ -133,6 +154,7 @@ onAuthStateChanged(auth, async (user) => {
 
 <!-- Nav fuera del header para evitar bug de position:fixed dentro de sticky+backdrop-filter en iOS Safari -->
 <nav class="app-nav" aria-label="Navegación principal">
+  <span id="nav-pill" aria-hidden="true"></span>
   <button class="active" onclick="showTab('dashboard')" aria-label="Inicio">
     <span class="nav-icon nav-home" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path d="M3.5 11.2 12 4l8.5 7.2"/><path d="M5.8 10.4v8.1c0 .8.6 1.4 1.4 1.4h3.1v-5.4h3.4v5.4h3.1c.8 0 1.4-.6 1.4-1.4v-8.1"/></svg>
@@ -212,7 +234,7 @@ onAuthStateChanged(auth, async (user) => {
 
 <!-- DASHBOARD -->
 <section id="tab-dashboard" class="active">
-  <div class="page-title">
+  <div class="page-title" id="dash-greeting">
     Dashboard
     <small>RESUMEN MENSUAL</small>
   </div>
@@ -224,12 +246,14 @@ onAuthStateChanged(auth, async (user) => {
       <div class="label">Gasto del mes <span class="expand-icon" id="icon-panel-gasto">▾</span></div>
       <div class="value" id="d-gasto">$0</div>
       <div class="sub" id="d-gastos-n">0 transacciones</div>
+      <div class="card-trend" id="d-gasto-trend"></div>
     </div>
 
     <!-- INGRESO -->
     <div class="card green expandable" onclick="toggleCardPanel('panel-ingreso')">
       <div class="label">Ingreso del mes <span class="expand-icon" id="icon-panel-ingreso">▾</span></div>
       <div class="value" id="d-ingreso">$0</div>
+      <div class="card-trend" id="d-ingreso-trend"></div>
     </div>
 
     <!-- SALDO -->
@@ -295,7 +319,7 @@ onAuthStateChanged(auth, async (user) => {
     </div>
     <div class="chart-box" style="grid-column: span 2">
       <h3>Evolución Mensual — Gastos vs Ingresos</h3>
-      <div id="monthly-bars"></div>
+      <div id="monthly-bars" style="position:relative"><canvas id="chart-monthly" style="max-height:180px"></canvas></div>
     </div>
   </div>
 
@@ -959,7 +983,7 @@ onAuthStateChanged(auth, async (user) => {
 
 </main>
 
-<div class="notif" id="notif">&#10003; <span id="notif-msg"></span></div>
+<div class="notif" id="notif"><span class="notif-dot"></span><span id="notif-msg"></span></div>
 
 <div class="modal-overlay" id="import-modal">
   <div class="modal">
