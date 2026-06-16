@@ -468,9 +468,13 @@ async function ccInvitar() {
   if (!email || !email.includes('@')) { alert('Ingresá un email válido.'); return; }
   if ((g.miembros || []).includes(email)) { alert('Esa persona ya es miembro del grupo.'); return; }
   if ((g.pendientesMiembros || []).includes(email)) { alert('Ya hay una invitación pendiente para ese email.'); return; }
-  const ref = window._fbDoc(window._fbDb, 'grupos_compartidos', g.id);
+  const refGrupo = window._fbDoc(window._fbDb, 'grupos_compartidos', g.id);
+  const refInv = window._fbDoc(window._fbDb, 'invitaciones', email);
   try {
-    await window._fbUpdateDoc(ref, { pendientesMiembros: window._fbArrayUnion(email) });
+    await window._fbUpdateDoc(refGrupo, { pendientesMiembros: window._fbArrayUnion(email) });
+    await window._fbSetDoc(refInv, {
+      grupos: window._fbArrayUnion({ grupoId: g.id, grupoNombre: g.nombre, ownerEmail: ccEmail() })
+    }, { merge: true });
     g.pendientesMiembros = [...(g.pendientesMiembros || []), email];
     input.value = '';
     ccRenderMiembros();
@@ -486,22 +490,23 @@ async function ccCheckInvitaciones() {
   const email = window._currentUser?.email?.toLowerCase();
   if (!email) return;
   try {
-    const ref = window._fbCollection(window._fbDb, 'grupos_compartidos');
-    const q = window._fbQuery(ref, window._fbWhere('pendientesMiembros', 'array-contains', email));
-    const snap = await window._fbGetDocs(q);
-    if (snap.empty) return;
+    // Leer directamente el documento del usuario en la colección invitaciones
+    const refInv = window._fbDoc(window._fbDb, 'invitaciones', email);
+    const snap = await window._fbGetDoc(refInv);
+    if (!snap.exists()) return;
+    const grupos = (snap.data().grupos || []).filter(g => g && g.grupoId);
+    if (!grupos.length) return;
 
-    const grupos = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     const lista = document.getElementById('invitaciones-lista');
     if (!lista) return;
 
     lista.innerHTML = grupos.map(g => `
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:0.9rem 1rem">
-        <div style="font-weight:600;color:var(--text2);margin-bottom:4px">👥 ${escHtml(g.nombre || 'Grupo sin nombre')}</div>
-        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Invitado por: ${escHtml(g.owner || g.miembros?.[0] || '—')}</div>
+        <div style="font-weight:600;color:var(--text2);margin-bottom:4px">👥 ${escHtml(g.grupoNombre || 'Grupo sin nombre')}</div>
+        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Invitado por: ${escHtml(g.ownerEmail || '—')}</div>
         <div style="display:flex;gap:8px">
-          <button class="btn-confirm" onclick="ccAceptarInvitacion('${g.id}')" style="flex:1;padding:7px;font-size:0.82rem">✓ Aceptar</button>
-          <button class="btn-cancel" onclick="ccRechazarInvitacion('${g.id}')" style="flex:1;padding:7px;font-size:0.82rem">✕ Rechazar</button>
+          <button class="btn-confirm" onclick="ccAceptarInvitacion('${g.grupoId}')" style="flex:1;padding:7px;font-size:0.82rem">✓ Aceptar</button>
+          <button class="btn-cancel" onclick="ccRechazarInvitacion('${g.grupoId}')" style="flex:1;padding:7px;font-size:0.82rem">✕ Rechazar</button>
         </div>
       </div>`).join('');
 
@@ -511,27 +516,40 @@ async function ccCheckInvitaciones() {
 
 async function ccAceptarInvitacion(grupoId) {
   const email = window._currentUser?.email?.toLowerCase();
-  const ref = window._fbDoc(window._fbDb, 'grupos_compartidos', grupoId);
+  const refGrupo = window._fbDoc(window._fbDb, 'grupos_compartidos', grupoId);
+  const refInv = window._fbDoc(window._fbDb, 'invitaciones', email);
   try {
-    await window._fbUpdateDoc(ref, {
+    await window._fbUpdateDoc(refGrupo, {
       miembros: window._fbArrayUnion(email),
       pendientesMiembros: window._fbArrayRemove(email)
     });
+    // Limpiar la invitación del documento propio
+    const snap = await window._fbGetDoc(refInv);
+    if (snap.exists()) {
+      const grupos = (snap.data().grupos || []).filter(g => g.grupoId !== grupoId);
+      await window._fbSetDoc(refInv, { grupos }, { merge: false });
+    }
     notify('✓ Invitación aceptada — ya podés ver el grupo en "Compartir gastos"');
     document.getElementById('invitaciones-modal').style.display = 'none';
+    ccRenderGrupos();
   } catch(e) { console.error('Error aceptando invitación:', e); notify('⚠ Error al aceptar'); }
 }
 
 async function ccRechazarInvitacion(grupoId) {
   const email = window._currentUser?.email?.toLowerCase();
-  const ref = window._fbDoc(window._fbDb, 'grupos_compartidos', grupoId);
+  const refGrupo = window._fbDoc(window._fbDb, 'grupos_compartidos', grupoId);
+  const refInv = window._fbDoc(window._fbDb, 'invitaciones', email);
   try {
-    await window._fbUpdateDoc(ref, { pendientesMiembros: window._fbArrayRemove(email) });
+    await window._fbUpdateDoc(refGrupo, { pendientesMiembros: window._fbArrayRemove(email) });
+    // Limpiar la invitación del documento propio
+    const snap = await window._fbGetDoc(refInv);
+    if (snap.exists()) {
+      const grupos = (snap.data().grupos || []).filter(g => g.grupoId !== grupoId);
+      await window._fbSetDoc(refInv, { grupos }, { merge: false });
+    }
     // Quitar del modal
     const lista = document.getElementById('invitaciones-lista');
     if (lista) {
-      const items = lista.querySelectorAll('div[style]');
-      // Re-render without this group
       lista.innerHTML = [...lista.children].filter(el => !el.innerHTML.includes(grupoId)).map(el => el.outerHTML).join('');
       if (!lista.children.length) document.getElementById('invitaciones-modal').style.display = 'none';
     }
