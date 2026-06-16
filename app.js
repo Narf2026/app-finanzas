@@ -2508,6 +2508,7 @@ function selectDashMonth(m, el) {
 function gastosDelMes(ym) {
   const items = [];
   gastos.forEach(g => {
+    if (g.esTransferencia) return;
     if (!g.cuota) {
       // Gasto normal: si tiene offsetCuotas (crédito en 1 pago), calcular el mes real
       if (g.offsetCuotas) {
@@ -2849,7 +2850,7 @@ function renderDashboard() {
   // Gastos: normales en su mes + cuotas que caen en ym
   const itemsM = gastosDelMes(ym);
   // Cantidad de transacciones: gastos normales del mes + cuotas que caen este mes
-  const gastosNormalesM = gastos.filter(g => !g.cuota && g.fecha.slice(0,7) === ym);
+  const gastosNormalesM = gastos.filter(g => !g.cuota && !g.esTransferencia && g.fecha.slice(0,7) === ym);
   const cuotasEnMes = gastos.filter(g => {
     if (!g.cuota) return false;
     const [fy, fm] = g.fecha.split('-').map(Number);
@@ -2860,18 +2861,19 @@ function renderDashboard() {
 
   const totalGasto = itemsM.filter(x => (x.moneda||'ARS')==='ARS').reduce((s, x) => s + x.monto, 0);
   const totalGastoUSDMes = itemsM.filter(x => x.moneda==='USD').reduce((s, x) => s + x.monto, 0);
-  const ingM = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym);
+  const ingM = ingresos.filter(i => !i.esTransferencia && (i.ymBase || i.key.slice(0,7)) === ym);
   const ahorrosM = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym);
   const totalIngreso = ingM.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
   const totalAhorroMes = ahorrosM.reduce((s, a) => s + a.monto, 0);
 
   // Saldo ACUMULATIVO: todos los ingresos historicos + saldos iniciales - todos los gastos - todo el ahorro
-  const totalIngresosHistorico = ingresos.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
+  const totalIngresosHistorico = ingresos.filter(i => !i.esTransferencia).reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
   const totalGastosHistorico = (() => {
     // Sumar todos los gastos normales + todas las cuotas que ya cayeron hasta hoy
     const hoy = new Date().toISOString().slice(0,7);
     let total = 0;
     gastos.forEach(g => {
+      if (g.esTransferencia) return;
       if ((g.moneda||'ARS') !== 'ARS') return;
       if (!g.cuota) {
         total += g.monto;
@@ -3364,7 +3366,8 @@ function moverEntreCuentas(origen, safeC) {
     id: Date.now(), fecha: hoy,
     desc: `Transferencia → ${destino}`, cat: 'Transferencia',
     medio: origen, monto, notas: `Movimiento a ${destino}`,
-    cuota: false, ncuotas: 1, montoXcuota: monto, offsetCuotas: 0
+    cuota: false, ncuotas: 1, montoXcuota: monto, offsetCuotas: 0,
+    esTransferencia: true
   });
   // Entrada en destino (como ingreso extra)
   ingresos.push({
@@ -3375,7 +3378,8 @@ function moverEntreCuentas(origen, safeC) {
     mes: MESES[parseInt(hoy.slice(5,7))-1],
     sueldo: 0, sueldoMoneda: 'ARS', sueldoConcepto: '', sueldoDestino: '',
     otros: [{ nombre: `Transferencia desde ${origen}`, monto, moneda: 'ARS', destino }],
-    totalARS: monto, total: monto
+    totalARS: monto, total: monto,
+    esTransferencia: true
   });
 
   save();
