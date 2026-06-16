@@ -26,7 +26,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, getDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCbiRrXVS_R-NhH0ZBlHa06zzdBdK9zdSE",
@@ -39,7 +39,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
 
 // ---- AUTH FUNCTIONS (expuestas globalmente) ----
 window._fbAuth = auth;
@@ -230,6 +232,14 @@ onAuthStateChanged(auth, async (user) => {
   </div>
 </div>
 
+<!-- CONFETTI -->
+<canvas id="confetti-canvas" style="position:fixed;inset:0;pointer-events:none;z-index:9998;display:none"></canvas>
+
+<!-- PULL TO REFRESH -->
+<div id="ptr-bar">
+  <div id="ptr-spinner"></div>
+</div>
+
 <main>
 
 <!-- DASHBOARD -->
@@ -239,6 +249,7 @@ onAuthStateChanged(auth, async (user) => {
     <small>RESUMEN MENSUAL</small>
   </div>
   <div class="month-sel" id="dashMonths"></div>
+  <div id="dash-insight"></div>
   <div class="cards">
 
     <!-- GASTO -->
@@ -285,27 +296,27 @@ onAuthStateChanged(auth, async (user) => {
   </div>
 
   <!-- PANELES EXPANDIBLES -->
-  <div class="card-panel" id="panel-gasto" style="display:none">
+  <div class="card-panel" id="panel-gasto">
     <div class="panel-title">💸 Detalle de gastos del mes</div>
     <div id="panel-gasto-body"></div>
   </div>
 
-  <div class="card-panel" id="panel-ingreso" style="display:none">
+  <div class="card-panel" id="panel-ingreso">
     <div class="panel-title">💵 Detalle de ingresos del mes</div>
     <div id="panel-ingreso-body"></div>
   </div>
 
-  <div class="card-panel" id="panel-ahorro" style="display:none">
+  <div class="card-panel" id="panel-ahorro">
     <div class="panel-title">🏦 Ahorro acumulado total por categoría</div>
     <div id="panel-ahorro-body"></div>
   </div>
 
-  <div class="card-panel" id="panel-saldo" style="display:none">
+  <div class="card-panel" id="panel-saldo">
     <div class="panel-title">📊 Composición del disponible del mes</div>
     <div id="panel-saldo-body"></div>
   </div>
 
-  <div class="card-panel" id="panel-saldo-usd" style="display:none">
+  <div class="card-panel" id="panel-saldo-usd">
     <div class="panel-title">💵 Composición del disponible en USD</div>
     <div id="panel-saldo-usd-body"></div>
   </div>
@@ -321,6 +332,12 @@ onAuthStateChanged(auth, async (user) => {
       <h3>Evolución Mensual — Gastos vs Ingresos</h3>
       <div id="monthly-bars" style="position:relative"><canvas id="chart-monthly" style="max-height:180px"></canvas></div>
     </div>
+  </div>
+
+  <!-- EVOLUCIÓN DEL SALDO -->
+  <div class="chart-box" style="margin-top:1rem">
+    <h3>Evolución del saldo disponible</h3>
+    <div style="position:relative"><canvas id="chart-saldo-evol" style="max-height:160px"></canvas></div>
   </div>
 
   <!-- CUOTAS - seccion permanente -->
@@ -423,6 +440,11 @@ onAuthStateChanged(auth, async (user) => {
         <select id="filter-cat" onchange="renderGastosTable()">
           <option value="">Todas las categorías</option>
         </select>
+      </div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="search" id="gasto-search" placeholder="Buscar por concepto, categoría, monto..." oninput="renderGastosTable()" autocomplete="off">
+        <button id="gasto-search-clear" onclick="clearGastoSearch()" style="display:none">✕</button>
       </div>
     </div>
     <div id="gastos-table-body"></div>
@@ -581,6 +603,28 @@ onAuthStateChanged(auth, async (user) => {
       <div class="value" id="a-mejor">$0</div>
       <div class="sub" id="a-mejor-mes">—</div>
     </div>
+  </div>
+
+  <!-- METAS DE AHORRO -->
+  <div class="table-wrap" style="margin-bottom:1.2rem">
+    <div class="table-header" style="display:flex;justify-content:space-between;align-items:center">
+      <h3>🎯 METAS</h3>
+      <button onclick="toggleMetaForm()" class="btn-secondary" style="font-size:0.75rem;padding:5px 12px">+ Meta</button>
+    </div>
+    <div id="meta-form" style="display:none;padding:1rem;border-bottom:1px solid var(--border)">
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end">
+        <div class="form-group" style="margin:0">
+          <label>Categoría</label>
+          <select id="meta-tipo" style="width:100%"><option value="">Seleccionar...</option></select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Objetivo ($)</label>
+          <input type="number" id="meta-monto" placeholder="Ej: 1000000" min="1">
+        </div>
+        <button class="btn-add" style="padding:10px 16px;white-space:nowrap" onclick="guardarMeta()">Guardar</button>
+      </div>
+    </div>
+    <div id="metas-rings"></div>
   </div>
 
   <div class="table-wrap" style="margin-bottom:1.2rem">

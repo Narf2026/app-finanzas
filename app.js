@@ -39,7 +39,8 @@ function animateValue(id, end, prefix = '$') {
   function tick() {
     const progress = Math.min((Date.now() - startTime) / duration, 1);
     const eased = 1 - Math.pow(1 - progress, 3);
-    el.textContent = sign + prefix + fmt(Math.round(absEnd * eased));
+    const current = Math.round(absEnd * eased);
+    el.textContent = sign + prefix + fmt(current);
     if (progress < 1) requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -59,6 +60,7 @@ let otrosPendientes = [];
 let ajustesCuentas = [];
 let presupuestos = {}; // { "2026-06": { "Alimentación": 50000, ... }, ... }
 let presupuestosExplicitos = {}; // { "Alimentación": ["2026-06", "2026-07"], ... } — meses donde el usuario fijó el valor manualmente
+let metasAhorro = {}; // { "Viaje Europa": 1000000, "Auto": 5000000 }
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 let selectedDashMonth = new Date().toISOString().slice(0,7);
@@ -84,7 +86,7 @@ async function save() {
       pendientes = mergeById(pendientes, remote.pendientes);
     }
     await window._fbSetDoc(ref, {
-      gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, presupuestos, presupuestosExplicitos, email: window._currentUser.email, updatedAt: new Date().toISOString()
+      gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, presupuestos, presupuestosExplicitos, metasAhorro, email: window._currentUser.email, updatedAt: new Date().toISOString()
     });
   } catch(e) { console.error('Error guardando:', e); }
 }
@@ -94,7 +96,7 @@ window.loadUserData = async function(uid) {
   document.querySelectorAll('#tab-dashboard .cards .card').forEach(c => c.classList.add('loading'));
   // Resetear todo antes de cargar para evitar datos de sesiones anteriores
   gastos = []; ingresos = []; ahorros = []; saldosIniciales = {}; pendientes = [];
-  conceptosGuardados = []; otrosPendientes = []; ajustesCuentas = []; presupuestos = {}; presupuestosExplicitos = {};
+  conceptosGuardados = []; otrosPendientes = []; ajustesCuentas = []; presupuestos = {}; presupuestosExplicitos = {}; metasAhorro = {};
   try {
     const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid));
     if (snap.exists()) {
@@ -115,6 +117,7 @@ window.loadUserData = async function(uid) {
       if (Array.isArray(d.ajustesCuentas)) ajustesCuentas = d.ajustesCuentas;
       if (d.presupuestos && typeof d.presupuestos === 'object') presupuestos = d.presupuestos;
       if (d.presupuestosExplicitos && typeof d.presupuestosExplicitos === 'object') presupuestosExplicitos = d.presupuestosExplicitos;
+      if (d.metasAhorro && typeof d.metasAhorro === 'object') metasAhorro = d.metasAhorro;
       // Cargar tarjetas desde Firestore; si no hay, usar localStorage como fallback
       if (d.tarjetas && d.tarjetas.length > 0) {
         tarjetas = d.tarjetas;
@@ -1058,14 +1061,19 @@ function showTab(tab) {
   const btn = document.querySelector(`nav button[onclick="showTab('${tab}')"]`);
   if (btn) {
     btn.classList.add('active');
-    // Mover el pill indicador al botón activo
+    // Mover el pill indicador al botón activo (no en el botón especial nav-add)
     const pill = document.getElementById('nav-pill');
     if (pill) {
-      const nav = btn.closest('nav');
-      const navRect = nav.getBoundingClientRect();
-      const btnRect = btn.getBoundingClientRect();
-      pill.style.width = btnRect.width + 'px';
-      pill.style.transform = `translateX(${btnRect.left - navRect.left}px) translateY(-50%)`;
+      if (btn.classList.contains('nav-add')) {
+        pill.style.opacity = '0';
+      } else {
+        pill.style.opacity = '1';
+        const nav = btn.closest('nav');
+        const navRect = nav.getBoundingClientRect();
+        const btnRect = btn.getBoundingClientRect();
+        pill.style.width = btnRect.width + 'px';
+        pill.style.transform = `translateX(${btnRect.left - navRect.left}px) translateY(-50%)`;
+      }
     }
   }
   if (tab === 'dashboard') renderDashboard();
@@ -1220,49 +1228,90 @@ function deleteGasto(id) {
   renderDashboard();
 }
 
+function clearGastoSearch() {
+  const inp = $('gasto-search');
+  if (inp) inp.value = '';
+  const btn = $('gasto-search-clear');
+  if (btn) btn.style.display = 'none';
+  renderGastosTable();
+}
+
 function renderGastosTable() {
   const el = $('gastos-table-body');
   if (!el) return;
-  const mesFiltro = $('filter-mes')?.value || '';
-  const catFiltro = $('filter-cat')?.value || '';
+  const mesFiltro  = $('filter-mes')?.value  || '';
+  const catFiltro  = $('filter-cat')?.value  || '';
+  const query      = ($('gasto-search')?.value || '').toLowerCase().trim();
+  const clearBtn   = $('gasto-search-clear');
+  if (clearBtn) clearBtn.style.display = query ? 'block' : 'none';
+
   let rows = [...gastos].sort((a, b) => b.fecha.localeCompare(a.fecha));
   if (mesFiltro) rows = rows.filter(g => g.fecha.slice(0,7) === mesFiltro);
   if (catFiltro) rows = rows.filter(g => g.cat === catFiltro);
+  if (query) rows = rows.filter(g =>
+    (g.concepto || '').toLowerCase().includes(query) ||
+    (g.cat      || '').toLowerCase().includes(query) ||
+    (g.notas    || '').toLowerCase().includes(query) ||
+    String(g.monto || '').includes(query)
+  );
   if (!rows.length) {
-    el.innerHTML = emptyState('gastos', 'Sin gastos registrados', 'Tocá + Gasto para agregar el primero');
+    el.innerHTML = query
+      ? emptyState('chart', 'Sin resultados', `No hay gastos que coincidan con "${query}"`)
+      : emptyState('gastos', 'Sin gastos registrados', 'Tocá + Gasto para agregar el primero');
     return;
   }
-  el.innerHTML = `<table class="panel-table"><thead><tr>
-    <th>Fecha</th><th>Descripción</th>
-    <th class="col-hide-mobile">Categoría</th>
-    <th class="col-hide-mobile">Medio</th>
-    <th>Monto</th>
-    <th class="col-hide-mobile">Cuotas</th>
-    <th class="col-hide-mobile">Notas</th>
-    <th></th>
-  </tr></thead><tbody>` +
-  rows.map(g => `
-    <tr id="gasto-row-${g.id}">
-      <td style="color:var(--text3);font-size:0.8rem;white-space:nowrap">${g.fecha}</td>
-      <td>
-        <div style="font-weight:600;color:var(--text2)">${escHtml(g.desc)}</div>
-        <div class="col-show-mobile" style="margin-top:3px;gap:4px;flex-wrap:wrap;align-items:center">
-          <span class="badge badge-cat" style="font-size:0.62rem;background:${catColor(g.cat)}22;color:${catColor(g.cat)}">${escHtml(g.cat)}</span>
-          ${g.medio ? `<span class="badge badge-medio" style="font-size:0.62rem">${escHtml(g.medio)}</span>` : ''}
-          ${g.cuota ? `<span class="badge badge-cuota" style="font-size:0.62rem">${g.ncuotas}x $${fmt(g.montoXcuota)}</span>` : ''}
-        </div>
-      </td>
-      <td class="col-hide-mobile"><span class="badge badge-cat" style="background:${catColor(g.cat)}22;color:${catColor(g.cat)}">${escHtml(g.cat)}</span></td>
-      <td class="col-hide-mobile"><span class="badge badge-medio">${escHtml(g.medio || '—')}</span></td>
-      <td class="monto" style="white-space:nowrap${g.moneda==='USD' ? ';color:var(--accent3)' : ''}">${g.moneda==='USD' ? 'u$s ' : '$'}${fmt(g.monto)}</td>
-      <td class="col-hide-mobile">${g.cuota ? `<span class="badge badge-cuota">${g.ncuotas}x $${fmt(g.montoXcuota)}</span>` : '—'}</td>
-      <td class="col-hide-mobile" style="color:var(--text3);font-size:0.78rem">${escHtml(g.notas || '—')}</td>
-      <td style="display:flex;gap:4px">
-        <button class="btn-edit" onclick="openEditGastoModal(${g.id})">✏</button>
-        <button class="btn-del" onclick="deleteGasto(${g.id})">✕</button>
-      </td>
-    </tr>`).join('') +
-  '</tbody></table>';
+  const isMobile = window.innerWidth < 600;
+
+  if (isMobile) {
+    el.innerHTML = '<div class="gasto-cards">' +
+      rows.map(g => `
+        <div class="gasto-card row-new-wrap" id="gasto-row-${g.id}">
+          <div class="gasto-card-border" style="background:${catColor(g.cat)}"></div>
+          <div class="gasto-card-body">
+            <div class="gasto-card-top">
+              <span class="gasto-card-desc">${escHtml(g.desc)}</span>
+              <span class="gasto-card-monto${g.moneda==='USD' ? ' usd' : ''}">${g.moneda==='USD' ? 'u$s ' : '$'}${fmt(g.monto)}</span>
+            </div>
+            <div class="gasto-card-meta">
+              <span class="badge badge-cat" style="background:${catColor(g.cat)}22;color:${catColor(g.cat)}">${escHtml(g.cat)}</span>
+              ${g.medio ? `<span class="badge badge-medio">${escHtml(g.medio)}</span>` : ''}
+              ${g.cuota ? `<span class="badge badge-cuota">${g.ncuotas}x $${fmt(g.montoXcuota)}</span>` : ''}
+              <span class="gasto-card-fecha">${g.fecha.slice(5).replace('-','/')}</span>
+            </div>
+            ${g.notas ? `<div class="gasto-card-notas">${escHtml(g.notas)}</div>` : ''}
+          </div>
+          <div class="gasto-card-actions">
+            <button class="btn-edit" onclick="openEditGastoModal(${g.id})">✏</button>
+            <button class="btn-del" onclick="deleteGasto(${g.id})">✕</button>
+          </div>
+        </div>`).join('') +
+      '</div>';
+  } else {
+    el.innerHTML = `<table class="panel-table"><thead><tr>
+      <th>Fecha</th><th>Descripción</th>
+      <th>Categoría</th>
+      <th>Medio</th>
+      <th>Monto</th>
+      <th>Cuotas</th>
+      <th>Notas</th>
+      <th></th>
+    </tr></thead><tbody>` +
+    rows.map(g => `
+      <tr id="gasto-row-${g.id}">
+        <td style="color:var(--text3);font-size:0.8rem;white-space:nowrap">${g.fecha}</td>
+        <td><div style="font-weight:600;color:var(--text2)">${escHtml(g.desc)}</div></td>
+        <td><span class="badge badge-cat" style="background:${catColor(g.cat)}22;color:${catColor(g.cat)}">${escHtml(g.cat)}</span></td>
+        <td><span class="badge badge-medio">${escHtml(g.medio || '—')}</span></td>
+        <td class="monto" style="white-space:nowrap${g.moneda==='USD' ? ';color:var(--accent3)' : ''}">${g.moneda==='USD' ? 'u$s ' : '$'}${fmt(g.monto)}</td>
+        <td>${g.cuota ? `<span class="badge badge-cuota">${g.ncuotas}x $${fmt(g.montoXcuota)}</span>` : '—'}</td>
+        <td style="color:var(--text3);font-size:0.78rem">${escHtml(g.notas || '—')}</td>
+        <td style="display:flex;gap:4px">
+          <button class="btn-edit" onclick="openEditGastoModal(${g.id})">✏</button>
+          <button class="btn-del" onclick="deleteGasto(${g.id})">✕</button>
+        </td>
+      </tr>`).join('') +
+    '</tbody></table>';
+  }
 }
 
 // ---- MODAL EDITAR GASTO ----
@@ -1889,40 +1938,91 @@ function renderIngresosTable() {
     const kb = b.ymBase || b.key || '';
     return kb.localeCompare(ka);
   });
-  el.innerHTML = `<table class="panel-table"><thead><tr>
-    <th>Período</th>
-    <th class="col-hide-mobile">Sueldo</th>
-    <th class="col-hide-mobile">Otros</th>
-    <th class="col-hide-mobile">Total ARS</th>
-  </tr></thead><tbody>` +
-  sorted.map(i => {
-    const ym = i.ymBase || i.key || '';
-    const periodo = i.fecha
-      ? i.fecha.split('-').reverse().join('/')
-      : (ym ? `${MESES[parseInt(ym.slice(5,7))-1]} ${ym.slice(0,4)}` : (i.mes + ' ' + i.año));
-    const otros = i.otros || [];
-    const sueldoHtml = sueldoRowHtml(i);
-    const otrosHtml = otros.length
-      ? otros.map(o => otroIngresoRowHtml(i.id, o)).join('')
-      : (i.extra > 0 ? `<div style="font-size:0.75rem;color:var(--text2)">Extra: $${fmt(i.extra)}</div>` : '—');
-    return `<tr>
-      <td style="font-weight:600;color:var(--text2)">
-        ${periodo}
-        <div class="col-show-mobile" style="flex-direction:column;gap:2px;margin-top:4px">
-          ${sueldoHtml}
-          ${otros.length ? otros.map(o => otroIngresoRowHtml(i.id, o)).join('') : ''}
-          <div style="display:flex;justify-content:space-between;padding-top:4px;margin-top:2px;border-top:1px solid var(--border)">
-            <span style="font-size:0.7rem;color:var(--text3)">Total ARS</span>
-            <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--accent)">$${fmt(i.totalARS ?? i.total ?? 0)}</span>
+  const isMobile = window.innerWidth < 600;
+  if (isMobile) {
+    el.innerHTML = `<div class="gasto-cards">` +
+    sorted.map(i => {
+      const ym = i.ymBase || i.key || '';
+      const periodo = i.fecha
+        ? i.fecha.split('-').reverse().join('/')
+        : (ym ? `${MESES[parseInt(ym.slice(5,7))-1]} ${ym.slice(0,4)}` : (i.mes + ' ' + i.año));
+      const otros = i.otros || [];
+      const total = i.totalARS ?? i.total ?? 0;
+
+      // Build item rows (clean, no nested sub-cards)
+      let itemRows = '';
+      if (i.sueldo > 0) {
+        const nombre = i.sueldoConcepto || 'Sueldo';
+        const destino = i.sueldoDestino ? ` → <span style="color:var(--accent4)">${escHtml(i.sueldoDestino)}</span>` : '';
+        const montoStr = `${i.sueldoMoneda === 'USD' ? 'u$s ' : '$'}${fmt(i.sueldo)}`;
+        const color = i.sueldoMoneda === 'USD' ? 'var(--accent3)' : 'var(--text1)';
+        itemRows += `<div class="ing-card-item">
+          <span class="ing-card-item-name">${escHtml(nombre)}${destino}</span>
+          <span class="ing-card-item-monto" style="color:${color}">${montoStr}</span>
+          <span class="ing-card-item-btns">
+            <button onclick="editarSueldoIngreso(${i.id})">✏</button>
+            <button onclick="eliminarSueldoIngreso(${i.id})">✕</button>
+          </span>
+        </div>`;
+      }
+      otros.forEach(o => {
+        const destino = o.destino ? ` → <span style="color:var(--accent4)">${escHtml(o.destino)}</span>` : '';
+        const montoStr = `${o.moneda === 'USD' ? 'u$s ' : '$'}${fmt(o.monto)}`;
+        const color = o.moneda === 'USD' ? 'var(--accent3)' : 'var(--text1)';
+        itemRows += `<div class="ing-card-item">
+          <span class="ing-card-item-name">${escHtml(o.nombre)}${destino}</span>
+          <span class="ing-card-item-monto" style="color:${color}">${montoStr}</span>
+          <span class="ing-card-item-btns">
+            <button onclick="editarOtroIngreso(${i.id},${o.id})">✏</button>
+            <button onclick="eliminarOtroIngreso(${i.id},${o.id})">✕</button>
+          </span>
+        </div>`;
+      });
+      if (!itemRows && i.extra > 0) {
+        itemRows = `<div class="ing-card-item">
+          <span class="ing-card-item-name">Extra</span>
+          <span class="ing-card-item-monto">$${fmt(i.extra)}</span>
+        </div>`;
+      }
+
+      return `<div class="gasto-card">
+        <div class="gasto-card-border" style="background:var(--accent)"></div>
+        <div class="gasto-card-body">
+          <div class="gasto-card-top">
+            <span class="gasto-card-desc">${periodo}</span>
+            <span class="gasto-card-monto" style="color:var(--accent)">$${fmt(total)}</span>
           </div>
+          ${itemRows ? `<div class="ing-card-items">${itemRows}</div>` : ''}
         </div>
-      </td>
-      <td class="col-hide-mobile">${sueldoHtml || '—'}</td>
-      <td class="col-hide-mobile">${otrosHtml}</td>
-      <td class="monto col-hide-mobile" style="white-space:nowrap;color:var(--accent)">$${fmt(i.totalARS ?? i.total ?? 0)}</td>
-    </tr>`;
-  }).join('') +
-  '</tbody></table>';
+      </div>`;
+    }).join('') +
+    `</div>`;
+  } else {
+    el.innerHTML = `<table class="panel-table"><thead><tr>
+      <th>Período</th>
+      <th>Sueldo</th>
+      <th>Otros</th>
+      <th style="text-align:right">Total ARS</th>
+    </tr></thead><tbody>` +
+    sorted.map(i => {
+      const ym = i.ymBase || i.key || '';
+      const periodo = i.fecha
+        ? i.fecha.split('-').reverse().join('/')
+        : (ym ? `${MESES[parseInt(ym.slice(5,7))-1]} ${ym.slice(0,4)}` : (i.mes + ' ' + i.año));
+      const otros = i.otros || [];
+      const sueldoHtml = sueldoRowHtml(i);
+      const otrosHtml = otros.length
+        ? otros.map(o => otroIngresoRowHtml(i.id, o)).join('')
+        : (i.extra > 0 ? `<div style="font-size:0.75rem;color:var(--text2)">Extra: $${fmt(i.extra)}</div>` : '—');
+      return `<tr>
+        <td style="font-weight:600;color:var(--text2)">${periodo}</td>
+        <td>${sueldoHtml || '—'}</td>
+        <td>${otrosHtml}</td>
+        <td class="monto" style="text-align:right;white-space:nowrap;color:var(--accent)">$${fmt(i.totalARS ?? i.total ?? 0)}</td>
+      </tr>`;
+    }).join('') +
+    '</tbody></table>';
+  }
 }
 
 // ---- CONCEPTOS / AUTOCOMPLETADO ----
@@ -2030,7 +2130,167 @@ function agregarRendimiento(id) {
   notify('✓ Rendimiento agregado: $' + fmt(Math.abs(monto)));
 }
 
+// ---- INSIGHT DEL MES ----
+function renderInsight() {
+  const el = $('dash-insight');
+  if (!el) return;
+  const ym = selectedDashMonth;
+
+  const itemsM    = gastosDelMes(ym).filter(x => (x.moneda||'ARS') === 'ARS');
+  const totalGasto = itemsM.reduce((s, x) => s + x.monto, 0);
+  const ingM      = ingresos.filter(i => !i.esTransferencia && (i.ymBase || i.key.slice(0,7)) === ym);
+  const totalIng  = ingM.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
+  const totalAho  = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym).reduce((s, a) => s + a.monto, 0);
+  const saldo     = totalIng - totalGasto - totalAho;
+
+  function prevYm(y) {
+    const [yr, mo] = y.split('-').map(Number);
+    return mo === 1 ? `${yr-1}-12` : `${yr}-${String(mo-1).padStart(2,'0')}`;
+  }
+  const prev = prevYm(ym);
+  const gastosPrev = gastosDelMes(prev).filter(x => (x.moneda||'ARS')==='ARS').reduce((s, x) => s + x.monto, 0);
+
+  // Categoría más cara
+  const catMap = {};
+  itemsM.forEach(x => { catMap[x.cat] = (catMap[x.cat] || 0) + x.monto; });
+  const topCat = Object.entries(catMap).sort((a,b) => b[1]-a[1])[0];
+
+  // Tasa de ahorro
+  const savingRate = totalIng > 0 ? (totalAho / totalIng * 100) : 0;
+
+  // Variación de gasto vs mes anterior
+  const gastoDelta = gastosPrev > 0 ? ((totalGasto - gastosPrev) / gastosPrev * 100) : null;
+
+  // Elegir insight más relevante
+  let icon = '💡', msg = '', type = 'neutral';
+
+  if (!totalIng && !totalGasto) {
+    el.innerHTML = '';
+    return;
+  } else if (saldo < 0 && totalIng > 0) {
+    icon = '⚠️'; type = 'bad';
+    msg = `Los gastos superan los ingresos este mes por $${fmt(Math.round(Math.abs(saldo)))}`;
+  } else if (gastoDelta !== null && gastoDelta >= 30) {
+    icon = '📈'; type = 'bad';
+    msg = `Gastaste un ${Math.round(gastoDelta)}% más que el mes anterior`;
+  } else if (savingRate >= 20) {
+    icon = '🎉'; type = 'good';
+    msg = `¡Ahorraste el ${Math.round(savingRate)}% de tus ingresos este mes!`;
+  } else if (savingRate > 0 && savingRate < 5 && totalIng > 0) {
+    icon = '💰'; type = 'neutral';
+    msg = `Ahorraste solo el ${Math.round(savingRate)}% de tus ingresos — intentá llegar al 10%`;
+  } else if (topCat && topCat[1] > 0 && totalGasto > 0) {
+    const pct = Math.round(topCat[1] / totalGasto * 100);
+    icon = '🏷️'; type = 'neutral';
+    msg = `Tu mayor gasto fue <b>${escHtml(topCat[0])}</b> ($${fmt(Math.round(topCat[1]))}, ${pct}% del total)`;
+  } else if (gastoDelta !== null && gastoDelta <= -15) {
+    icon = '📉'; type = 'good';
+    msg = `Gastaste un ${Math.round(Math.abs(gastoDelta))}% menos que el mes anterior`;
+  } else {
+    el.innerHTML = '';
+    return;
+  }
+
+  el.innerHTML = `<div class="dash-insight dash-insight-${type}">${icon} <span>${msg}</span></div>`;
+}
+
+// ---- METAS DE AHORRO ----
+function toggleMetaForm() {
+  const f = $('meta-form');
+  if (!f) return;
+  const open = f.style.display === 'none';
+  f.style.display = open ? 'block' : 'none';
+  if (open) populateMetaTipo();
+}
+
+function populateMetaTipo() {
+  const sel = $('meta-tipo');
+  if (!sel) return;
+  // Categorías únicas de ahorros registrados
+  const tipos = [...new Set(ahorros.map(a => a.tipo).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Seleccionar...</option>' +
+    tipos.map(t => `<option value="${escHtml(t)}">${escHtml(t)}</option>`).join('');
+}
+
+function guardarMeta() {
+  const tipo = $('meta-tipo')?.value;
+  const monto = parseFloat($('meta-monto')?.value);
+  if (!tipo) { notify('⚠ Seleccioná una categoría'); return; }
+  if (!monto || monto <= 0) { notify('⚠ Ingresá un monto válido'); return; }
+  metasAhorro[tipo] = monto;
+  save();
+  notify('✓ Meta guardada');
+  $('meta-form').style.display = 'none';
+  renderMetasRings();
+}
+
+function deleteMeta(tipo) {
+  delete metasAhorro[tipo];
+  save();
+  renderMetasRings();
+}
+
+function renderMetasRings() {
+  const el = $('metas-rings');
+  if (!el) return;
+  const entries = Object.entries(metasAhorro);
+  if (!entries.length) {
+    el.innerHTML = `<div style="padding:1.2rem;color:var(--text3);font-size:0.82rem;text-align:center">
+      Sin metas aún — tocá "+ Meta" para agregar una
+    </div>`;
+    return;
+  }
+  // Acumulado por tipo (solo ARS)
+  const acum = {};
+  ahorros.filter(a => (a.moneda || 'ARS') === 'ARS').forEach(a => {
+    if (a.tipo) acum[a.tipo] = (acum[a.tipo] || 0) + (a.monto || 0) + (a.rendimientos || 0);
+  });
+
+  const SIZE = 56, R = 22, CIRC = 2 * Math.PI * R;
+  let newlyCompleted = false;
+  el.innerHTML = entries.map(([tipo, meta]) => {
+    const total = acum[tipo] || 0;
+    const pct = Math.min(total / meta, 1);
+    if (pct >= 1 && !_celebratedMetas.has(tipo)) {
+      _celebratedMetas.add(tipo);
+      newlyCompleted = true;
+    }
+    const offset = CIRC * (1 - pct);
+    const pctLabel = Math.round(pct * 100);
+    const done = pct >= 1;
+    const color = done ? '#18d47b' : catColor(tipo);
+    return `
+    <div class="meta-ring-row">
+      <svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" class="meta-svg">
+        <circle cx="${SIZE/2}" cy="${SIZE/2}" r="${R}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="5"/>
+        <circle cx="${SIZE/2}" cy="${SIZE/2}" r="${R}" fill="none" stroke="${color}" stroke-width="5"
+          stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"
+          stroke-linecap="round" transform="rotate(-90 ${SIZE/2} ${SIZE/2})"
+          class="meta-arc"/>
+        <text x="${SIZE/2}" y="${SIZE/2 + 4}" text-anchor="middle"
+          fill="${color}" font-size="10" font-weight="700" font-family="'Sora',sans-serif">
+          ${done ? '✓' : pctLabel + '%'}
+        </text>
+      </svg>
+      <div class="meta-ring-info">
+        <div class="meta-ring-name">${escHtml(tipo)}</div>
+        <div class="meta-ring-nums">$${fmt(Math.round(total))} <span>de $${fmt(meta)}</span></div>
+        <div class="meta-bar-track">
+          <div class="meta-bar-fill" style="width:${(pct*100).toFixed(1)}%;background:${color}"></div>
+        </div>
+      </div>
+      <button onclick="deleteMeta('${escHtml(tipo)}')" class="meta-delete-btn" title="Eliminar meta">✕</button>
+    </div>`;
+  }).join('');
+
+  if (newlyCompleted) {
+    setTimeout(launchConfetti, 400);
+    setTimeout(() => notify('🎉 ¡Meta alcanzada!'), 300);
+  }
+}
+
 function renderAhorroTable() {
+  renderMetasRings();
   const el = $('ahorro-table-body');
   if (!el) return;
   if (!ahorros.length) {
@@ -2042,30 +2302,63 @@ function renderAhorroTable() {
     const kb = b.ymBase || b.key || '';
     return kb.localeCompare(ka);
   });
-  el.innerHTML = `<table class="panel-table"><thead><tr>
-    <th>Período</th>
-    <th>Tipo</th>
-    <th>Notas</th>
-    <th style="text-align:right">Monto</th>
-    <th></th>
-  </tr></thead><tbody>` +
-  sorted.map(a => {
-    const ym = a.ymBase || a.key || '';
-    const periodo = a.fecha
-      ? a.fecha.split('-').reverse().join('/')
-      : (ym ? `${MESES[parseInt(ym.slice(5,7))-1]} ${ym.slice(0,4)}` : (a.mes + ' ' + a.año));
-    const monedaLabel = a.moneda === 'USD' ? 'u$s ' : '$';
-    const color = a.moneda === 'USD' ? 'var(--accent3)' : 'var(--accent)';
-    const rend = a.rendimientos || 0;
-    return `<tr>
-      <td style="font-weight:600;color:var(--text2)">${periodo}</td>
-      <td>${a.tipo || '—'}</td>
-      <td style="color:var(--text3);font-size:0.75rem">${a.notas || ''}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace;color:${color};font-weight:600;white-space:nowrap">${monedaLabel}${fmt(a.monto)}${rend !== 0 ? `<div style="font-size:0.68rem;color:${rend>0?'#a8ffdc':'var(--accent2)'};margin-top:2px">${rend>0?'▲':'▼'} rend: ${rend>0?'+':''}$${fmt(Math.abs(rend))}</div>` : ''}</td>
-      <td><button class="btn-del" onclick="deleteAhorro(${a.id})">✕</button></td>
-    </tr>`;
-  }).join('') +
-  '</tbody></table>';
+  const isMobile = window.innerWidth < 600;
+  if (isMobile) {
+    el.innerHTML = `<div class="gasto-cards">` +
+    sorted.map(a => {
+      const ym = a.ymBase || a.key || '';
+      const periodo = a.fecha
+        ? a.fecha.split('-').reverse().join('/')
+        : (ym ? `${MESES[parseInt(ym.slice(5,7))-1]} ${ym.slice(0,4)}` : (a.mes + ' ' + a.año));
+      const monedaLabel = a.moneda === 'USD' ? 'u$s ' : '$';
+      const color = a.moneda === 'USD' ? 'var(--accent3)' : 'var(--accent)';
+      const rend = a.rendimientos || 0;
+      const borderColor = catColor(a.tipo || 'Ahorro');
+      return `<div class="gasto-card">
+        <div class="gasto-card-border" style="background:${borderColor}"></div>
+        <div class="gasto-card-body">
+          <div class="gasto-card-top">
+            <span class="gasto-card-desc">${a.tipo || '—'}</span>
+            <span class="gasto-card-monto" style="color:${color}">${monedaLabel}${fmt(a.monto)}</span>
+          </div>
+          <div class="gasto-card-meta">
+            <span class="gasto-card-fecha">${periodo}</span>
+            ${a.notas ? `<span class="gasto-card-notas">${a.notas}</span>` : ''}
+            ${rend !== 0 ? `<span style="font-size:0.72rem;color:${rend>0?'#a8ffdc':'var(--accent2)'};">${rend>0?'▲':'▼'} rend: ${rend>0?'+':''}$${fmt(Math.abs(rend))}</span>` : ''}
+          </div>
+          <div class="gasto-card-actions">
+            <button class="btn-del" onclick="deleteAhorro(${a.id})">✕</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('') +
+    `</div>`;
+  } else {
+    el.innerHTML = `<table class="panel-table"><thead><tr>
+      <th>Período</th>
+      <th>Tipo</th>
+      <th>Notas</th>
+      <th style="text-align:right">Monto</th>
+      <th></th>
+    </tr></thead><tbody>` +
+    sorted.map(a => {
+      const ym = a.ymBase || a.key || '';
+      const periodo = a.fecha
+        ? a.fecha.split('-').reverse().join('/')
+        : (ym ? `${MESES[parseInt(ym.slice(5,7))-1]} ${ym.slice(0,4)}` : (a.mes + ' ' + a.año));
+      const monedaLabel = a.moneda === 'USD' ? 'u$s ' : '$';
+      const color = a.moneda === 'USD' ? 'var(--accent3)' : 'var(--accent)';
+      const rend = a.rendimientos || 0;
+      return `<tr>
+        <td style="font-weight:600;color:var(--text2)">${periodo}</td>
+        <td>${a.tipo || '—'}</td>
+        <td style="color:var(--text3);font-size:0.75rem">${a.notas || ''}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:${color};font-weight:600;white-space:nowrap">${monedaLabel}${fmt(a.monto)}${rend !== 0 ? `<div style="font-size:0.68rem;color:${rend>0?'#a8ffdc':'var(--accent2)'};margin-top:2px">${rend>0?'▲':'▼'} rend: ${rend>0?'+':''}$${fmt(Math.abs(rend))}</div>` : ''}</td>
+        <td><button class="btn-del" onclick="deleteAhorro(${a.id})">✕</button></td>
+      </tr>`;
+    }).join('') +
+    '</tbody></table>';
+  }
 
   // Actualizar stats de ahorro
   const ahorrosARS = ahorros.filter(a => (a.moneda||'ARS') === 'ARS');
@@ -2954,6 +3247,7 @@ function renderDashboard() {
 
   document.querySelectorAll('#tab-dashboard .cards .card').forEach(c => c.classList.remove('loading'));
   buildDashMonths();
+  renderInsight();
   const ym = selectedDashMonth;
 
   // Gastos: normales en su mes + cuotas que caen en ym
@@ -3101,6 +3395,77 @@ function renderDashboard() {
     const dataIngreso = allMonths.map(m =>
       ingresos.filter(i=>(i.ymBase||i.key.slice(0,7))===m).reduce((s,i)=>s+(i.totalARS??i.total??0),0)
     );
+
+    // Saldo evolution chart
+    const saldoCanvas = $('chart-saldo-evol');
+    if (saldoCanvas) {
+      _destroyChart('saldo-evol');
+      const saldoData = allMonths.map(m => {
+        const ing = ingresos.filter(i => !i.esTransferencia && (i.ymBase || i.key.slice(0,7)) === m)
+          .reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
+        const gas = gastosDelMes(m).filter(x => (x.moneda||'ARS')==='ARS').reduce((s, x) => s + x.monto, 0);
+        const aho = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === m).reduce((s, a) => s + a.monto, 0);
+        const adj = (ajustesCuentas || []).filter(a => a.fecha.slice(0,7) === m).reduce((s, a) => s + (a.monto || 0), 0);
+        return ing - gas - aho + adj;
+      });
+      const positiveColor = 'rgba(24,212,123,0.9)';
+      const negativeColor = 'rgba(255,79,94,0.9)';
+      _charts['saldo-evol'] = new Chart(saldoCanvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Saldo disponible',
+            data: saldoData,
+            borderColor: positiveColor,
+            borderWidth: 2.5,
+            pointBackgroundColor: saldoData.map(v => v >= 0 ? positiveColor : negativeColor),
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            fill: true,
+            backgroundColor: 'rgba(24,212,123,0.07)',
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          animation: { duration: 600, easing: 'easeOutCubic' },
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(9,16,28,0.92)',
+              borderColor: 'rgba(255,255,255,0.1)',
+              borderWidth: 1,
+              titleColor: '#f8fafc',
+              bodyColor: 'rgba(182,194,209,0.85)',
+              titleFont: { family: "'Sora', sans-serif", size: 11, weight: '600' },
+              bodyFont: { family: "'DM Mono', monospace", size: 11 },
+              padding: 10, cornerRadius: 10,
+              callbacks: { label: ctx => ` Saldo: $${fmt(ctx.parsed.y)}` }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: 'rgba(113,128,150,0.85)', font: { family: "'DM Mono', monospace", size: 10 } },
+              border: { display: false }
+            },
+            y: {
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: {
+                color: 'rgba(113,128,150,0.75)',
+                font: { family: "'DM Mono', monospace", size: 9 },
+                maxTicksLimit: 4,
+                callback: v => '$' + (Math.abs(v) >= 1000 ? Math.round(v/1000) + 'k' : fmt(v))
+              },
+              border: { display: false }
+            }
+          }
+        }
+      });
+    }
 
     _charts['monthly'] = new Chart(monthlyCanvas, {
       type: 'bar',
@@ -3805,16 +4170,16 @@ function renderDashCuotas() {
 
 function toggleCardPanel(panelId) {
   const panel = document.getElementById(panelId);
-  const icon = document.getElementById('icon-' + panelId);
-  const isOpen = panel.style.display !== 'none';
+  const icon  = document.getElementById('icon-' + panelId);
+  const isOpen = panel.classList.contains('panel-open');
   ['panel-gasto','panel-ingreso','panel-ahorro','panel-saldo','panel-saldo-usd'].forEach(id => {
     const p = document.getElementById(id);
-    if (p) p.style.display = 'none';
+    if (p) p.classList.remove('panel-open');
     const ic = document.getElementById('icon-' + id);
     if (ic) ic.classList.remove('open');
   });
   if (!isOpen) {
-    panel.style.display = 'block';
+    panel.classList.add('panel-open');
     if (icon) icon.classList.add('open');
     renderCardPanel(panelId.replace('panel-',''));
   }
@@ -4325,6 +4690,144 @@ async function borrarDatosUsuario() {
   }
 }
 
+// ---- CONFETTI ----
+const _celebratedMetas = new Set();
+
+function launchConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.style.display = 'block';
+  haptic([40, 60, 80]);
+
+  const COLORS = ['#18d47b','#38bdf8','#fbbf24','#f472b6','#a78bfa','#fb923c','#ffffff'];
+  const pieces = Array.from({ length: 120 }, () => ({
+    x: Math.random() * canvas.width,
+    y: -10 - Math.random() * 200,
+    w: 6 + Math.random() * 8,
+    h: 8 + Math.random() * 6,
+    r: Math.random() * Math.PI * 2,
+    dr: (Math.random() - 0.5) * 0.2,
+    dx: (Math.random() - 0.5) * 2.5,
+    dy: 2.5 + Math.random() * 3.5,
+    color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    alpha: 1
+  }));
+
+  let frame;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    pieces.forEach(p => {
+      p.x  += p.dx;
+      p.y  += p.dy;
+      p.r  += p.dr;
+      p.dy += 0.07; // gravedad
+      if (p.y > canvas.height * 0.7) p.alpha -= 0.025;
+      if (p.alpha <= 0) return;
+      alive = true;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.alpha);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.r);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    });
+    if (alive) {
+      frame = requestAnimationFrame(draw);
+    } else {
+      canvas.style.display = 'none';
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+  if (frame) cancelAnimationFrame(frame);
+  draw();
+}
+
+// ---- SWIPE BETWEEN TABS ----
+(function initSwipeTabs() {
+  const TAB_ORDER = ['dashboard', 'gastos', 'ingresos', 'ahorro', 'pendientes', 'ajustes'];
+  let tx = 0, ty = 0, swiping = false;
+  const MIN_X = 55;   // px mínimo horizontal
+  const MAX_Y = 40;   // px máximo vertical (para no interferir con scroll)
+
+  function currentTab() {
+    const active = document.querySelector('section.active');
+    return active ? active.id.replace('tab-', '') : 'dashboard';
+  }
+
+  document.addEventListener('touchstart', e => {
+    tx = e.touches[0].clientX;
+    ty = e.touches[0].clientY;
+    swiping = true;
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if (!swiping) return;
+    swiping = false;
+    const dx = e.changedTouches[0].clientX - tx;
+    const dy = Math.abs(e.changedTouches[0].clientY - ty);
+    if (Math.abs(dx) < MIN_X || dy > MAX_Y) return;
+    const cur = TAB_ORDER.indexOf(currentTab());
+    if (cur === -1) return;
+    const next = dx < 0
+      ? TAB_ORDER[Math.min(cur + 1, TAB_ORDER.length - 1)]
+      : TAB_ORDER[Math.max(cur - 1, 0)];
+    if (next !== currentTab()) {
+      haptic(30);
+      showTab(next);
+    }
+  }, { passive: true });
+})();
+
+// ---- PULL TO REFRESH ----
+(function initPullToRefresh() {
+  let startY = 0, pulling = false, triggered = false;
+  const THRESHOLD = 72;
+  const bar = document.getElementById('ptr-bar');
+  if (!bar) return;
+
+  document.addEventListener('touchstart', e => {
+    if (window.scrollY === 0) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+      triggered = false;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 10 && window.scrollY === 0) {
+      bar.classList.add('ptr-visible');
+    } else if (dy <= 10) {
+      bar.classList.remove('ptr-visible');
+    }
+    if (dy >= THRESHOLD && !triggered) triggered = true;
+  }, { passive: true });
+
+  document.addEventListener('touchend', async () => {
+    if (!pulling) return;
+    pulling = false;
+    if (triggered && window._currentUser) {
+      bar.classList.remove('ptr-visible');
+      bar.classList.add('ptr-loading');
+      haptic(40);
+      try {
+        await window.loadUserData(window._currentUser.uid);
+      } finally {
+        bar.classList.remove('ptr-loading');
+      }
+    } else {
+      bar.classList.remove('ptr-visible');
+    }
+    triggered = false;
+  });
+})();
+
 // ---- WINDOW EXPORTS ----
 window.renderDashboard    = renderDashboard;
 window.toggleDashCuotas = toggleDashCuotas;
@@ -4342,6 +4845,9 @@ window.renderAdminPanel       = renderAdminPanel;
 
 window.addAhorro              = addAhorro;
 window.deleteAhorro           = deleteAhorro;
+window.toggleMetaForm         = toggleMetaForm;
+window.guardarMeta            = guardarMeta;
+window.deleteMeta             = deleteMeta;
 window.agregarRendimiento     = agregarRendimiento;
 window.agregarRendimientoFondo = agregarRendimientoFondo;
 window.addPendiente           = addPendiente;
@@ -4386,6 +4892,7 @@ window.toggleCuotasIfNeeded   = toggleCuotasIfNeeded;
 
 window.addGasto               = addGasto;
 window.deleteGasto            = deleteGasto;
+window.clearGastoSearch       = clearGastoSearch;
 
 window.addIngreso             = addIngreso;
 window.editarOtroIngreso      = editarOtroIngreso;
