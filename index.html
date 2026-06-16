@@ -6,43 +6,9 @@
   <title>finanzapp</title>
 
   <!-- PWA Manifest & Icons -->
-  <script>
-(function() {
-  var icon192 = 'icon-192.png';
-  var icon512 = 'icon-512.png';
-  var manifest = {
-    name: 'finanzapp',
-    short_name: 'finanzapp',
-    description: 'Gestión de finanzas personales',
-    start_url: '/',
-    display: 'standalone',
-    background_color: '#070d16',
-    theme_color: '#18d47b',
-    icons: [
-      { src: icon192, sizes: '192x192', type: 'image/png' },
-      { src: icon512, sizes: '512x512', type: 'image/png' }
-    ]
-  };
-  var blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-  var url = URL.createObjectURL(blob);
-  var link = document.createElement('link');
-  link.rel = 'manifest';
-  link.href = url;
-  document.head.appendChild(link);
-
-  // Apple touch icon
-  var apple = document.createElement('link');
-  apple.rel = 'apple-touch-icon';
-  apple.href = icon192;
-  document.head.appendChild(apple);
-
-  // Theme color meta
-  var meta = document.createElement('meta');
-  meta.name = 'theme-color';
-  meta.content = '#18d47b';
-  document.head.appendChild(meta);
-})();
-  </script>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="theme-color" content="#18d47b">
 
   <!-- Performance: preconnect to external origins -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
