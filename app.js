@@ -1564,7 +1564,17 @@ function renderGastosTable() {
 
   let rows = [...gastos].sort((a, b) => b.fecha.localeCompare(a.fecha));
   if (mesFiltro) rows = rows.filter(g => {
-    if (g.cuota) return g.fecha.slice(0,7) === mesFiltro; // cuotas: siempre en mes de compra
+    if (g.cuota) {
+      // Cuota: aparece en cada mes donde cae un pago
+      const [fy, fm] = g.fecha.split('-').map(Number);
+      const off = g.offsetCuotas || 0;
+      for (let n = 0; n < g.ncuotas; n++) {
+        let cy = fy, cm = fm + off + n;
+        while (cm > 12) { cm -= 12; cy++; }
+        if (`${cy}-${String(cm).padStart(2,'0')}` === mesFiltro) return true;
+      }
+      return false;
+    }
     const off = g.offsetCuotas || 0;
     if (!off) return g.fecha.slice(0,7) === mesFiltro;
     // Gasto simple con offset (ej: visa pagar mes que viene)
