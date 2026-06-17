@@ -190,6 +190,46 @@ section.active {
   width: 100%;
 }
 
+.cat-chips-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 8px 0 4px;
+  scrollbar-width: none;
+}
+.cat-chips-row::-webkit-scrollbar { display: none; }
+
+.cat-chip {
+  flex-shrink: 0;
+  border: 1.5px solid var(--chip-color, var(--accent));
+  background: transparent;
+  color: var(--chip-color, var(--accent));
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-family: 'Sora', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.cat-chip.active {
+  background: var(--chip-color, var(--accent));
+  color: #0a0f18;
+  font-weight: 600;
+}
+.cat-chip-clear {
+  flex-shrink: 0;
+  border: 1.5px solid rgba(255,255,255,0.2);
+  background: transparent;
+  color: var(--text3);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-family: 'Sora', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .search-icon {
   position: absolute;
   left: 12px;
@@ -3340,6 +3380,136 @@ tr.row-new td, div.row-new {
   justify-content: center;
   gap: 4px;
   padding: 8px 8px 8px 0;
+}
+
+/* ── GASTOS RECURRENTES ── */
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.12);
+  border-radius: 20px;
+  transition: background 0.2s;
+}
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle-switch input:checked + .toggle-track {
+  background: var(--accent);
+}
+.toggle-switch input:checked + .toggle-track::after {
+  transform: translateX(16px);
+}
+
+.recurrentes-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(251,191,36,0.1);
+  border: 1px solid rgba(251,191,36,0.3);
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.recurrentes-banner:hover { background: rgba(251,191,36,0.16); }
+.recurrentes-banner-icon { font-size: 1.2rem; flex-shrink: 0; }
+.recurrentes-banner-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.recurrentes-banner-title { font-size: 0.85rem; font-weight: 600; color: #fbbf24; }
+.recurrentes-banner-sub { font-size: 0.75rem; color: var(--text3); }
+.recurrentes-banner-arrow { font-size: 1.2rem; color: #fbbf24; }
+
+.rec-modal-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.rec-modal-item:last-child { border-bottom: none; }
+.rec-modal-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.rec-modal-name { font-size: 0.88rem; font-weight: 600; color: var(--text1); }
+.rec-modal-meta { font-size: 0.75rem; color: var(--text3); }
+.rec-modal-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.rec-modal-monto { font-size: 0.78rem; color: var(--text2); font-family: 'DM Mono', monospace; }
+
+/* ── NAVEGADOR DE MES ── */
+
+.mes-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin: 4px 0 2px;
+}
+.mes-nav-btn {
+  background: none;
+  border: none;
+  color: var(--text2);
+  font-size: 1.1rem;
+  padding: 6px 14px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.15s, color 0.15s;
+}
+.mes-nav-btn:hover {
+  background: var(--surface2);
+  color: var(--accent);
+}
+.mes-nav-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text1);
+  min-width: 140px;
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+
+/* ── TOTAL AL PIE DE LISTA ── */
+
+.lista-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.lista-total-label {
+  font-size: 0.78rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.lista-total-monto {
+  font-family: 'DM Mono', monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text1);
 }
 
 /* ── INGRESOS CARD ITEMS (mobile) ── */

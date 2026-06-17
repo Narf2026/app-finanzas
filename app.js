@@ -61,29 +61,33 @@ let ajustesCuentas = [];
 let presupuestos = {}; // { "2026-06": { "Alimentación": 50000, ... }, ... }
 let presupuestosExplicitos = {}; // { "Alimentación": ["2026-06", "2026-07"], ... } — meses donde el usuario fijó el valor manualmente
 let metasAhorro = {}; // { "Viaje Europa": 1000000, "Auto": 5000000 }
+let _gastosCatChip = ''; // categoría activa en filtro de chips
+let _mesFiltro     = ''; // mes activo en navegador ('' = todos)
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 let selectedDashMonth = new Date().toISOString().slice(0,7);
 
-async function save() {
+async function save({ skipMerge = false } = {}) {
   const uid = window._currentUser?.uid;
   if (!uid) return;
   try {
-    // Fusionar con lo que haya en Firestore para no pisar cambios del bot de Telegram
     const ref = window._fbDoc(window._fbDb, 'usuarios', uid);
-    const remoteSnap = await window._fbGetDoc(ref);
-    if (remoteSnap.exists()) {
-      const remote = remoteSnap.data();
-      const mergeById = (local, remoteArr) => {
-        if (!Array.isArray(remoteArr)) return local;
-        const ids = new Set(local.map(x => String(x.id)));
-        const extra = remoteArr.filter(x => !ids.has(String(x.id)));
-        return extra.length ? [...local, ...extra] : local;
-      };
-      gastos     = mergeById(gastos, remote.gastos);
-      ingresos   = mergeById(ingresos, remote.ingresos);
-      ahorros    = mergeById(ahorros, remote.ahorros);
-      pendientes = mergeById(pendientes, remote.pendientes);
+    if (!skipMerge) {
+      // Fusionar con lo que haya en Firestore para no pisar cambios del bot de Telegram
+      const remoteSnap = await window._fbGetDoc(ref);
+      if (remoteSnap.exists()) {
+        const remote = remoteSnap.data();
+        const mergeById = (local, remoteArr) => {
+          if (!Array.isArray(remoteArr)) return local;
+          const ids = new Set(local.map(x => String(x.id)));
+          const extra = remoteArr.filter(x => !ids.has(String(x.id)));
+          return extra.length ? [...local, ...extra] : local;
+        };
+        gastos     = mergeById(gastos, remote.gastos);
+        ingresos   = mergeById(ingresos, remote.ingresos);
+        ahorros    = mergeById(ahorros, remote.ahorros);
+        pendientes = mergeById(pendientes, remote.pendientes);
+      }
     }
     await window._fbSetDoc(ref, {
       gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, presupuestos, presupuestosExplicitos, metasAhorro, email: window._currentUser.email, updatedAt: new Date().toISOString()
@@ -1054,6 +1058,7 @@ function showTab(tab) {
   document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   const tabEl = document.getElementById('tab-' + tab);
+  if (!tabEl) return;
   tabEl.classList.add('active');
   tabEl.style.animation = 'none';
   tabEl.offsetHeight; // force reflow
@@ -1184,6 +1189,7 @@ function addGasto() {
     }
   }
   const notas = $('g-notas').value.trim();
+  const recurrente = $('g-recurrente')?.checked || false;
 
   if (!fecha || !desc || !cat || !monto || monto <= 0) {
     notify('⚠ Completá fecha, descripción, categoría y monto');
@@ -1197,9 +1203,23 @@ function addGasto() {
   autoSaveNewCat(cat, 'gastos');
 
   _newRowId = Date.now();
-  gastos.push({ id: _newRowId, fecha, desc, cat, medio, monto, moneda, cuota, ncuotas: cuota ? ncuotas : 1, montoXcuota, mes, notas, offsetCuotas });
+  const nuevoGasto = { id: _newRowId, fecha, desc, cat, medio, monto, moneda, cuota, ncuotas: cuota ? ncuotas : 1, montoXcuota, mes, notas, offsetCuotas };
+  if (recurrente) nuevoGasto.recurrente = true;
+
+  // Si estaba confirmando un recurrente, registrar el mes confirmado
+  if (window._confirmandoRecurrenteId) {
+    const orig = gastos.find(g => g.id === window._confirmandoRecurrenteId);
+    if (orig) {
+      if (!orig.confirmadosMeses) orig.confirmadosMeses = [];
+      const mesActual = new Date().toISOString().slice(0,7);
+      if (!orig.confirmadosMeses.includes(mesActual)) orig.confirmadosMeses.push(mesActual);
+    }
+    window._confirmandoRecurrenteId = null;
+  }
+
+  gastos.push(nuevoGasto);
   save();
-  notify('Gasto agregado correctamente');
+  notify(recurrente ? '✓ Gasto recurrente guardado' : 'Gasto agregado correctamente');
 
   // reset
   ['g-desc','g-notas','g-cat-otro','g-monto'].forEach(id => document.getElementById(id).value = '');
@@ -1211,6 +1231,7 @@ function addGasto() {
   // Resetear radio a "Este mes"
   const radioEste = $('g-cerro');
   if (radioEste) radioEste.checked = true;
+  if ($('g-recurrente')) $('g-recurrente').checked = false;
   renderGastosTable();
   requestAnimationFrame(() => {
     const row = document.getElementById('gasto-row-' + _newRowId);
@@ -1222,7 +1243,7 @@ function addGasto() {
 function deleteGasto(id) {
   if (!confirm('¿Eliminar este gasto?')) return;
   gastos = gastos.filter(g => g.id !== id);
-  save();
+  save({ skipMerge: true });
   notify('Gasto eliminado');
   renderGastosTable();
   renderDashboard();
@@ -1236,18 +1257,189 @@ function clearGastoSearch() {
   renderGastosTable();
 }
 
+function renderRecurrentesBanner() {
+  const el = $('dash-recurrentes-banner');
+  if (!el) return;
+  const mesActual = new Date().toISOString().slice(0,7);
+  const pendientes = gastos.filter(g =>
+    g.recurrente &&
+    !(g.confirmadosMeses || []).includes(mesActual)
+  );
+  if (!pendientes.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="recurrentes-banner" onclick="abrirRecurrentes()">
+    <span class="recurrentes-banner-icon">🔁</span>
+    <div class="recurrentes-banner-text">
+      <span class="recurrentes-banner-title">${pendientes.length} gasto${pendientes.length > 1 ? 's' : ''} recurrente${pendientes.length > 1 ? 's' : ''} pendiente${pendientes.length > 1 ? 's' : ''}</span>
+      <span class="recurrentes-banner-sub">${pendientes.map(g => g.desc).join(' · ')}</span>
+    </div>
+    <span class="recurrentes-banner-arrow">›</span>
+  </div>`;
+}
+
+function abrirRecurrentes() {
+  const mesActual = new Date().toISOString().slice(0,7);
+  const pendientes = gastos.filter(g =>
+    g.recurrente &&
+    !(g.confirmadosMeses || []).includes(mesActual)
+  );
+  const lista = $('recurrentes-lista');
+  if (!lista) return;
+  if (!pendientes.length) {
+    lista.innerHTML = `<p style="color:var(--text3);font-size:0.85rem;text-align:center;padding:20px 0">Todo confirmado este mes 🎉</p>`;
+  } else {
+    lista.innerHTML = pendientes.map(g => `
+      <div class="rec-modal-item">
+        <div class="rec-modal-info">
+          <span class="rec-modal-name">${escHtml(g.desc)}</span>
+          <span class="rec-modal-meta">${escHtml(g.cat || '')}${g.medio ? ' · ' + escHtml(g.medio) : ''}</span>
+        </div>
+        <div class="rec-modal-right">
+          <span class="rec-modal-monto">~${g.moneda === 'USD' ? 'u$s ' : '$'}${fmt(g.monto)}</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn-del" title="Eliminar recurrente" onclick="eliminarRecurrente(${g.id})">✕</button>
+            <button class="btn-add" style="padding:6px 14px;font-size:0.78rem" onclick="confirmarRecurrente(${g.id})">Confirmar</button>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+  const modal = $('recurrentes-modal');
+  if (modal) { modal.style.display = 'flex'; modal.style.zIndex = '9999'; }
+}
+
+function cerrarRecurrentes() {
+  const m = $('recurrentes-modal');
+  if (m) m.style.display = 'none';
+}
+
+function eliminarRecurrente(id) {
+  if (!confirm('¿Eliminar este gasto recurrente?')) return;
+  gastos = gastos.filter(g => g.id !== id);
+  save({ skipMerge: true });
+  notify('Recurrente eliminado');
+  renderDashboard();
+  renderGastosTable();
+  // Refrescar la lista del modal
+  const mesActual = new Date().toISOString().slice(0,7);
+  const pendientes = gastos.filter(g => g.recurrente && !(g.confirmadosMeses || []).includes(mesActual));
+  const lista = $('recurrentes-lista');
+  if (lista && !pendientes.length) {
+    lista.innerHTML = `<p style="color:var(--text3);font-size:0.85rem;text-align:center;padding:20px 0">No hay recurrentes pendientes 🎉</p>`;
+  } else if (lista) {
+    abrirRecurrentes();
+  }
+}
+
+function confirmarRecurrente(id) {
+  const g = gastos.find(x => x.id === id);
+  if (!g) return;
+  cerrarRecurrentes();
+  // Precargar el formulario de gasto con los datos del recurrente
+  const hoy = new Date().toISOString().slice(0,10);
+  if ($('g-fecha')) $('g-fecha').value = hoy;
+  if ($('g-desc')) $('g-desc').value = g.desc;
+  if ($('g-notas')) $('g-notas').value = g.notas || '';
+  if ($('g-moneda')) $('g-moneda').value = g.moneda || 'ARS';
+  if ($('g-monto')) $('g-monto').value = g.monto;
+  // Categoría
+  const catSel = $('g-cat');
+  if (catSel) {
+    catSel.value = g.cat || '';
+    if (!catSel.value && g.cat) {
+      const opt = document.createElement('option');
+      opt.value = g.cat; opt.textContent = g.cat;
+      catSel.appendChild(opt);
+      catSel.value = g.cat;
+    }
+  }
+  // Medio de pago
+  const medioSel = $('g-medio');
+  if (medioSel && g.medio) medioSel.value = g.medio;
+  // Marcar que estamos confirmando este recurrente
+  window._confirmandoRecurrenteId = id;
+  // Resetear filtros para que el gasto nuevo sea visible
+  _mesFiltro = new Date().toISOString().slice(0,7);
+  _gastosCatChip = '';
+  // Ir a la tab de gastos clickeando el botón de nav directamente
+  const navBtn = document.querySelector('nav button[onclick="showTab(\'gastos\')"]');
+  if (navBtn) navBtn.click();
+  else {
+    document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+    const tabEl = document.getElementById('tab-gastos');
+    if (tabEl) tabEl.classList.add('active');
+  }
+  setTimeout(() => {
+    const montoEl = $('g-monto');
+    if (montoEl) { montoEl.focus(); montoEl.select(); }
+    notify('📋 Datos precargados — ajustá el monto y guardá');
+  }, 200);
+}
+
+function filterGastosCat(cat) {
+  _gastosCatChip = _gastosCatChip === cat ? '' : cat;
+  renderGastosTable();
+}
+
+function navMes(dir) {
+  const meses = [...new Set(gastos.map(g => g.fecha.slice(0,7)))].sort();
+  if (!meses.length) return;
+  if (!_mesFiltro) {
+    // Sin filtro: ir al más reciente (dir=1) o más antiguo (dir=-1)
+    _mesFiltro = dir > 0 ? meses[meses.length - 1] : meses[0];
+  } else {
+    const idx = meses.indexOf(_mesFiltro);
+    const next = idx + dir;
+    if (next < 0) { _mesFiltro = ''; } // ir a "todos"
+    else if (next >= meses.length) { _mesFiltro = ''; }
+    else { _mesFiltro = meses[next]; }
+  }
+  _gastosCatChip = '';
+  renderGastosTable();
+}
+
 function renderGastosTable() {
   const el = $('gastos-table-body');
   if (!el) return;
-  const mesFiltro  = $('filter-mes')?.value  || '';
+  const mesFiltro  = _mesFiltro;
   const catFiltro  = $('filter-cat')?.value  || '';
   const query      = ($('gasto-search')?.value || '').toLowerCase().trim();
   const clearBtn   = $('gasto-search-clear');
   if (clearBtn) clearBtn.style.display = query ? 'block' : 'none';
 
+  // Actualizar label del navegador de mes
+  const navLabel = $('mes-nav-label');
+  if (navLabel) {
+    navLabel.textContent = mesFiltro
+      ? `${MESES[parseInt(mesFiltro.slice(5,7))-1]} ${mesFiltro.slice(0,4)}`
+      : 'Todos los meses';
+  }
+
   let rows = [...gastos].sort((a, b) => b.fecha.localeCompare(a.fecha));
   if (mesFiltro) rows = rows.filter(g => g.fecha.slice(0,7) === mesFiltro);
   if (catFiltro) rows = rows.filter(g => g.cat === catFiltro);
+
+  // Renderizar chips de categoría con las cats presentes en rows
+  const chipsEl = $('cat-chips');
+  if (chipsEl) {
+    const cats = [...new Set(rows.map(g => g.cat).filter(Boolean))].sort();
+    if (cats.length > 1) {
+      chipsEl.innerHTML = `<div class="cat-chips-row">` +
+        cats.map(cat => {
+          const color = catColor(cat);
+          const active = _gastosCatChip === cat;
+          return `<button class="cat-chip${active ? ' active' : ''}" style="--chip-color:${color}" onclick="filterGastosCat('${cat.replace(/'/g,"\\'")}')">
+            ${escHtml(cat)}
+          </button>`;
+        }).join('') +
+        ((_gastosCatChip) ? `<button class="cat-chip-clear" onclick="filterGastosCat('')">✕ Limpiar</button>` : '') +
+        `</div>`;
+    } else {
+      chipsEl.innerHTML = '';
+    }
+  }
+
+  // Aplicar filtro de chip
+  if (_gastosCatChip) rows = rows.filter(g => g.cat === _gastosCatChip);
+
   if (query) rows = rows.filter(g =>
     (g.concepto || '').toLowerCase().includes(query) ||
     (g.cat      || '').toLowerCase().includes(query) ||
@@ -1255,8 +1447,8 @@ function renderGastosTable() {
     String(g.monto || '').includes(query)
   );
   if (!rows.length) {
-    el.innerHTML = query
-      ? emptyState('chart', 'Sin resultados', `No hay gastos que coincidan con "${query}"`)
+    el.innerHTML = (_gastosCatChip || query)
+      ? emptyState('chart', 'Sin resultados', 'No hay gastos que coincidan con el filtro')
       : emptyState('gastos', 'Sin gastos registrados', 'Tocá + Gasto para agregar el primero');
     return;
   }
@@ -1312,6 +1504,17 @@ function renderGastosTable() {
       </tr>`).join('') +
     '</tbody></table>';
   }
+
+  // Total al pie
+  const totalARS = rows.filter(g => (g.moneda||'ARS') === 'ARS').reduce((s,g) => s + (g.monto||0), 0);
+  const totalUSD = rows.filter(g => g.moneda === 'USD').reduce((s,g) => s + (g.monto||0), 0);
+  const label = rows.length === gastos.length ? 'Total' : `Total (${rows.length} registros)`;
+  el.insertAdjacentHTML('beforeend', `<div class="lista-total">
+    <span class="lista-total-label">${label}</span>
+    <span class="lista-total-monto">
+      $${fmt(totalARS)}${totalUSD > 0 ? ` <span style="color:var(--accent3);margin-left:8px">u$s ${fmt(totalUSD)}</span>` : ''}
+    </span>
+  </div>`);
 }
 
 // ---- MODAL EDITAR GASTO ----
@@ -1845,7 +2048,7 @@ function eliminarSueldoIngreso(id) {
   if (!(i.otros && i.otros.length)) {
     ingresos = ingresos.filter(x => x.id !== id);
   }
-  save();
+  save({ skipMerge: true });
   renderIngresosTable();
   renderSaldoCuentas();
   renderDashboard();
@@ -1919,7 +2122,7 @@ function eliminarOtroIngreso(ingresoId, otroId) {
   if ((!ing.sueldo || ing.sueldo <= 0) && !ing.otros.length) {
     ingresos = ingresos.filter(x => x.id !== ing.id);
   }
-  save();
+  save({ skipMerge: true });
   renderIngresosTable();
   renderSaldoCuentas();
   renderDashboard();
@@ -2023,6 +2226,13 @@ function renderIngresosTable() {
     }).join('') +
     '</tbody></table>';
   }
+
+  // Total al pie de ingresos
+  const totalIngARS = sorted.reduce((s,i) => s + (i.totalARS ?? i.total ?? 0), 0);
+  el.insertAdjacentHTML('beforeend', `<div class="lista-total">
+    <span class="lista-total-label">Total</span>
+    <span class="lista-total-monto" style="color:var(--accent)">$${fmt(totalIngARS)}</span>
+  </div>`);
 }
 
 // ---- CONCEPTOS / AUTOCOMPLETADO ----
@@ -2108,7 +2318,7 @@ function addAhorro() {
 function deleteAhorro(id) {
   if (!confirm('¿Eliminar este ahorro?')) return;
   ahorros = ahorros.filter(a => a.id !== id);
-  save();
+  save({ skipMerge: true });
   notify('Ahorro eliminado');
   renderAhorroTable();
   renderSaldoCuentas();
@@ -2382,6 +2592,16 @@ function renderAhorroTable() {
   if ($('a-mejor'))     $('a-mejor').textContent     = mejorKey ? '$' + fmt(mejorVal) : '$0';
   if ($('a-mejor-mes')) $('a-mejor-mes').textContent = mejorKey ? (MESES[parseInt(mejorKey.slice(5,7))-1] + ' ' + mejorKey.slice(0,4)) : '—';
 
+  // Total al pie de ahorro
+  const totalAhoARS = ahorrosARS.reduce((s,a) => s + (a.monto||0), 0);
+  const totalAhoUSD = ahorrosUSD.reduce((s,a) => s + (a.monto||0), 0);
+  el.insertAdjacentHTML('beforeend', `<div class="lista-total">
+    <span class="lista-total-label">Total</span>
+    <span class="lista-total-monto">
+      $${fmt(totalAhoARS)}${totalAhoUSD > 0 ? ` <span style="color:var(--accent3);margin-left:8px">u$s ${fmt(totalAhoUSD)}</span>` : ''}
+    </span>
+  </div>`);
+
   renderFondos();
 }
 
@@ -2469,7 +2689,7 @@ function togglePendiente(id) {
 function deletePendiente(id) {
   if (!confirm('¿Eliminar este memo?')) return;
   pendientes = pendientes.filter(p => p.id !== id);
-  save();
+  save({ skipMerge: true });
   notify('Memo eliminado');
   renderPendientesTab();
 }
@@ -3234,6 +3454,7 @@ function renderReportes() {
 window.renderReportes = renderReportes;
 
 function renderDashboard() {
+  renderRecurrentesBanner();
   // Saludo personalizado
   const greetEl = document.getElementById('dash-greeting');
   if (greetEl) {
@@ -4893,6 +5114,12 @@ window.toggleCuotasIfNeeded   = toggleCuotasIfNeeded;
 window.addGasto               = addGasto;
 window.deleteGasto            = deleteGasto;
 window.clearGastoSearch       = clearGastoSearch;
+window.filterGastosCat        = filterGastosCat;
+window.navMes                 = navMes;
+window.abrirRecurrentes       = abrirRecurrentes;
+window.cerrarRecurrentes      = cerrarRecurrentes;
+window.eliminarRecurrente     = eliminarRecurrente;
+window.confirmarRecurrente    = confirmarRecurrente;
 
 window.addIngreso             = addIngreso;
 window.editarOtroIngreso      = editarOtroIngreso;
