@@ -1198,6 +1198,10 @@ function addGasto() {
     notify('⚠ Completá fecha, descripción, categoría y monto');
     return;
   }
+  if (!medio) {
+    notify('⚠ Seleccioná un medio de pago');
+    return;
+  }
 
   const mes = MESES[parseInt(fecha.slice(5,7)) - 1];
   const montoXcuota = cuota ? +(monto / ncuotas).toFixed(2) : monto;
@@ -1373,6 +1377,33 @@ function renderRecurrentesLista() {
       <div class="rec-card-body" id="rec-body-${r.id}" style="display:none">
         <div style="font-size:0.72rem;color:var(--text3);margin-bottom:8px">Activar o desactivar por mes:</div>
         <div class="rec-meses-row">${switchesMes}</div>
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:0.72rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Editar</div>
+          <input id="rec-f-nombre-${r.id}" value="${escHtml(r.nombre)}" placeholder="Nombre"
+            style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text1);font-size:0.85rem;width:100%;box-sizing:border-box">
+          <select id="rec-f-cat-${r.id}"
+            style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text1);font-size:0.85rem;width:100%">
+            <option value="">Categoría...</option>
+            ${cats.gastos.map(c => `<option value="${escHtml(c)}"${r.cat===c?' selected':''}>${escHtml(c)}</option>`).join('')}
+          </select>
+          <select id="rec-f-medio-${r.id}"
+            style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text1);font-size:0.85rem;width:100%">
+            <option value="">Medio de pago...</option>
+            <option value="Efectivo"${r.medio==='Efectivo'?' selected':''}>💵 Efectivo</option>
+            ${tarjetas.map(t => { const n = t.label||t.nombre||t.banco; return `<option value="${escHtml(n)}"${r.medio===n?' selected':''}>${escHtml(n)}</option>`; }).join('')}
+          </select>
+          <input id="rec-f-monto-${r.id}" type="number" value="${r.monto||''}" placeholder="Monto"
+            style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text1);font-size:0.85rem;width:100%;box-sizing:border-box">
+          <select id="rec-f-moneda-${r.id}"
+            style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text1);font-size:0.85rem;width:100%">
+            <option value="ARS"${(r.moneda||'ARS')==='ARS'?' selected':''}>ARS</option>
+            <option value="USD"${r.moneda==='USD'?' selected':''}>USD</option>
+          </select>
+          <button onclick="guardarCamposRecurrente(${r.id})"
+            style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif">
+            ✓ Guardar cambios
+          </button>
+        </div>
         <div style="display:flex;justify-content:flex-end;padding:10px 0 4px">
           <button class="btn-del" style="font-size:0.78rem;padding:5px 12px" onclick="eliminarRecurrente(${r.id})">✕ Eliminar</button>
         </div>
@@ -1393,6 +1424,8 @@ function toggleRecurrenteCard(id) {
 function guardarCamposRecurrente(id) {
   const r = recurrentes.find(x => x.id === id);
   if (!r) return;
+  const nombreNuevo = document.getElementById(`rec-f-nombre-${id}`)?.value.trim();
+  if (nombreNuevo) r.nombre = nombreNuevo;
   r.monto  = parseFloat(document.getElementById(`rec-f-monto-${id}`)?.value) || 0;
   r.moneda = document.getElementById(`rec-f-moneda-${id}`)?.value || 'ARS';
   r.cat    = document.getElementById(`rec-f-cat-${id}`)?.value || '';
@@ -2174,8 +2207,8 @@ function sueldoRowHtml(i) {
     <div class="oi-main">
       <span class="oi-monto" style="font-family:'DM Mono',monospace;${i.sueldoMoneda === 'USD' ? 'color:var(--accent3)' : ''}">${montoStr}</span>
       <span class="oi-actions">
-        <button onclick="editarSueldoIngreso(${i.id})" title="Editar">✏</button>
-        <button onclick="eliminarSueldoIngreso(${i.id})" title="Eliminar">✕</button>
+        <button class="btn-edit" onclick="editarSueldoIngreso(${i.id})" title="Editar">✏</button>
+        <button class="btn-del" onclick="eliminarSueldoIngreso(${i.id})" title="Eliminar">✕</button>
       </span>
     </div>
   </div>`;
@@ -2188,8 +2221,8 @@ function otroIngresoRowHtml(ingresoId, o) {
     <div class="oi-main">
       <span class="oi-monto" style="font-family:'DM Mono',monospace;${o.moneda === 'USD' ? 'color:var(--accent3)' : ''}">${montoStr}</span>
       <span class="oi-actions">
-        <button onclick="editarOtroIngreso(${ingresoId},${o.id})" title="Editar">✏</button>
-        <button onclick="eliminarOtroIngreso(${ingresoId},${o.id})" title="Eliminar">✕</button>
+        <button class="btn-edit" onclick="editarOtroIngreso(${ingresoId},${o.id})" title="Editar">✏</button>
+        <button class="btn-del" onclick="eliminarOtroIngreso(${ingresoId},${o.id})" title="Eliminar">✕</button>
       </span>
     </div>
   </div>`;
@@ -3051,8 +3084,8 @@ function renderCatModalList() {
   el.innerHTML = lista.map((c, i) => `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:8px 12px;background:var(--surface2);border-radius:8px" id="cat-row-${i}">
       <span style="font-size:0.88rem;color:var(--text2);flex:1">${escHtml(c)}</span>
-      <button onclick="editCat(${i})" style="background:none;border:none;color:var(--text3);font-size:0.85rem;cursor:pointer;padding:2px 6px" title="Renombrar">✏</button>
-      <button onclick="deleteCat(${i})" style="background:none;border:none;color:var(--text3);font-size:0.85rem;cursor:pointer;padding:2px 6px" title="Eliminar">✕</button>
+      <button class="btn-edit" onclick="editCat(${i})" title="Renombrar">✏</button>
+      <button class="btn-del" onclick="deleteCat(${i})" title="Eliminar">✕</button>
     </div>`).join('');
 }
 
@@ -3751,9 +3784,11 @@ function renderDashboard() {
   const ajustesDelMes = (ajustesCuentas || []).filter(a => a.fecha.slice(0,7) === ym).reduce((s, a) => s + (a.monto || 0), 0);
   const saldo = totalIngreso - totalGasto - totalAhorroMes + ajustesDelMes + totalSaldoInicial;
 
+  const totalDisponible = calcTotalSaldoARS();
+
   animateValue('d-gasto', totalGasto, '$');
   animateValue('d-ingreso', totalIngreso, '$');
-  animateValue('d-saldo', saldo, '$');
+  animateValue('d-saldo', totalDisponible, '$');
   animateValue('d-ahorro', totalAhorroAcumulado, '$');
 
   // Tendencia vs mes anterior
@@ -3802,11 +3837,11 @@ function renderDashboard() {
 
   // Saldo sub label
   const subEl = $('d-saldo-sub');
-  if (subEl) subEl.textContent = totalAhorroMes > 0 ? 'ingresos - gastos - ahorro del mes' : 'ingresos - gastos del mes';
+  if (subEl) subEl.textContent = 'suma de cuentas';
 
   // Saldo color
   const saldoEl = $('d-saldo');
-  saldoEl.style.color = saldo >= 0 ? 'var(--accent)' : 'var(--accent2)';
+  saldoEl.style.color = totalDisponible >= 0 ? 'var(--accent)' : 'var(--accent2)';
 
   // Category bars (incluye cuotas del mes)
   const catMap = {};
@@ -3909,7 +3944,7 @@ function renderDashboard() {
                 color: 'rgba(113,128,150,0.75)',
                 font: { family: "'DM Mono', monospace", size: 9 },
                 maxTicksLimit: 4,
-                callback: v => '$' + (Math.abs(v) >= 1000 ? Math.round(v/1000) + 'k' : fmt(v))
+                callback: v => '$' + fmt(Math.round(v))
               },
               border: { display: false }
             }
@@ -3989,7 +4024,7 @@ function renderDashboard() {
               color: 'rgba(113,128,150,0.75)',
               font: { family: "'DM Mono', monospace", size: 9 },
               maxTicksLimit: 4,
-              callback: v => '$' + (v >= 1000 ? Math.round(v/1000) + 'k' : fmt(v))
+              callback: v => '$' + fmt(Math.round(v))
             },
             border: { display: false }
           }
@@ -4021,11 +4056,9 @@ function toggleCuentaPanel(panelId) {
   if (!isOpen) panel.style.display = 'flex';
 }
 
-function renderSaldoCuentas() {
-  const el = $('saldo-cuentas-body');
-  if (!el) return;
-
-  // Cuentas: Efectivo + billeteras + débito
+// Calcula el saldo ARS total de todas las cuentas (Efectivo + billeteras + débito).
+// Misma lógica que renderSaldoCuentas. Usado por el dashboard en "Dinero disponible".
+function _buildCuentasYSaldos() {
   const cuentas = ['Efectivo'];
   tarjetas.filter(t => t.tipo === 'billetera').forEach(t => cuentas.push(t.label || t.banco || t.nombre));
   tarjetas.filter(t => t.tipo === 'debito').forEach(t => {
@@ -4034,18 +4067,13 @@ function renderSaldoCuentas() {
     cuentas.push(lbl);
   });
 
-  // Función que normaliza el destino guardado al nombre actual de la cuenta
-  // Ej: "Débito Santander" → "CA Santander"
   const normalizarDestino = (dest) => {
     if (!dest) return '';
-    // Buscar coincidencia exacta primero
     if (cuentas.includes(dest)) return dest;
-    // Si empieza con "Débito ", intentar con "CA "
     if (dest.startsWith('Débito ')) {
       const alt = 'CA ' + dest.slice(7);
       if (cuentas.includes(alt)) return alt;
     }
-    // Buscar por banco parcial
     const match = cuentas.find(c => {
       const cn = c.toLowerCase().replace(/^ca |^débito /i, '');
       const dn = dest.toLowerCase().replace(/^ca |^débito /i, '');
@@ -4054,15 +4082,10 @@ function renderSaldoCuentas() {
     return match || dest;
   };
 
-  const mediosReales = new Set(cuentas);
-
-  // Saldo: arranca desde saldo inicial configurado en Ajustes
   const saldos = {};
   cuentas.forEach(c => { saldos[c] = { ars: saldosIniciales[c] || 0, usd: 0 }; });
-  // Cuenta especial para ingresos sin destino asignado
   saldos['__sinasignar__'] = { ars: 0, usd: 0 };
 
-  // + Ingresos acumulados (todos los meses)
   ingresos.forEach(i => {
     const dest = normalizarDestino(i.sueldoDestino || '');
     if (i.sueldo > 0) {
@@ -4078,24 +4101,19 @@ function renderSaldoCuentas() {
     });
   });
 
-  // − Gastos pagados con medios reales (no cuotas = crédito)
   gastos.forEach(g => {
     if (g.cuota) return;
     const medio = normalizarDestino(g.medio || '');
-    if (medio && saldos[medio] !== undefined) {
-      saldos[medio].ars -= g.monto;
-    }
+    if (medio && saldos[medio] !== undefined) saldos[medio].ars -= g.monto;
   });
 
-  // + Ajustes manuales (array dedicado, no afecta Dashboard)
   (ajustesCuentas || []).forEach(a => {
     const cuenta = normalizarDestino(a.cuenta);
     if (saldos[cuenta] !== undefined) saldos[cuenta].ars += a.monto;
   });
 
-  // − Base de ahorros depositados desde cada cuenta (omite los preexistentes)
   ahorros.forEach(a => {
-    if ((a.origen || '') === '__ya_lo_tenia__') return; // preexistente: ya está en saldo inicial
+    if ((a.origen || '') === '__ya_lo_tenia__') return;
     const orig = normalizarDestino(a.origen || '');
     if (orig && saldos[orig] !== undefined) {
       const base = a.monto - (a.rendimientos || 0);
@@ -4104,9 +4122,8 @@ function renderSaldoCuentas() {
     }
   });
 
-  // − Cuotas del mes actual de tarjetas de crédito (auto-débito por banco asociado)
-  const mesActual = new Date().toISOString().slice(0,7);
-  tarjetas.filter(t => (t.tipo||'credito') === 'credito').forEach(t => {
+  const mesActual = new Date().toISOString().slice(0, 7);
+  tarjetas.filter(t => (t.tipo || 'credito') === 'credito').forEach(t => {
     const nombreTarjeta = t.label || t.nombre || t.banco;
     const caDebito = tarjetas.find(d => d.tipo === 'debito' && d.banco === t.banco);
     if (!caDebito) return;
@@ -4114,9 +4131,26 @@ function renderSaldoCuentas() {
     if (caLabel.startsWith('Débito ')) caLabel = 'CA ' + caLabel.slice(7);
     const caKey = normalizarDestino(caLabel);
     if (saldos[caKey] === undefined) return;
-    const cuotasMes = calcularTotalTarjetaMes(nombreTarjeta, mesActual);
-    saldos[caKey].ars -= cuotasMes;
+    saldos[caKey].ars -= calcularTotalTarjetaMes(nombreTarjeta, mesActual);
   });
+
+  return { cuentas, saldos, normalizarDestino };
+}
+
+function calcTotalSaldoARS() {
+  const { saldos } = _buildCuentasYSaldos();
+  return Object.entries(saldos)
+    .filter(([k]) => k !== '__sinasignar__')
+    .reduce((s, [, v]) => s + v.ars, 0);
+}
+
+function renderSaldoCuentas() {
+  const el = $('saldo-cuentas-body');
+  if (!el) return;
+
+  const { cuentas, saldos, normalizarDestino } = _buildCuentasYSaldos();
+
+  const mediosReales = new Set(cuentas);
 
   // Construir options de destino para panel Mover
   const opcionesDestino = (excluir) => cuentas
@@ -4294,7 +4328,7 @@ function renderSaldoCuentas() {
               <div style="font-size:0.75rem;color:var(--text2)">${a.fecha} · $${a.saldoAntes?.toLocaleString('es-AR')} → $${a.saldoDespues?.toLocaleString('es-AR')}</div>
               <div style="font-size:0.7rem;color:${a.monto>0?'var(--accent)':'var(--accent2)'}">${a.monto>0?'+':''}$${fmt(Math.abs(a.monto))}</div>
             </div>
-            <button onclick="eliminarAjuste(${a.id})" style="background:rgba(255,79,94,0.08);border:1px solid rgba(255,79,94,0.4);color:var(--accent2);border-radius:8px;padding:9px 14px;font-size:0.82rem;cursor:pointer;min-height:44px;touch-action:manipulation">✕</button>
+            <button class="btn-del" onclick="eliminarAjuste(${a.id})">✕</button>
           </div>`).join('')}
         </div>` : ''}
       </div>
