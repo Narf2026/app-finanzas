@@ -448,7 +448,7 @@ onAuthStateChanged(auth, async (user) => {
       </div>
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
-        <input type="search" id="gasto-search" placeholder="Buscar por concepto, categoría, monto..." oninput="renderGastosTable()" autocomplete="off">
+        <input type="search" id="gasto-search" placeholder="Buscar por descripción, categoría, medio, monto..." oninput="renderGastosTable()" autocomplete="off">
         <button id="gasto-search-clear" onclick="clearGastoSearch()" style="display:none">✕</button>
       </div>
     </div>
@@ -651,15 +651,47 @@ onAuthStateChanged(auth, async (user) => {
     <small>HERRAMIENTAS ADICIONALES</small>
   </div>
 
-  <div style="display:flex;gap:8px;margin-bottom:1.2rem;flex-wrap:wrap;align-items:center">
-    <button class="month-btn" id="util-tab-recurrentes" onclick="showUtilSubtab('recurrentes',this)">🔄 Recurrentes</button>
-    <button class="month-btn" id="util-tab-lista" onclick="showUtilSubtab('lista',this)">Lista</button>
-    <button class="month-btn" id="util-tab-compartir" onclick="showUtilSubtab('compartir',this)">Compartir gastos</button>
-    <button class="month-btn" id="util-tab-cotizaciones" onclick="showUtilSubtab('cotizaciones',this)">💱 Cotizaciones</button>
-    <button class="month-btn" id="util-tab-presupuesto" onclick="showUtilSubtab('presupuesto',this)">📊 Presupuesto</button>
-    <button class="month-btn" id="util-tab-reportes" onclick="showUtilSubtab('reportes',this)">📈 Reportes</button>
-    <button class="month-btn" id="util-tab-datos" onclick="showUtilSubtab('datos',this)">💾 Datos</button>
-    <button class="month-btn" id="util-tab-telegram" onclick="showUtilSubtab('telegram',this)">🤖 Bot de Telegram</button>
+  <div class="util-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:1.4rem">
+    <button class="util-card" id="util-tab-recurrentes" onclick="showUtilSubtab('recurrentes',this)">
+      <span class="util-card-icon">🔄</span>
+      <span class="util-card-name">Recurrentes</span>
+      <span class="util-card-desc">Gastos que se repiten cada mes</span>
+    </button>
+    <button class="util-card" id="util-tab-lista" onclick="showUtilSubtab('lista',this)">
+      <span class="util-card-icon">📝</span>
+      <span class="util-card-name">Lista</span>
+      <span class="util-card-desc">Notas y gastos planificados</span>
+    </button>
+    <button class="util-card" id="util-tab-presupuesto" onclick="showUtilSubtab('presupuesto',this)">
+      <span class="util-card-icon">🎯</span>
+      <span class="util-card-name">Presupuesto</span>
+      <span class="util-card-desc">Límites de gasto por categoría</span>
+    </button>
+    <button class="util-card" id="util-tab-reportes" onclick="showUtilSubtab('reportes',this)">
+      <span class="util-card-icon">📈</span>
+      <span class="util-card-name">Reportes</span>
+      <span class="util-card-desc">Análisis y estadísticas</span>
+    </button>
+    <button class="util-card" id="util-tab-cotizaciones" onclick="showUtilSubtab('cotizaciones',this)">
+      <span class="util-card-icon">💱</span>
+      <span class="util-card-name">Cotizaciones</span>
+      <span class="util-card-desc">Tipos de cambio actualizados</span>
+    </button>
+    <button class="util-card" id="util-tab-compartir" onclick="showUtilSubtab('compartir',this)">
+      <span class="util-card-icon">👥</span>
+      <span class="util-card-name">Compartir</span>
+      <span class="util-card-desc">Gastos con otras personas</span>
+    </button>
+    <button class="util-card" id="util-tab-telegram" onclick="showUtilSubtab('telegram',this)">
+      <span class="util-card-icon">🤖</span>
+      <span class="util-card-name">Bot Telegram</span>
+      <span class="util-card-desc">Controlá la app desde Telegram</span>
+    </button>
+    <button class="util-card" id="util-tab-datos" onclick="showUtilSubtab('datos',this)">
+      <span class="util-card-icon">💾</span>
+      <span class="util-card-name">Datos</span>
+      <span class="util-card-desc">Exportar e importar información</span>
+    </button>
   </div>
 
   <!-- RECURRENTES -->
@@ -748,56 +780,58 @@ onAuthStateChanged(auth, async (user) => {
     </div>
   </div>
 
-  <div id="util-lista" style="display:none">
+  <div id="util-lista" style="display:none;padding-bottom:80px">
 
-  <div class="form-grid" style="margin-bottom:1.5rem">
-    <div class="form-group">
-      <label>Concepto</label>
-      <input type="text" id="p-desc" placeholder="ej: Pagar tarjeta Visa">
+    <!-- Buscador -->
+    <div style="position:relative;margin-bottom:1rem">
+      <input type="text" id="notas-search" placeholder="🔍 Buscar notas..."
+        oninput="renderNotasGrid()"
+        style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:11px 16px;color:var(--text1);font-size:0.9rem;box-sizing:border-box;outline:none">
     </div>
-    <div class="form-group">
-      <label>Monto estimado ($)</label>
-      <input type="number" id="p-monto" placeholder="Opcional" min="0" step="0.01">
+
+    <!-- Filtros -->
+    <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+      <button class="month-btn active" id="pf-todos" onclick="setPendienteFiltro('todos',this)">Todas</button>
+      <button class="month-btn" id="pf-pendientes" onclick="setPendienteFiltro('pendientes',this)">Pendientes</button>
+      <button class="month-btn" id="pf-completados" onclick="setPendienteFiltro('completados',this)">Listas</button>
     </div>
-    <input type="hidden" id="p-vence" value="">
-    <input type="hidden" id="p-prio" value="normal">
-    <div class="form-group" style="align-self:flex-end">
-      <button class="btn-add" onclick="addPendiente()">+ Agregar</button>
+
+    <!-- Grilla de notas -->
+    <div id="notas-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+      <!-- Las notas se renderizan acá vía JS -->
     </div>
+
   </div>
 
-  <div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:1.5rem">
-    <div class="card yellow">
-      <div class="label">Pendientes</div>
-      <div class="value" id="p-count">0</div>
+  <!-- Modal nota -->
+  <div id="nota-modal-overlay" onclick="cerrarModalNota(event)"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:300;align-items:flex-end;justify-content:center">
+    <div id="nota-modal" onclick="event.stopPropagation()"
+      style="background:#0e1826;border-radius:20px 20px 0 0;padding:1.4rem 1.2rem 2rem;width:100%;max-width:600px;max-height:88vh;overflow-y:auto;box-sizing:border-box;transform:translateY(100%);transition:transform 0.28s cubic-bezier(.34,1.2,.64,1)">
+      <div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 1.2rem"></div>
+      <!-- Selector de color -->
+      <div id="nota-colores" style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap"></div>
+      <!-- Título -->
+      <input id="nota-titulo" type="text" placeholder="Título"
+        style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);padding:8px 0;font-size:1.15rem;font-weight:700;color:var(--text1);outline:none;margin-bottom:0.8rem;box-sizing:border-box">
+      <!-- Cuerpo libre -->
+      <textarea id="nota-body" placeholder="Escribí algo..." rows="4"
+        style="width:100%;background:transparent;border:none;resize:none;font-size:0.9rem;color:var(--text2);outline:none;line-height:1.6;margin-bottom:0.8rem;box-sizing:border-box;font-family:inherit"></textarea>
+      <!-- Monto opcional -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:1.2rem">
+        <span style="font-size:0.78rem;color:var(--text3)">$ Monto (opcional)</span>
+        <input id="nota-monto" type="number" placeholder="0" min="0"
+          style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text1);font-size:0.85rem;width:130px;outline:none">
+      </div>
+      <input type="hidden" id="nota-editing-id" value="">
+      <!-- Acciones -->
+      <div style="display:flex;gap:8px">
+        <button onclick="cerrarModalNota()"
+          style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:11px;font-size:0.88rem;color:var(--text3);cursor:pointer;font-family:inherit">Cancelar</button>
+        <button onclick="guardarNota()"
+          style="flex:2;background:var(--accent);border:none;border-radius:10px;padding:11px;font-size:0.88rem;font-weight:700;color:#000;cursor:pointer;font-family:inherit">Guardar</button>
+      </div>
     </div>
-    <div class="card green">
-      <div class="label">Completados</div>
-      <div class="value" id="p-done">0</div>
-    </div>
-    <div class="card red">
-      <div class="label">Total estimado</div>
-      <div class="value" id="p-total">$0</div>
-      <div class="sub">solo pendientes</div>
-    </div>
-    <div class="card blue">
-      <div class="label">Vencidos / hoy</div>
-      <div class="value" id="p-vencidos">0</div>
-    </div>
-  </div>
-
-  <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
-    <span style="font-size:0.72rem;color:var(--text3);font-weight:600;letter-spacing:0.8px;text-transform:uppercase">Filtrar:</span>
-    <button class="month-btn active" id="pf-todos" onclick="setPendienteFiltro('todos',this)">Todos</button>
-    <button class="month-btn" id="pf-pendientes" onclick="setPendienteFiltro('pendientes',this)">Pendientes</button>
-    <button class="month-btn" id="pf-completados" onclick="setPendienteFiltro('completados',this)">Completados</button>
-    <div style="margin-left:auto">
-      <button class="btn-secondary" onclick="limpiarCompletados()" style="border-color:var(--accent2);color:var(--accent2)">🗑 Limpiar completados</button>
-    </div>
-  </div>
-
-  <div id="pendientes-list"></div>
-
   </div>
 
   <!-- COTIZACIONES -->

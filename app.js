@@ -53,6 +53,7 @@ let ingresos = [];
 let ahorros = [];
 let pendientes = [];
 let pendienteFiltro = 'todos';
+let _pendienteRegistrando = null;
 let tarjetas = JSON.parse(localStorage.getItem('gf_tarjetas') || '[]');
 let saldosIniciales = {};
 let conceptosGuardados = [];
@@ -63,7 +64,7 @@ let presupuestosExplicitos = {}; // { "Alimentación": ["2026-06", "2026-07"], .
 let metasAhorro = {}; // { "Viaje Europa": 1000000, "Auto": 5000000 }
 let recurrentes = []; // [{ id, nombre, monto, cat, medio, moneda, notas, mesesActivos: {'YYYY-MM': gastoId} }]
 let _gastosCatChip = new Set(); // categorías activas en filtro de chips
-let _mesFiltro     = ''; // mes activo en navegador ('' = todos)
+let _mesFiltro     = new Date().toISOString().slice(0,7); // arranca en mes actual
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 let selectedDashMonth = new Date().toISOString().slice(0,7);
@@ -1085,7 +1086,7 @@ function showTab(tab) {
     }
   }
   if (tab === 'dashboard') renderDashboard();
-  if (tab === 'gastos') { renderGastosTable(); populateFilters(); }
+  if (tab === 'gastos') { populateFilters(); renderGastosTable(); }
   if (tab === 'ingresos') { renderIngresosTable(); renderDestinosIngreso(); renderSaldoCuentas(); renderAjustesHistorial(); }
   if (tab === 'ahorro') { renderAhorroTable(); renderOrigenAhorro(); }
   if (tab === 'pendientes') renderPendientesTab();
@@ -1519,13 +1520,24 @@ function filterGastosCat(cat) {
 }
 
 function navMes(dir) {
-  // Lista lineal: [mes más antiguo, ..., mes actual, ''] — '' es "Todos" al final derecho
-  const meses = [...new Set(gastos.map(g => g.fecha.slice(0,7)))].sort();
+  // Lista: [meses pasados... | mes actual | '' (Todos) | meses futuros...]
+  const mesActual = new Date().toISOString().slice(0, 7);
+  const meses = [...new Set(gastos.map(g => {
+    const off = g.offsetCuotas || 0;
+    if (!off) return g.fecha.slice(0,7);
+    const [fy, fm] = g.fecha.split('-').map(Number);
+    let cm = fm + off, cy = fy;
+    while (cm > 12) { cm -= 12; cy++; }
+    return `${cy}-${String(cm).padStart(2,'0')}`;
+  }))].sort();
   if (!meses.length) return;
-  const lista = [...meses, '']; // '' = Todos al final
-  const idx = lista.indexOf(_mesFiltro);
+  const pasados  = meses.filter(m => m <= mesActual);
+  const futuros  = meses.filter(m => m > mesActual);
+  const lista = [...pasados, '', ...futuros]; // '' = Todos entre presente y futuro
+  let idx = lista.indexOf(_mesFiltro);
+  if (idx === -1) idx = lista.indexOf(mesActual); // fallback al mes actual
   const next = idx + dir;
-  if (next < 0 || next >= lista.length) return; // no hacer nada en los extremos
+  if (next < 0 || next >= lista.length) return;
   _mesFiltro = lista[next];
   _gastosCatChip = new Set();
   const scrollY = window.scrollY;
@@ -1551,7 +1563,16 @@ function renderGastosTable() {
   }
 
   let rows = [...gastos].sort((a, b) => b.fecha.localeCompare(a.fecha));
-  if (mesFiltro) rows = rows.filter(g => g.fecha.slice(0,7) === mesFiltro);
+  if (mesFiltro) rows = rows.filter(g => {
+    if (g.cuota) return g.fecha.slice(0,7) === mesFiltro; // cuotas: siempre en mes de compra
+    const off = g.offsetCuotas || 0;
+    if (!off) return g.fecha.slice(0,7) === mesFiltro;
+    // Gasto simple con offset (ej: visa pagar mes que viene)
+    const [fy, fm] = g.fecha.split('-').map(Number);
+    let cm = fm + off, cy = fy;
+    while (cm > 12) { cm -= 12; cy++; }
+    return `${cy}-${String(cm).padStart(2,'0')}` === mesFiltro;
+  });
   if (catFiltro) rows = rows.filter(g => g.cat === catFiltro);
 
   // Renderizar chips de categoría con las cats presentes en rows
@@ -1578,9 +1599,10 @@ function renderGastosTable() {
   if (_gastosCatChip.size > 0) rows = rows.filter(g => _gastosCatChip.has(g.cat));
 
   if (query) rows = rows.filter(g =>
-    (g.concepto || '').toLowerCase().includes(query) ||
-    (g.cat      || '').toLowerCase().includes(query) ||
-    (g.notas    || '').toLowerCase().includes(query) ||
+    (g.desc   || g.concepto || '').toLowerCase().includes(query) ||
+    (g.cat    || '').toLowerCase().includes(query) ||
+    (g.medio  || '').toLowerCase().includes(query) ||
+    (g.notas  || '').toLowerCase().includes(query) ||
     String(g.monto || '').includes(query)
   );
   if (!rows.length) {
@@ -1643,8 +1665,16 @@ function renderGastosTable() {
   }
 
   // Total al pie
-  const totalARS = rows.filter(g => (g.moneda||'ARS') === 'ARS').reduce((s,g) => s + (g.monto||0), 0);
-  const totalUSD = rows.filter(g => g.moneda === 'USD').reduce((s,g) => s + (g.monto||0), 0);
+  let totalARS, totalUSD;
+  if (mesFiltro) {
+    // Usar gastosDelMes que calcula correctamente cuotas y offsetCuotas
+    const items = gastosDelMes(mesFiltro);
+    totalARS = items.filter(x => (x.moneda||'ARS') === 'ARS').reduce((s,x) => s + x.monto, 0);
+    totalUSD = items.filter(x => x.moneda === 'USD').reduce((s,x) => s + x.monto, 0);
+  } else {
+    totalARS = rows.filter(g => (g.moneda||'ARS') === 'ARS').reduce((s,g) => s + (g.monto||0), 0);
+    totalUSD = rows.filter(g => g.moneda === 'USD').reduce((s,g) => s + (g.monto||0), 0);
+  }
   const label = rows.length === gastos.length ? 'Total' : `Total (${rows.length} registros)`;
   el.insertAdjacentHTML('beforeend', `<div class="lista-total">
     <span class="lista-total-label">${label}</span>
@@ -1702,10 +1732,16 @@ function saveEditGastoModal() {
 function populateFilters() {
   // Inicializar navegador al mes actual si hay gastos en ese mes
   const mesActual = new Date().toISOString().slice(0,7);
-  const tieneGastosEsteMes = gastos.some(g => g.fecha.slice(0,7) === mesActual);
-  if (!_mesFiltro) _mesFiltro = tieneGastosEsteMes ? mesActual : '';
+  if (!_mesFiltro) _mesFiltro = mesActual;
 
-  const meses = [...new Set(gastos.map(g => g.fecha.slice(0,7)))].sort().reverse();
+  const meses = [...new Set(gastos.map(g => {
+    const off = g.offsetCuotas || 0;
+    if (!off) return g.fecha.slice(0,7);
+    const [fy, fm] = g.fecha.split('-').map(Number);
+    let cm = fm + off, cy = fy;
+    while (cm > 12) { cm -= 12; cy++; }
+    return `${cy}-${String(cm).padStart(2,'0')}`;
+  }))].sort().reverse();
   const mesSel = $('filter-mes');
   if (mesSel) {
     const val = mesSel.value;
@@ -2875,93 +2911,249 @@ function confirmarRescate() {
 
 // ---- PENDIENTES (MEMO) ----
 
-function addPendiente() {
-  const desc  = $('p-desc').value.trim();
-  const monto = parseFloat($('p-monto').value) || 0;
-  if (!desc) { notify('⚠ Ingresá una descripción'); return; }
-  pendientes.push({
-    id: Date.now(), desc, monto,
-    estado: 'pendiente',
-    fecha: new Date().toISOString().slice(0,10)
-  });
+const NOTA_COLORS = [
+  { id: 'default', bg: 'var(--surface)',              border: 'var(--border)',              dot: '#555' },
+  { id: 'yellow',  bg: 'rgba(245,184,46,0.15)',       border: 'rgba(245,184,46,0.4)',       dot: '#f5b82e' },
+  { id: 'green',   bg: 'rgba(24,212,123,0.13)',       border: 'rgba(24,212,123,0.38)',      dot: '#18d47b' },
+  { id: 'blue',    bg: 'rgba(59,130,246,0.13)',       border: 'rgba(59,130,246,0.38)',      dot: '#3b82f6' },
+  { id: 'purple',  bg: 'rgba(168,85,247,0.13)',       border: 'rgba(168,85,247,0.38)',      dot: '#a855f7' },
+  { id: 'red',     bg: 'rgba(255,79,94,0.13)',        border: 'rgba(255,79,94,0.38)',       dot: '#ff4f5e' },
+];
+
+function _notaColor(id) {
+  return NOTA_COLORS.find(c => c.id === id) || NOTA_COLORS[0];
+}
+
+let _notaColorSeleccionado = 'default';
+
+function abrirModalNota(id) {
+  const overlay = $('nota-modal-overlay');
+  const modal   = $('nota-modal');
+  if (!overlay || !modal) return;
+
+  _notaColorSeleccionado = 'default';
+  $('nota-titulo').value = '';
+  $('nota-body').value   = '';
+  $('nota-monto').value  = '';
+  $('nota-editing-id').value = '';
+
+  if (id) {
+    const p = pendientes.find(x => x.id === id);
+    if (p) {
+      $('nota-titulo').value = p.desc || '';
+      $('nota-body').value   = p.body || '';
+      $('nota-monto').value  = p.monto || '';
+      $('nota-editing-id').value = id;
+      _notaColorSeleccionado = p.color || 'default';
+    }
+  }
+
+  _renderColorPicker();
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    modal.style.transform = 'translateY(0)';
+    $('nota-titulo').focus();
+  }));
+}
+
+function _renderColorPicker() {
+  const el = $('nota-colores');
+  if (!el) return;
+  el.innerHTML = NOTA_COLORS.map(c => `
+    <div onclick="_selectNotaColor('${c.id}')" id="nc-${c.id}"
+      style="width:28px;height:28px;border-radius:50%;background:${c.dot};cursor:pointer;
+             border:3px solid ${_notaColorSeleccionado === c.id ? '#fff' : 'transparent'};
+             box-shadow:${_notaColorSeleccionado === c.id ? '0 0 0 2px '+c.dot : 'none'};
+             transition:all 0.15s;flex-shrink:0"></div>
+  `).join('');
+}
+
+function _selectNotaColor(id) {
+  _notaColorSeleccionado = id;
+  _renderColorPicker();
+}
+
+function cerrarModalNota(e) {
+  if (e && e.target !== $('nota-modal-overlay')) return;
+  const modal = $('nota-modal');
+  if (modal) modal.style.transform = 'translateY(100%)';
+  setTimeout(() => {
+    const overlay = $('nota-modal-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }, 280);
+}
+
+function guardarNota() {
+  const titulo = $('nota-titulo').value.trim();
+  const body   = $('nota-body').value.trim();
+  const monto  = parseFloat($('nota-monto').value) || 0;
+  if (!titulo && !body) { notify('⚠ Escribí algo'); return; }
+
+  const editingId = parseInt($('nota-editing-id').value) || null;
+  if (editingId) {
+    const p = pendientes.find(x => x.id === editingId);
+    if (p) {
+      p.desc  = titulo || body.slice(0, 40);
+      p.body  = body;
+      p.monto = monto;
+      p.color = _notaColorSeleccionado;
+    }
+  } else {
+    pendientes.push({
+      id: Date.now(),
+      desc:  titulo || body.slice(0, 40),
+      body,
+      monto,
+      color: _notaColorSeleccionado,
+      estado: 'pendiente',
+      fecha:  new Date().toISOString().slice(0,10)
+    });
+  }
+
   save();
-  $('p-desc').value = '';
-  $('p-monto').value = '';
-  notify('Memo agregado');
-  renderPendientesTab();
+  cerrarModalNota();
+  notify('✓ Nota guardada');
+  setTimeout(renderNotasGrid, 300);
 }
 
 function togglePendiente(id) {
   const p = pendientes.find(x => x.id === id);
   if (!p) return;
-  p.estado = p.estado === 'completado' ? 'pendiente' : 'completado';
+  const completando = p.estado !== 'completado';
+  p.estado = completando ? 'completado' : 'pendiente';
+  if (completando && p.monto > 0) {
+    _pendienteRegistrando = id;
+  } else {
+    if (_pendienteRegistrando === id) _pendienteRegistrando = null;
+  }
   save();
-  renderPendientesTab();
+  renderNotasGrid();
+}
+
+function registrarPendienteComoGasto(id) {
+  const p = pendientes.find(x => x.id === id);
+  if (!p) return;
+  const cat   = document.getElementById(`pr-cat-${id}`)?.value;
+  const medio = document.getElementById(`pr-medio-${id}`)?.value;
+  if (!cat)   { notify('⚠ Seleccioná una categoría'); return; }
+  if (!medio) { notify('⚠ Seleccioná un medio de pago'); return; }
+  const hoy = new Date().toISOString().slice(0,10);
+  gastos.push({
+    id: Date.now(), fecha: hoy, desc: p.desc, cat, medio,
+    monto: p.monto, moneda: 'ARS', cuota: false,
+    ncuotas: 1, montoXcuota: p.monto,
+    mes: MESES[new Date().getMonth()]
+  });
+  _pendienteRegistrando = null;
+  save();
+  notify('✓ Gasto registrado');
+  renderNotasGrid();
+  renderDashboard();
+}
+
+function saltarRegistroPendiente(id) {
+  _pendienteRegistrando = null;
+  renderNotasGrid();
 }
 
 function deletePendiente(id) {
-  if (!confirm('¿Eliminar este memo?')) return;
+  if (!confirm('¿Eliminar esta nota?')) return;
   pendientes = pendientes.filter(p => p.id !== id);
+  if (_pendienteRegistrando === id) _pendienteRegistrando = null;
   save({ skipMerge: true });
-  notify('Memo eliminado');
-  renderPendientesTab();
+  notify('Nota eliminada');
+  renderNotasGrid();
 }
+
+function addPendiente() { abrirModalNota(null); }
 
 function limpiarCompletados() {
   const n = pendientes.filter(p => p.estado === 'completado').length;
-  if (!n) { notify('No hay completados'); return; }
-  if (!confirm(`¿Eliminar ${n} completado${n>1?'s':''}?`)) return;
+  if (!n) { notify('No hay notas listas'); return; }
+  if (!confirm(`¿Eliminar ${n} nota${n>1?'s':''} lista${n>1?'s':''}?`)) return;
   pendientes = pendientes.filter(p => p.estado !== 'completado');
   save();
-  notify(`${n} eliminado${n>1?'s':''}`);
-  renderPendientesTab();
+  notify(`${n} eliminada${n>1?'s':''}`);
+  renderNotasGrid();
 }
 
 function setPendienteFiltro(filtro, btn) {
   pendienteFiltro = filtro;
   document.querySelectorAll('[id^="pf-"]').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  renderPendientesTab();
+  renderNotasGrid();
 }
 
-function renderPendientesTab() {
-  const total = pendientes.length;
-  const completados = pendientes.filter(p => p.estado === 'completado').length;
-  const pendientesCount = total - completados;
-  const totalMonto = pendientes.filter(p => p.estado !== 'completado').reduce((s, p) => s + (p.monto || 0), 0);
-  const hoy = new Date().toISOString().slice(0,10);
-  const vencidos = pendientes.filter(p => p.estado !== 'completado' && p.vence && p.vence <= hoy).length;
+function renderPendientesTab() { renderNotasGrid(); }
 
-  if ($('p-count'))    $('p-count').textContent    = pendientesCount;
-  if ($('p-done'))     $('p-done').textContent     = completados;
-  if ($('p-total'))    $('p-total').textContent    = '$' + fmt(totalMonto);
-  if ($('p-vencidos')) $('p-vencidos').textContent = vencidos;
-
-  const el = $('pendientes-list');
+function renderNotasGrid() {
+  const el = $('notas-grid');
   if (!el) return;
 
+  const q = ($('notas-search')?.value || '').toLowerCase();
   let rows = [...pendientes].sort((a,b) => b.id - a.id);
   if (pendienteFiltro === 'pendientes')  rows = rows.filter(p => p.estado !== 'completado');
   if (pendienteFiltro === 'completados') rows = rows.filter(p => p.estado === 'completado');
+  if (q) rows = rows.filter(p => (p.desc||'').toLowerCase().includes(q) || (p.body||'').toLowerCase().includes(q));
 
-  if (!rows.length) {
-    el.innerHTML = '<div class="panel-empty">Sin memos aquí</div>';
-    return;
-  }
+  const catOpts  = cats.gastos.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+  const medioOpts = ['Efectivo', ...tarjetas.map(t => t.label||t.nombre||t.banco)]
+    .map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
 
-  el.innerHTML = rows.map(p => {
-    const done = p.estado === 'completado';
-    const vencido = p.vence && p.vence < hoy && !done;
-    return `<div style="display:flex;align-items:center;gap:12px;padding:1rem 1.2rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;opacity:${done?0.6:1}">
-      <input type="checkbox" class="p-check" ${done?'checked':''} onchange="togglePendiente(${p.id})">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:0.9rem;font-weight:600;color:var(--text2);text-decoration:${done?'line-through':'none'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.desc}</div>
-        <div style="font-size:0.72rem;color:var(--text3);margin-top:2px">
-          ${p.fecha || ''} ${vencido ? '<span style="color:var(--accent2);font-weight:700">· VENCIDO</span>' : ''}
+  const nuevaCard = `<div onclick="abrirModalNota(null)"
+    style="border:2px dashed var(--border);border-radius:14px;padding:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:90px;transition:border-color 0.18s"
+    onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+    <span style="font-size:1.8rem;color:var(--accent);line-height:1">+</span>
+    <span style="font-size:0.75rem;color:var(--text3)">Nueva nota</span>
+  </div>`;
+
+  const emptyMsg = !rows.length ? `<div style="grid-column:span 1;display:flex;align-items:center;justify-content:center;padding:2rem 0.5rem;color:var(--text3);font-size:0.82rem;text-align:center">${q ? 'Sin resultados' : 'Tus notas\naparecen acá'}</div>` : '';
+
+  el.innerHTML = nuevaCard + emptyMsg + rows.map(p => {
+    const done  = p.estado === 'completado';
+    const col   = _notaColor(p.color);
+    const mostrarForm = done && p.monto > 0 && _pendienteRegistrando === p.id;
+    const bodyPreview = (p.body || '').slice(0, 80) + ((p.body||'').length > 80 ? '…' : '');
+
+    return `<div onclick="abrirModalNota(${p.id})"
+      style="background:${col.bg};border:1px solid ${mostrarForm ? 'var(--accent)' : col.border};border-radius:14px;padding:14px;cursor:pointer;position:relative;opacity:${done && !mostrarForm ? 0.6 : 1};transition:transform 0.15s;active:scale(0.97)">
+
+      <!-- Checkbox done -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div onclick="event.stopPropagation();togglePendiente(${p.id})"
+          style="width:20px;height:20px;border-radius:50%;border:2px solid ${done ? 'var(--accent)' : col.border};background:${done ? 'var(--accent)' : 'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;transition:all 0.18s">
+          ${done ? '<span style="color:#000;font-size:0.7rem;font-weight:900">✓</span>' : ''}
         </div>
-        ${p.monto > 0 ? `<span style="font-family:'DM Mono',monospace;color:var(--accent);font-size:0.82rem;font-weight:700">$${fmt(p.monto)}</span>` : ''}
+        <button class="btn-del" onclick="event.stopPropagation();deletePendiente(${p.id})"
+          style="padding:3px 7px;font-size:0.7rem;min-height:24px;min-width:24px">✕</button>
       </div>
-      <button class="btn-del" onclick="deletePendiente(${p.id})" style="flex-shrink:0">✕</button>
+
+      <!-- Título -->
+      ${p.desc ? `<div style="font-size:0.92rem;font-weight:700;color:${done?'var(--text3)':'var(--text1)'};text-decoration:${done?'line-through':'none'};margin-bottom:4px;word-break:break-word;line-height:1.3">${escHtml(p.desc)}</div>` : ''}
+
+      <!-- Cuerpo -->
+      ${bodyPreview ? `<div style="font-size:0.78rem;color:var(--text3);line-height:1.5;word-break:break-word">${escHtml(bodyPreview)}</div>` : ''}
+
+      <!-- Monto -->
+      ${p.monto > 0 ? `<div style="margin-top:8px;font-family:'DM Mono',monospace;font-size:0.82rem;font-weight:700;color:var(--accent)">$${fmt(p.monto)}</div>` : ''}
+
+      <!-- Form registrar gasto -->
+      ${mostrarForm ? `
+      <div onclick="event.stopPropagation()" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div style="font-size:0.68rem;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">¿Registrar como gasto?</div>
+        <select id="pr-cat-${p.id}" style="background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;color:var(--text1);font-size:0.78rem;width:100%;margin-bottom:6px">
+          <option value="">Categoría...</option>${catOpts}
+        </select>
+        <select id="pr-medio-${p.id}" style="background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;color:var(--text1);font-size:0.78rem;width:100%;margin-bottom:8px">
+          <option value="">Medio de pago...</option>${medioOpts}
+        </select>
+        <div style="display:flex;gap:6px">
+          <button onclick="registrarPendienteComoGasto(${p.id})"
+            style="flex:1;background:var(--accent);color:#000;border:none;border-radius:7px;padding:7px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Registrar</button>
+          <button onclick="saltarRegistroPendiente(${p.id})"
+            style="flex:1;background:var(--bg2);color:var(--text3);border:1px solid var(--border);border-radius:7px;padding:7px;font-size:0.75rem;cursor:pointer;font-family:inherit">Solo listo</button>
+        </div>
+      </div>` : ''}
     </div>`;
   }).join('');
 }
@@ -4048,8 +4240,8 @@ function toggleCuentaPanel(panelId) {
   if (!panel) return;
   const isOpen = panel.style.display !== 'none';
   // Cerrar todos los paneles de esta cuenta
-  const safeC = panelId.replace(/^(ajuste-|mover-|cambio-)/, '');
-  ['ajuste-' + safeC, 'mover-' + safeC, 'cambio-' + safeC].forEach(id => {
+  const safeC = panelId.replace(/^(ajuste-|mover-|cambio-|vender-)/, '');
+  ['ajuste-' + safeC, 'mover-' + safeC, 'cambio-' + safeC, 'vender-' + safeC].forEach(id => {
     const p = document.getElementById(id);
     if (p) p.style.display = 'none';
   });
@@ -4101,8 +4293,17 @@ function _buildCuentasYSaldos() {
     });
   });
 
+  const mesActualStr = new Date().toISOString().slice(0, 7);
   gastos.forEach(g => {
     if (g.cuota) return;
+    // Si tiene offset, verificar que el mes efectivo ya llegó
+    if (g.offsetCuotas) {
+      const [fy, fm] = g.fecha.split('-').map(Number);
+      let cm = fm + g.offsetCuotas, cy = fy;
+      while (cm > 12) { cm -= 12; cy++; }
+      const mesEfectivo = `${cy}-${String(cm).padStart(2,'0')}`;
+      if (mesEfectivo > mesActualStr) return; // aún no impacta
+    }
     const medio = normalizarDestino(g.medio || '');
     if (medio && saldos[medio] !== undefined) saldos[medio].ars -= g.monto;
   });
@@ -4122,7 +4323,6 @@ function _buildCuentasYSaldos() {
     }
   });
 
-  const mesActual = new Date().toISOString().slice(0, 7);
   tarjetas.filter(t => (t.tipo || 'credito') === 'credito').forEach(t => {
     const nombreTarjeta = t.label || t.nombre || t.banco;
     const caDebito = tarjetas.find(d => d.tipo === 'debito' && d.banco === t.banco);
@@ -4131,7 +4331,7 @@ function _buildCuentasYSaldos() {
     if (caLabel.startsWith('Débito ')) caLabel = 'CA ' + caLabel.slice(7);
     const caKey = normalizarDestino(caLabel);
     if (saldos[caKey] === undefined) return;
-    saldos[caKey].ars -= calcularTotalTarjetaMes(nombreTarjeta, mesActual);
+    saldos[caKey].ars -= calcularTotalTarjetaMes(nombreTarjeta, mesActualStr);
   });
 
   return { cuentas, saldos, normalizarDestino };
@@ -4212,10 +4412,11 @@ function renderSaldoCuentas() {
             ${usd !== 0 ? `<div style="font-family:'DM Mono',monospace;font-weight:700;color:${usdColor};font-size:0.82rem">u$s ${fmt(usd)}</div>` : ''}
           </div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;margin-left:auto">
-          <button onclick="toggleCuentaPanel('ajuste-${safeC}')" style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.4);color:var(--accent3);border-radius:10px;padding:10px 12px;font-size:0.8rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation;white-space:nowrap">✏ Ajustar</button>
-          <button onclick="toggleCuentaPanel('mover-${safeC}')" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.4);color:var(--accent4);border-radius:10px;padding:10px 12px;font-size:0.8rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation;white-space:nowrap">↔ Mover</button>
-          <button onclick="toggleCuentaPanel('cambio-${safeC}')" style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.4);color:var(--accent3);border-radius:10px;padding:10px 12px;font-size:0.8rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation;white-space:nowrap">💱 USD</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%;margin-top:8px">
+          <button onclick="toggleCuentaPanel('ajuste-${safeC}')" style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.4);color:var(--accent3);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">✏ Ajustar</button>
+          <button onclick="toggleCuentaPanel('mover-${safeC}')" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.4);color:var(--accent4);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">↔ Mover</button>
+          <button onclick="toggleCuentaPanel('cambio-${safeC}')" style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.4);color:var(--accent3);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">💱 Comprar</button>
+          <button onclick="toggleCuentaPanel('vender-${safeC}')" style="background:rgba(255,184,0,0.1);border:1px solid rgba(255,184,0,0.4);color:var(--accent3);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">💵 Vender</button>
         </div>
       </div>
       <!-- Panel Detalle -->
@@ -4356,6 +4557,22 @@ function renderSaldoCuentas() {
         <button onclick="comprarUSD('${c}', '${safeC}')"
           style="background:var(--accent3);border:none;color:#0d0f14;border-radius:10px;padding:14px;font-size:0.9rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700;min-height:48px;width:100%;touch-action:manipulation">💱 Confirmar compra</button>
       </div>
+      <!-- Panel Vender USD -->
+      <div id="vender-${safeC}" style="display:none;margin-top:10px;flex-direction:column;gap:8px;background:rgba(255,184,0,0.06);border:1px solid rgba(255,184,0,0.2);border-radius:12px;padding:12px">
+        <div style="font-size:0.72rem;color:var(--accent3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Vender USD desde ${c}</div>
+        <input id="vender-usd-${safeC}" type="number" placeholder="Monto en u$s a vender" min="0" step="0.01" oninput="actualizarCotizacionVenta('${safeC}')"
+          style="background:var(--bg);border:1px solid var(--accent3);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;padding:12px 14px;outline:none;width:100%;box-sizing:border-box;min-height:46px">
+        <input id="vender-ars-${safeC}" type="number" placeholder="Monto en pesos recibido ($)" min="0" step="0.01" oninput="actualizarCotizacionVenta('${safeC}')"
+          style="background:var(--bg);border:1px solid var(--accent3);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;padding:12px 14px;outline:none;width:100%;box-sizing:border-box;min-height:46px">
+        <div id="vender-cotiz-${safeC}" style="font-size:0.72rem;color:var(--text3)">Cotización: —</div>
+        <select id="vender-destino-${safeC}"
+          style="background:var(--bg);border:1px solid var(--accent3);border-radius:10px;color:var(--text);font-family:'Sora',sans-serif;font-size:16px;padding:12px 14px;outline:none;width:100%;box-sizing:border-box;min-height:46px">
+          <option value="">→ ¿A qué cuenta van los pesos?</option>
+          ${opcionesDestino(c)}
+        </select>
+        <button onclick="venderUSD('${c}', '${safeC}')"
+          style="background:var(--accent3);border:none;color:#0d0f14;border-radius:10px;padding:14px;font-size:0.9rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700;min-height:48px;width:100%;touch-action:manipulation">💵 Confirmar venta</button>
+      </div>
     </div>`;
   }).join('') + extraRow;
 
@@ -4485,6 +4702,61 @@ function comprarUSD(origen, safeC) {
   document.getElementById('cambio-ars-' + safeC).value = '';
   document.getElementById('cambio-usd-' + safeC).value = '';
   document.getElementById('cambio-cotiz-' + safeC).textContent = 'Cotización: —';
+  renderSaldoCuentas();
+  renderDashboard();
+}
+
+function actualizarCotizacionVenta(safeC) {
+  const usd = parseFloat(document.getElementById('vender-usd-' + safeC)?.value);
+  const ars = parseFloat(document.getElementById('vender-ars-' + safeC)?.value);
+  const el = document.getElementById('vender-cotiz-' + safeC);
+  if (!el) return;
+  if (usd > 0 && ars > 0) {
+    el.textContent = `Cotización: $${(ars / usd).toLocaleString('es-AR', { maximumFractionDigits: 2 })} por dólar`;
+  } else {
+    el.textContent = 'Cotización: —';
+  }
+}
+
+function venderUSD(origen, safeC) {
+  const montoUSD = parseFloat(document.getElementById('vender-usd-' + safeC)?.value);
+  const montoARS = parseFloat(document.getElementById('vender-ars-' + safeC)?.value);
+  const destino  = document.getElementById('vender-destino-' + safeC)?.value;
+
+  if (!montoUSD || montoUSD <= 0) { notify('⚠ Ingresá el monto en u$s a vender'); return; }
+  if (!montoARS || montoARS <= 0) { notify('⚠ Ingresá el monto en pesos recibido'); return; }
+  if (!destino) { notify('⚠ Seleccioná la cuenta destino de los pesos'); return; }
+
+  const hoy = new Date().toISOString().slice(0, 10);
+  const cotiz = (montoARS / montoUSD).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+
+  // Salida en USD del origen
+  gastos.push({
+    id: Date.now(), fecha: hoy,
+    desc: `Venta de USD`, cat: 'Venta de USD',
+    medio: origen, monto: montoUSD, moneda: 'USD',
+    notas: `Cotización $${cotiz}`,
+    cuota: false, ncuotas: 1, montoXcuota: montoUSD, offsetCuotas: 0
+  });
+
+  // Entrada en ARS en la cuenta destino
+  ingresos.push({
+    id: Date.now() + 1,
+    key: hoy.slice(0, 7),
+    ymBase: hoy.slice(0, 7),
+    año: parseInt(hoy.slice(0, 4)),
+    mes: MESES[parseInt(hoy.slice(5, 7)) - 1],
+    sueldo: 0, sueldoMoneda: 'ARS', sueldoConcepto: '', sueldoDestino: '',
+    otros: [{ nombre: `Venta de USD`, monto: montoARS, moneda: 'ARS', destino }],
+    totalARS: montoARS, total: montoARS
+  });
+
+  save();
+  notify(`✓ Vendidos u$s ${fmt(montoUSD)} → $${fmt(montoARS)} en ${destino}`);
+  document.getElementById('vender-usd-' + safeC).value = '';
+  document.getElementById('vender-ars-' + safeC).value = '';
+  document.getElementById('vender-cotiz-' + safeC).textContent = 'Cotización: —';
+  document.getElementById('vender-destino-' + safeC).value = '';
   renderSaldoCuentas();
   renderDashboard();
 }
