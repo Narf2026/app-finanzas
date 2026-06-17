@@ -61,7 +61,8 @@ let ajustesCuentas = [];
 let presupuestos = {}; // { "2026-06": { "Alimentación": 50000, ... }, ... }
 let presupuestosExplicitos = {}; // { "Alimentación": ["2026-06", "2026-07"], ... } — meses donde el usuario fijó el valor manualmente
 let metasAhorro = {}; // { "Viaje Europa": 1000000, "Auto": 5000000 }
-let _gastosCatChip = ''; // categoría activa en filtro de chips
+let recurrentes = []; // [{ id, nombre, monto, cat, medio, moneda, notas, mesesActivos: {'YYYY-MM': gastoId} }]
+let _gastosCatChip = new Set(); // categorías activas en filtro de chips
 let _mesFiltro     = ''; // mes activo en navegador ('' = todos)
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -90,7 +91,7 @@ async function save({ skipMerge = false } = {}) {
       }
     }
     await window._fbSetDoc(ref, {
-      gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, presupuestos, presupuestosExplicitos, metasAhorro, email: window._currentUser.email, updatedAt: new Date().toISOString()
+      gastos, ingresos, ahorros, saldosIniciales, tarjetas, pendientes, conceptosGuardados, ajustesCuentas, presupuestos, presupuestosExplicitos, metasAhorro, recurrentes, email: window._currentUser.email, updatedAt: new Date().toISOString()
     });
   } catch(e) { console.error('Error guardando:', e); }
 }
@@ -100,7 +101,7 @@ window.loadUserData = async function(uid) {
   document.querySelectorAll('#tab-dashboard .cards .card').forEach(c => c.classList.add('loading'));
   // Resetear todo antes de cargar para evitar datos de sesiones anteriores
   gastos = []; ingresos = []; ahorros = []; saldosIniciales = {}; pendientes = [];
-  conceptosGuardados = []; otrosPendientes = []; ajustesCuentas = []; presupuestos = {}; presupuestosExplicitos = {}; metasAhorro = {};
+  conceptosGuardados = []; otrosPendientes = []; ajustesCuentas = []; presupuestos = {}; presupuestosExplicitos = {}; metasAhorro = {}; recurrentes = [];
   try {
     const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid));
     if (snap.exists()) {
@@ -122,6 +123,7 @@ window.loadUserData = async function(uid) {
       if (d.presupuestos && typeof d.presupuestos === 'object') presupuestos = d.presupuestos;
       if (d.presupuestosExplicitos && typeof d.presupuestosExplicitos === 'object') presupuestosExplicitos = d.presupuestosExplicitos;
       if (d.metasAhorro && typeof d.metasAhorro === 'object') metasAhorro = d.metasAhorro;
+      if (Array.isArray(d.recurrentes)) recurrentes = d.recurrentes;
       // Cargar tarjetas desde Firestore; si no hay, usar localStorage como fallback
       if (d.tarjetas && d.tarjetas.length > 0) {
         tarjetas = d.tarjetas;
@@ -178,6 +180,7 @@ function showUtilSubtab(sub, btn) {
   if (sub === 'cotizaciones') cargarCotizaciones();
   if (sub === 'presupuesto') renderPresupuesto();
   if (sub === 'reportes') renderReportes();
+  if (sub === 'recurrentes') renderRecurrentesLista();
 }
 
 // ---- COTIZACIONES (USD/ARS y ARS/CLP) ----
@@ -1257,143 +1260,244 @@ function clearGastoSearch() {
   renderGastosTable();
 }
 
-function renderRecurrentesBanner() {
-  const el = $('dash-recurrentes-banner');
-  if (!el) return;
-  const mesActual = new Date().toISOString().slice(0,7);
-  const pendientes = gastos.filter(g =>
-    g.recurrente &&
-    !(g.confirmadosMeses || []).includes(mesActual)
-  );
-  if (!pendientes.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="recurrentes-banner" onclick="abrirRecurrentes()">
-    <span class="recurrentes-banner-icon">🔁</span>
-    <div class="recurrentes-banner-text">
-      <span class="recurrentes-banner-title">${pendientes.length} gasto${pendientes.length > 1 ? 's' : ''} recurrente${pendientes.length > 1 ? 's' : ''} pendiente${pendientes.length > 1 ? 's' : ''}</span>
-      <span class="recurrentes-banner-sub">${pendientes.map(g => g.desc).join(' · ')}</span>
-    </div>
-    <span class="recurrentes-banner-arrow">›</span>
-  </div>`;
-}
 
-function abrirRecurrentes() {
-  const mesActual = new Date().toISOString().slice(0,7);
-  const pendientes = gastos.filter(g =>
-    g.recurrente &&
-    !(g.confirmadosMeses || []).includes(mesActual)
-  );
-  const lista = $('recurrentes-lista');
-  if (!lista) return;
-  if (!pendientes.length) {
-    lista.innerHTML = `<p style="color:var(--text3);font-size:0.85rem;text-align:center;padding:20px 0">Todo confirmado este mes 🎉</p>`;
-  } else {
-    lista.innerHTML = pendientes.map(g => `
-      <div class="rec-modal-item">
-        <div class="rec-modal-info">
-          <span class="rec-modal-name">${escHtml(g.desc)}</span>
-          <span class="rec-modal-meta">${escHtml(g.cat || '')}${g.medio ? ' · ' + escHtml(g.medio) : ''}</span>
-        </div>
-        <div class="rec-modal-right">
-          <span class="rec-modal-monto">~${g.moneda === 'USD' ? 'u$s ' : '$'}${fmt(g.monto)}</span>
-          <div style="display:flex;gap:6px;align-items:center">
-            <button class="btn-del" title="Eliminar recurrente" onclick="eliminarRecurrente(${g.id})">✕</button>
-            <button class="btn-add" style="padding:6px 14px;font-size:0.78rem" onclick="confirmarRecurrente(${g.id})">Confirmar</button>
-          </div>
-        </div>
-      </div>`).join('');
+// ---- GASTOS RECURRENTES (nueva versión) ----
+
+function abrirNuevoRecurrente() {
+  const f = $('nuevo-recurrente-form');
+  if (!f) return;
+  // Pre-cargar selects de cat y medio
+  const catSel = $('rec-cat-nuevo');
+  if (catSel) {
+    catSel.innerHTML = '<option value="">Seleccionar...</option>' +
+      (cats.gastos || []).map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
   }
-  const modal = $('recurrentes-modal');
-  if (modal) { modal.style.display = 'flex'; modal.style.zIndex = '9999'; }
+  const medioSel = $('rec-medio-nuevo');
+  if (medioSel) {
+    medioSel.innerHTML = '<option value="">Seleccionar...</option><option value="Efectivo">💵 Efectivo</option>' +
+      tarjetas.map(t => { const l = t.label||t.banco||t.nombre; return `<option value="${escHtml(l)}">${escHtml(l)}</option>`; }).join('');
+  }
+  // Default: mes actual
+  const mesEl = $('rec-mes-nuevo');
+  if (mesEl) mesEl.value = new Date().toISOString().slice(0,7);
+  f.style.display = '';
+  setTimeout(() => $('rec-nombre-nuevo')?.focus(), 50);
 }
 
-function cerrarRecurrentes() {
-  const m = $('recurrentes-modal');
-  if (m) m.style.display = 'none';
+function cerrarNuevoRecurrente() {
+  const f = $('nuevo-recurrente-form');
+  if (f) f.style.display = 'none';
+  ['rec-nombre-nuevo','rec-monto-nuevo','rec-notas-nuevo'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+}
+
+function crearRecurrente() {
+  const nombre = ($('rec-nombre-nuevo')?.value || '').trim();
+  const mes    = $('rec-mes-nuevo')?.value || new Date().toISOString().slice(0,7);
+  const monto  = parseFloat($('rec-monto-nuevo')?.value) || 0;
+  const moneda = $('rec-moneda-nuevo')?.value || 'ARS';
+  const cat    = $('rec-cat-nuevo')?.value || '';
+  const medio  = $('rec-medio-nuevo')?.value || '';
+  const notas  = $('rec-notas-nuevo')?.value.trim() || '';
+
+  if (!nombre) { notify('⚠ Ingresá un nombre'); return; }
+  if (!monto || monto <= 0) { notify('⚠ Ingresá un monto'); return; }
+  if (!cat) { notify('⚠ Seleccioná una categoría'); return; }
+
+  const gastoId = Date.now();
+  const recId   = gastoId + 1;
+
+  // Crear el primer gasto
+  const mesNum = parseInt(mes.slice(5,7));
+  gastos.push({
+    id: gastoId, fecha: `${mes}-01`,
+    desc: nombre, cat, medio, monto, moneda, notas,
+    recurrenteId: recId
+  });
+
+  // Crear el recurrente con el primer mes ya registrado
+  recurrentes.push({
+    id: recId, nombre, monto, cat, medio, moneda, notas,
+    mesesActivos: { [mes]: gastoId }
+  });
+
+  cerrarNuevoRecurrente();
+  save();
+  renderRecurrentesLista();
+  renderGastosTable();
+  notify(`✓ "${nombre}" creado — gasto de ${MESES[mesNum-1]} agregado`);
+}
+
+function renderRecurrentesLista() {
+  const el = $('recurrentes-lista-nueva');
+  if (!el) return;
+  if (!recurrentes.length) {
+    el.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text3);font-size:0.85rem">No hay gastos recurrentes. Tocá + Nuevo para crear uno.</div>`;
+    return;
+  }
+  // Mes actual + próximos 5
+  const meses = [];
+  const hoy = new Date();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 1);
+    meses.push(d.toISOString().slice(0,7));
+  }
+
+  el.innerHTML = recurrentes.map(r => {
+    const mesActual = hoy.toISOString().slice(0,7);
+    const switchesMes = meses.map(mes => {
+      const activo = !!r.mesesActivos?.[mes];
+      const label = MESES[parseInt(mes.slice(5,7))-1].slice(0,3);
+      const esActual = mes === mesActual;
+      return `<div class="rec-mes-item">
+        <span class="rec-mes-label" style="${esActual?'color:var(--accent);font-weight:700':''}">${label}</span>
+        <label class="toggle-switch" style="transform:scale(0.8)">
+          <input type="checkbox" onchange="toggleMesRecurrente(${r.id},'${mes}',this.checked)"${activo?' checked':''}>
+          <span class="toggle-track"></span>
+        </label>
+      </div>`;
+    }).join('');
+
+    const info = [r.cat, r.medio].filter(Boolean).join(' · ');
+
+    return `<div class="rec-card" id="rec-card-${r.id}">
+      <div class="rec-card-header" onclick="toggleRecurrenteCard(${r.id})">
+        <div>
+          <div class="rec-card-nombre">${escHtml(r.nombre)}</div>
+          ${info ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:2px">${escHtml(info)}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${r.monto ? `<span style="font-family:'DM Mono',monospace;font-size:0.85rem;color:var(--accent)">${r.moneda==='USD'?'u$s ':'$'}${fmt(r.monto)}</span>` : ''}
+          <span class="rec-card-arrow" id="rec-arrow-${r.id}">›</span>
+        </div>
+      </div>
+      <div class="rec-card-body" id="rec-body-${r.id}" style="display:none">
+        <div style="font-size:0.72rem;color:var(--text3);margin-bottom:8px">Activar o desactivar por mes:</div>
+        <div class="rec-meses-row">${switchesMes}</div>
+        <div style="display:flex;justify-content:flex-end;padding:10px 0 4px">
+          <button class="btn-del" style="font-size:0.78rem;padding:5px 12px" onclick="eliminarRecurrente(${r.id})">✕ Eliminar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleRecurrenteCard(id) {
+  const body  = $(`rec-body-${id}`);
+  const arrow = $(`rec-arrow-${id}`);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display  = open ? 'none' : '';
+  if (arrow) arrow.style.transform = open ? '' : 'rotate(90deg)';
+}
+
+function guardarCamposRecurrente(id) {
+  const r = recurrentes.find(x => x.id === id);
+  if (!r) return;
+  r.monto  = parseFloat(document.getElementById(`rec-f-monto-${id}`)?.value) || 0;
+  r.moneda = document.getElementById(`rec-f-moneda-${id}`)?.value || 'ARS';
+  r.cat    = document.getElementById(`rec-f-cat-${id}`)?.value || '';
+  r.medio  = document.getElementById(`rec-f-medio-${id}`)?.value || '';
+  r.notas  = document.getElementById(`rec-f-notas-${id}`)?.value || '';
+  save();
+  // Actualizar header sin re-renderizar todo
+  const montoEl = document.querySelector(`#rec-card-${id} .rec-card-header span[style*="DM Mono"]`);
+  // Re-render la lista para reflejar monto en header
+  renderRecurrentesLista();
+  // Reabrir la card que estábamos editando
+  const body = $(`rec-body-${id}`);
+  if (body) body.style.display = '';
+  const arrow = $(`rec-arrow-${id}`);
+  if (arrow) arrow.style.transform = 'rotate(90deg)';
+  notify('✓ Cambios guardados');
+}
+
+function actualizarRecurrente(id, campo, valor) {
+  const r = recurrentes.find(x => x.id === id);
+  if (!r) return;
+  r[campo] = valor;
+  save();
+}
+
+function toggleMesRecurrente(id, mes, activo) {
+  const r = recurrentes.find(x => x.id === id);
+  if (!r) return;
+  if (!r.mesesActivos) r.mesesActivos = {};
+
+  if (activo) {
+    const mesNombre = MESES[parseInt(mes.slice(5,7)) - 1];
+    const montoStr = prompt(`Monto de "${r.nombre}" en ${mesNombre}:`, r.monto || '');
+    if (montoStr === null) {
+      // Usuario canceló — restaurar el estado visual
+      renderRecurrentesLista();
+      const body = $(`rec-body-${id}`);
+      if (body) body.style.display = '';
+      const arrow = $(`rec-arrow-${id}`);
+      if (arrow) arrow.style.transform = 'rotate(90deg)';
+      return;
+    }
+    const monto = parseFloat(String(montoStr).replace(',', '.'));
+    if (isNaN(monto) || monto <= 0) {
+      notify('⚠ Monto inválido');
+      renderRecurrentesLista();
+      const body = $(`rec-body-${id}`);
+      if (body) body.style.display = '';
+      const arrow = $(`rec-arrow-${id}`);
+      if (arrow) arrow.style.transform = 'rotate(90deg)';
+      return;
+    }
+    const nuevoId = Date.now();
+    gastos.push({
+      id: nuevoId, fecha: `${mes}-01`, desc: r.nombre,
+      cat: r.cat || '', medio: r.medio || '',
+      monto, moneda: r.moneda || 'ARS', notas: r.notas || '',
+      recurrenteId: id
+    });
+    r.mesesActivos[mes] = nuevoId;
+    notify(`✓ "${r.nombre}" $${fmt(monto)} agregado en ${mesNombre}`);
+  } else {
+    const gastoId = r.mesesActivos[mes];
+    if (gastoId) gastos = gastos.filter(g => g.id !== gastoId);
+    delete r.mesesActivos[mes];
+    notify(`Gasto de ${MESES[parseInt(mes.slice(5,7))-1]} eliminado`);
+  }
+  save();
+  renderGastosTable();
 }
 
 function eliminarRecurrente(id) {
-  if (!confirm('¿Eliminar este gasto recurrente?')) return;
-  gastos = gastos.filter(g => g.id !== id);
+  const r = recurrentes.find(x => x.id === id);
+  if (!r) return;
+  if (!confirm(`¿Eliminar "${r.nombre}" y todos sus gastos generados?`)) return;
+  // Eliminar gastos generados por este recurrente
+  const ids = new Set(Object.values(r.mesesActivos || {}));
+  if (ids.size) gastos = gastos.filter(g => !ids.has(g.id));
+  recurrentes = recurrentes.filter(x => x.id !== id);
   save({ skipMerge: true });
-  notify('Recurrente eliminado');
-  renderDashboard();
+  renderRecurrentesLista();
   renderGastosTable();
-  // Refrescar la lista del modal
-  const mesActual = new Date().toISOString().slice(0,7);
-  const pendientes = gastos.filter(g => g.recurrente && !(g.confirmadosMeses || []).includes(mesActual));
-  const lista = $('recurrentes-lista');
-  if (lista && !pendientes.length) {
-    lista.innerHTML = `<p style="color:var(--text3);font-size:0.85rem;text-align:center;padding:20px 0">No hay recurrentes pendientes 🎉</p>`;
-  } else if (lista) {
-    abrirRecurrentes();
-  }
-}
-
-function confirmarRecurrente(id) {
-  const g = gastos.find(x => x.id === id);
-  if (!g) return;
-  cerrarRecurrentes();
-  // Precargar el formulario de gasto con los datos del recurrente
-  const hoy = new Date().toISOString().slice(0,10);
-  if ($('g-fecha')) $('g-fecha').value = hoy;
-  if ($('g-desc')) $('g-desc').value = g.desc;
-  if ($('g-notas')) $('g-notas').value = g.notas || '';
-  if ($('g-moneda')) $('g-moneda').value = g.moneda || 'ARS';
-  if ($('g-monto')) $('g-monto').value = g.monto;
-  // Categoría
-  const catSel = $('g-cat');
-  if (catSel) {
-    catSel.value = g.cat || '';
-    if (!catSel.value && g.cat) {
-      const opt = document.createElement('option');
-      opt.value = g.cat; opt.textContent = g.cat;
-      catSel.appendChild(opt);
-      catSel.value = g.cat;
-    }
-  }
-  // Medio de pago
-  const medioSel = $('g-medio');
-  if (medioSel && g.medio) medioSel.value = g.medio;
-  // Marcar que estamos confirmando este recurrente
-  window._confirmandoRecurrenteId = id;
-  // Resetear filtros para que el gasto nuevo sea visible
-  _mesFiltro = new Date().toISOString().slice(0,7);
-  _gastosCatChip = '';
-  // Ir a la tab de gastos clickeando el botón de nav directamente
-  const navBtn = document.querySelector('nav button[onclick="showTab(\'gastos\')"]');
-  if (navBtn) navBtn.click();
-  else {
-    document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
-    const tabEl = document.getElementById('tab-gastos');
-    if (tabEl) tabEl.classList.add('active');
-  }
-  setTimeout(() => {
-    const montoEl = $('g-monto');
-    if (montoEl) { montoEl.focus(); montoEl.select(); }
-    notify('📋 Datos precargados — ajustá el monto y guardá');
-  }, 200);
+  notify('Recurrente eliminado');
 }
 
 function filterGastosCat(cat) {
-  _gastosCatChip = _gastosCatChip === cat ? '' : cat;
+  if (cat === '') { _gastosCatChip = new Set(); }
+  else if (_gastosCatChip.has(cat)) { _gastosCatChip.delete(cat); }
+  else { _gastosCatChip.add(cat); }
   renderGastosTable();
 }
 
 function navMes(dir) {
+  // Lista lineal: [mes más antiguo, ..., mes actual, ''] — '' es "Todos" al final derecho
   const meses = [...new Set(gastos.map(g => g.fecha.slice(0,7)))].sort();
   if (!meses.length) return;
-  if (!_mesFiltro) {
-    // Sin filtro: ir al más reciente (dir=1) o más antiguo (dir=-1)
-    _mesFiltro = dir > 0 ? meses[meses.length - 1] : meses[0];
-  } else {
-    const idx = meses.indexOf(_mesFiltro);
-    const next = idx + dir;
-    if (next < 0) { _mesFiltro = ''; } // ir a "todos"
-    else if (next >= meses.length) { _mesFiltro = ''; }
-    else { _mesFiltro = meses[next]; }
-  }
-  _gastosCatChip = '';
+  const lista = [...meses, '']; // '' = Todos al final
+  const idx = lista.indexOf(_mesFiltro);
+  const next = idx + dir;
+  if (next < 0 || next >= lista.length) return; // no hacer nada en los extremos
+  _mesFiltro = lista[next];
+  _gastosCatChip = new Set();
+  const scrollY = window.scrollY;
   renderGastosTable();
+  window.scrollTo({ top: scrollY, behavior: 'instant' });
 }
 
 function renderGastosTable() {
@@ -1425,12 +1529,12 @@ function renderGastosTable() {
       chipsEl.innerHTML = `<div class="cat-chips-row">` +
         cats.map(cat => {
           const color = catColor(cat);
-          const active = _gastosCatChip === cat;
+          const active = _gastosCatChip.has(cat);
           return `<button class="cat-chip${active ? ' active' : ''}" style="--chip-color:${color}" onclick="filterGastosCat('${cat.replace(/'/g,"\\'")}')">
             ${escHtml(cat)}
           </button>`;
         }).join('') +
-        ((_gastosCatChip) ? `<button class="cat-chip-clear" onclick="filterGastosCat('')">✕ Limpiar</button>` : '') +
+        (_gastosCatChip.size > 0 ? `<button class="cat-chip-clear" onclick="filterGastosCat('')">✕ Limpiar</button>` : '') +
         `</div>`;
     } else {
       chipsEl.innerHTML = '';
@@ -1438,7 +1542,7 @@ function renderGastosTable() {
   }
 
   // Aplicar filtro de chip
-  if (_gastosCatChip) rows = rows.filter(g => g.cat === _gastosCatChip);
+  if (_gastosCatChip.size > 0) rows = rows.filter(g => _gastosCatChip.has(g.cat));
 
   if (query) rows = rows.filter(g =>
     (g.concepto || '').toLowerCase().includes(query) ||
@@ -1447,7 +1551,7 @@ function renderGastosTable() {
     String(g.monto || '').includes(query)
   );
   if (!rows.length) {
-    el.innerHTML = (_gastosCatChip || query)
+    el.innerHTML = (_gastosCatChip.size > 0 || query)
       ? emptyState('chart', 'Sin resultados', 'No hay gastos que coincidan con el filtro')
       : emptyState('gastos', 'Sin gastos registrados', 'Tocá + Gasto para agregar el primero');
     return;
@@ -1563,6 +1667,11 @@ function saveEditGastoModal() {
 }
 
 function populateFilters() {
+  // Inicializar navegador al mes actual si hay gastos en ese mes
+  const mesActual = new Date().toISOString().slice(0,7);
+  const tieneGastosEsteMes = gastos.some(g => g.fecha.slice(0,7) === mesActual);
+  if (!_mesFiltro) _mesFiltro = tieneGastosEsteMes ? mesActual : '';
+
   const meses = [...new Set(gastos.map(g => g.fecha.slice(0,7)))].sort().reverse();
   const mesSel = $('filter-mes');
   if (mesSel) {
@@ -2163,8 +2272,8 @@ function renderIngresosTable() {
           <span class="ing-card-item-name">${escHtml(nombre)}${destino}</span>
           <span class="ing-card-item-monto" style="color:${color}">${montoStr}</span>
           <span class="ing-card-item-btns">
-            <button onclick="editarSueldoIngreso(${i.id})">✏</button>
-            <button onclick="eliminarSueldoIngreso(${i.id})">✕</button>
+            <button class="btn-edit" onclick="editarSueldoIngreso(${i.id})">✏</button>
+            <button class="btn-del" onclick="eliminarSueldoIngreso(${i.id})">✕</button>
           </span>
         </div>`;
       }
@@ -2176,8 +2285,8 @@ function renderIngresosTable() {
           <span class="ing-card-item-name">${escHtml(o.nombre)}${destino}</span>
           <span class="ing-card-item-monto" style="color:${color}">${montoStr}</span>
           <span class="ing-card-item-btns">
-            <button onclick="editarOtroIngreso(${i.id},${o.id})">✏</button>
-            <button onclick="eliminarOtroIngreso(${i.id},${o.id})">✕</button>
+            <button class="btn-edit" onclick="editarOtroIngreso(${i.id},${o.id})">✏</button>
+            <button class="btn-del" onclick="eliminarOtroIngreso(${i.id},${o.id})">✕</button>
           </span>
         </div>`;
       });
@@ -2637,6 +2746,10 @@ function renderFondos() {
           style="background:rgba(168,255,220,0.08);border:1px solid rgba(168,255,220,0.3);color:var(--accent);border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;min-height:36px;touch-action:manipulation;white-space:nowrap">
           +$ Interés
         </button>
+        <button onclick="rescatarFondo(this.dataset.tipo)" data-tipo="${tipo}"
+          style="background:rgba(255,79,94,0.08);border:1px solid rgba(255,79,94,0.35);color:var(--accent2);border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;min-height:36px;touch-action:manipulation;white-space:nowrap">
+          Rescatar
+        </button>
       </div>
     </div>`).join('');
 }
@@ -2658,6 +2771,73 @@ function agregarRendimientoFondo(tipo) {
   renderSaldoCuentas();
   const sign = monto >= 0 ? '+' : '';
   notify('✓ ' + sign + '$' + fmt(monto) + ' rendimiento en ' + tipo);
+}
+
+function rescatarFondo(tipo) {
+  // Poblar destinos: Efectivo + billeteras + débito
+  const sel = $('rescate-destino');
+  if (!sel) return;
+  let opts = '<option value="">Seleccionar...</option><option value="Efectivo">💵 Efectivo</option>';
+  tarjetas.filter(t => t.tipo === 'billetera').forEach(t => {
+    const lbl = t.label || t.banco || t.nombre;
+    opts += `<option value="${escHtml(lbl)}">📱 ${escHtml(lbl)}</option>`;
+  });
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => {
+    const lbl = t.label || t.banco || t.nombre;
+    opts += `<option value="${escHtml(lbl)}">🏦 ${escHtml(lbl)}</option>`;
+  });
+  sel.innerHTML = opts;
+
+  const sub = $('rescate-modal-sub');
+  if (sub) sub.textContent = `Fondo: ${tipo}`;
+  const montoEl = $('rescate-monto');
+  if (montoEl) montoEl.value = '';
+
+  window._rescatandoTipo = tipo;
+  const modal = $('rescate-modal');
+  if (modal) modal.style.display = 'flex';
+  setTimeout(() => { if (montoEl) montoEl.focus(); }, 100);
+}
+
+function cerrarRescate() {
+  const modal = $('rescate-modal');
+  if (modal) modal.style.display = '';
+  window._rescatandoTipo = null;
+}
+
+function confirmarRescate() {
+  const tipo    = window._rescatandoTipo;
+  const monto   = parseFloat($('rescate-monto')?.value);
+  const destino = $('rescate-destino')?.value;
+  if (!tipo) return;
+  if (!monto || monto <= 0) { notify('⚠ Ingresá un monto válido'); return; }
+  if (!destino) { notify('⚠ Seleccioná el destino'); return; }
+
+  // Verificar que hay saldo suficiente
+  const totalFondo = ahorros
+    .filter(a => (a.tipo || a.concepto || 'Otros') === tipo && (a.moneda||'ARS') === 'ARS')
+    .reduce((s, a) => s + (a.monto || 0), 0);
+  if (monto > totalFondo) { notify(`⚠ Saldo insuficiente ($${fmt(totalFondo)})`); return; }
+
+  const hoy = new Date();
+  const fecha = hoy.toISOString().slice(0, 10);
+  const ymBase = fecha.slice(0, 7);
+  const mes  = MESES[hoy.getMonth()];
+  const año  = hoy.getFullYear();
+
+  ahorros.push({
+    id: Date.now(), ymBase, key: ymBase, fecha, año, mes,
+    monto: -monto, moneda: 'ARS', tipo, concepto: tipo,
+    notas: `Rescate → ${destino}`, origen: destino,
+    rendimientos: 0, rescate: true
+  });
+
+  cerrarRescate();
+  save();
+  renderAhorroTable();
+  renderSaldoCuentas();
+  renderDashboard();
+  notify(`✓ Rescate de $${fmt(monto)} → ${destino}`);
 }
 
 // ---- PENDIENTES (MEMO) ----
@@ -2816,6 +2996,14 @@ function initCatSelects() {
       '<option value="__nueva__">✏ Nueva...</option>';
     aSel.value = v;
   }
+  // Recurrentes (form de creación, si está abierto)
+  const recCat = $('rec-cat-nuevo');
+  if (recCat) {
+    const v = recCat.value;
+    recCat.innerHTML = '<option value="">Seleccionar...</option>' +
+      cats.gastos.map(c => `<option value="${c}">${c}</option>`).join('');
+    recCat.value = v;
+  }
 }
 
 function onCatSelect(selId, inputId, tipo) {
@@ -2861,10 +3049,52 @@ function renderCatModalList() {
   const el = $('cat-modal-list');
   const lista = cats[catModalTipo] || [];
   el.innerHTML = lista.map((c, i) => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface2);border-radius:8px">
-      <span style="font-size:0.88rem;color:var(--text2)">${c}</span>
-      <button onclick="deleteCat(${i})" style="background:none;border:none;color:var(--text3);font-size:0.85rem;cursor:pointer">✕</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:8px 12px;background:var(--surface2);border-radius:8px" id="cat-row-${i}">
+      <span style="font-size:0.88rem;color:var(--text2);flex:1">${escHtml(c)}</span>
+      <button onclick="editCat(${i})" style="background:none;border:none;color:var(--text3);font-size:0.85rem;cursor:pointer;padding:2px 6px" title="Renombrar">✏</button>
+      <button onclick="deleteCat(${i})" style="background:none;border:none;color:var(--text3);font-size:0.85rem;cursor:pointer;padding:2px 6px" title="Eliminar">✕</button>
     </div>`).join('');
+}
+
+function editCat(idx) {
+  const row = document.getElementById(`cat-row-${idx}`);
+  if (!row) return;
+  const actual = cats[catModalTipo][idx];
+  row.innerHTML = `
+    <input id="cat-edit-inp-${idx}" value="${escHtml(actual)}" style="flex:1;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;outline:none">
+    <button onclick="guardarEditCat(${idx})" style="background:none;border:none;color:var(--accent);font-size:0.85rem;cursor:pointer;padding:2px 8px;font-weight:600">✓</button>
+    <button onclick="renderCatModalList()" style="background:none;border:none;color:var(--text3);font-size:0.85rem;cursor:pointer;padding:2px 6px">✕</button>`;
+  setTimeout(() => {
+    const inp = document.getElementById(`cat-edit-inp-${idx}`);
+    if (inp) { inp.focus(); inp.select(); }
+  }, 50);
+}
+
+function guardarEditCat(idx) {
+  const inp = document.getElementById(`cat-edit-inp-${idx}`);
+  const nuevoNombre = (inp?.value || '').trim();
+  const nombreAnterior = cats[catModalTipo][idx];
+  if (!nuevoNombre) { notify('⚠ El nombre no puede estar vacío'); return; }
+  if (nuevoNombre === nombreAnterior) { renderCatModalList(); return; }
+  if (cats[catModalTipo].includes(nuevoNombre)) { notify('⚠ Ya existe esa categoría'); return; }
+
+  // Renombrar en la lista
+  cats[catModalTipo][idx] = nuevoNombre;
+  saveCats(catModalTipo);
+
+  // Actualizar todos los gastos/ahorros que usaban el nombre anterior
+  if (catModalTipo === 'gastos') {
+    gastos.forEach(g => { if (g.cat === nombreAnterior) g.cat = nuevoNombre; });
+    recurrentes.forEach(r => { if (r.cat === nombreAnterior) r.cat = nuevoNombre; });
+    save();
+  } else {
+    ahorros.forEach(a => { if (a.tipo === nombreAnterior) { a.tipo = nuevoNombre; a.concepto = nuevoNombre; } });
+    save();
+  }
+
+  renderCatModalList();
+  initCatSelects();
+  notify(`✓ "${nombreAnterior}" renombrado a "${nuevoNombre}"`);
 }
 
 function addCatFromModal() {
@@ -2877,6 +3107,7 @@ function addCatFromModal() {
   }
   inp.value = '';
   renderCatModalList();
+  initCatSelects();
 }
 
 function deleteCat(idx) {
@@ -3454,7 +3685,6 @@ function renderReportes() {
 window.renderReportes = renderReportes;
 
 function renderDashboard() {
-  renderRecurrentesBanner();
   // Saludo personalizado
   const greetEl = document.getElementById('dash-greeting');
   if (greetEl) {
@@ -4981,6 +5211,9 @@ function launchConfetti() {
   }
 
   document.addEventListener('touchstart', e => {
+    // No iniciar swipe si el touch empieza en un contenedor con scroll horizontal
+    const el = e.target.closest('.cat-chips-row, .mes-nav, [style*="overflow-x"]');
+    if (el) { swiping = false; return; }
     tx = e.touches[0].clientX;
     ty = e.touches[0].clientY;
     swiping = true;
@@ -5071,6 +5304,9 @@ window.guardarMeta            = guardarMeta;
 window.deleteMeta             = deleteMeta;
 window.agregarRendimiento     = agregarRendimiento;
 window.agregarRendimientoFondo = agregarRendimientoFondo;
+window.rescatarFondo          = rescatarFondo;
+window.cerrarRescate          = cerrarRescate;
+window.confirmarRescate       = confirmarRescate;
 window.addPendiente           = addPendiente;
 window.togglePendiente        = togglePendiente;
 window.deletePendiente        = deletePendiente;
@@ -5107,6 +5343,8 @@ window.openCatModal           = openCatModal;
 window.closeCatModal          = closeCatModal;
 window.addCatFromModal        = addCatFromModal;
 window.deleteCat              = deleteCat;
+window.editCat                = editCat;
+window.guardarEditCat         = guardarEditCat;
 window.toggleOtro             = toggleOtro;
 window.onMedioChange          = onMedioChange;
 window.toggleCuotasIfNeeded   = toggleCuotasIfNeeded;
@@ -5116,10 +5354,14 @@ window.deleteGasto            = deleteGasto;
 window.clearGastoSearch       = clearGastoSearch;
 window.filterGastosCat        = filterGastosCat;
 window.navMes                 = navMes;
-window.abrirRecurrentes       = abrirRecurrentes;
-window.cerrarRecurrentes      = cerrarRecurrentes;
+window.abrirNuevoRecurrente   = abrirNuevoRecurrente;
+window.cerrarNuevoRecurrente  = cerrarNuevoRecurrente;
+window.crearRecurrente        = crearRecurrente;
+window.toggleRecurrenteCard   = toggleRecurrenteCard;
+window.actualizarRecurrente   = actualizarRecurrente;
+window.guardarCamposRecurrente = guardarCamposRecurrente;
+window.toggleMesRecurrente    = toggleMesRecurrente;
 window.eliminarRecurrente     = eliminarRecurrente;
-window.confirmarRecurrente    = confirmarRecurrente;
 
 window.addIngreso             = addIngreso;
 window.editarOtroIngreso      = editarOtroIngreso;

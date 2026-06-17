@@ -184,10 +184,13 @@ section.active {
 .search-wrap {
   display: flex;
   align-items: center;
-  gap: 6px;
   margin-top: 8px;
-  position: relative;
   width: 100%;
+  background: rgba(3,8,15,.55);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 12px;
+  padding: 0 10px;
+  gap: 0;
 }
 
 .cat-chips-row {
@@ -231,11 +234,11 @@ section.active {
 }
 
 .search-icon {
-  position: absolute;
-  left: 12px;
   font-size: 0.8rem;
   pointer-events: none;
   opacity: 0.5;
+  flex-shrink: 0;
+  margin-right: 8px;
 }
 
 #gasto-search {
@@ -246,7 +249,9 @@ section.active {
   color: var(--text);
   font-family: 'Sora', sans-serif;
   font-size: 0.82rem;
-  padding: 8px 36px 8px 34px;
+  padding: 8px 4px;
+  background: transparent;
+  border: none;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -3423,38 +3428,85 @@ tr.row-new td, div.row-new {
   transform: translateX(16px);
 }
 
-.recurrentes-banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: rgba(251,191,36,0.1);
-  border: 1px solid rgba(251,191,36,0.3);
-  border-radius: 14px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.recurrentes-banner:hover { background: rgba(251,191,36,0.16); }
-.recurrentes-banner-icon { font-size: 1.2rem; flex-shrink: 0; }
-.recurrentes-banner-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.recurrentes-banner-title { font-size: 0.85rem; font-weight: 600; color: #fbbf24; }
-.recurrentes-banner-sub { font-size: 0.75rem; color: var(--text3); }
-.recurrentes-banner-arrow { font-size: 1.2rem; color: #fbbf24; }
+/* ── GASTOS RECURRENTES (nueva versión) ── */
 
-.rec-modal-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
+.rec-card {
   border-bottom: 1px solid var(--border);
 }
-.rec-modal-item:last-child { border-bottom: none; }
-.rec-modal-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.rec-modal-name { font-size: 0.88rem; font-weight: 600; color: var(--text1); }
-.rec-modal-meta { font-size: 0.75rem; color: var(--text3); }
-.rec-modal-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-.rec-modal-monto { font-size: 0.78rem; color: var(--text2); font-family: 'DM Mono', monospace; }
+.rec-card:last-child { border-bottom: none; }
+
+.rec-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 1.2rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+.rec-card-header:hover { background: rgba(255,255,255,0.03); }
+
+.rec-card-nombre {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text1);
+}
+
+.rec-card-arrow {
+  font-size: 1.1rem;
+  color: var(--text3);
+  transition: transform 0.2s;
+}
+
+.rec-card-body {
+  padding: 0 1.2rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.rec-card-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.rec-field {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'Sora', sans-serif;
+  font-size: 0.85rem;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.rec-meses-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.rec-mes-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 44px;
+}
+
+.rec-mes-label {
+  font-size: 0.7rem;
+  color: var(--text3);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
 
 /* ── NAVEGADOR DE MES ── */
 
