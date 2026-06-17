@@ -3862,18 +3862,16 @@ tr.row-new td, div.row-new {
   transition: transform 0.08s ease;
 }
 
-/* ── EMPTY STATES ── */
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 2.5rem 1.5rem;
-  gap: 0.6rem;
+/* ── EMPTY STATE
+/* CALENDARIO */
+#cal-container {
+  user-select: none;
 }
-
-.empty-state-icon {
-  width: 54px;
+#cal-container div[onclick] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+h: 54px;
   height: 54px;
   border-radius: 16px;
   background: rgba(255,255,255,0.04);

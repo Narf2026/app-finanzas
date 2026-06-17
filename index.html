@@ -707,6 +707,17 @@ onAuthStateChanged(auth, async (user) => {
       <span class="util-card-name">Datos</span>
       <span class="util-card-desc">Exportar e importar información</span>
     </button>
+
+    <button class="util-card" id="util-tab-calendario" onclick="showUtilSubtab('calendario',this)" style="grid-column:span 2">
+      <span class="util-card-icon">📅</span>
+      <span class="util-card-name">Calendario</span>
+      <span class="util-card-desc">Gastos, cuotas, ingresos y recurrentes por día</span>
+    </button>
+  </div>
+
+  <!-- CALENDARIO -->
+  <div id="util-calendario" style="display:none">
+    <div id="cal-container"></div>
   </div>
 
   <!-- RECURRENTES -->

@@ -182,6 +182,7 @@ function showUtilSubtab(sub, btn) {
   if (sub === 'presupuesto') renderPresupuesto();
   if (sub === 'reportes') renderReportes();
   if (sub === 'recurrentes') renderRecurrentesLista();
+  if (sub === 'calendario') renderCalendario();
 }
 
 // ---- COTIZACIONES (USD/ARS y ARS/CLP) ----
@@ -2536,9 +2537,9 @@ function renderInsight() {
 
   const itemsM    = gastosDelMes(ym).filter(x => (x.moneda||'ARS') === 'ARS');
   const totalGasto = itemsM.reduce((s, x) => s + x.monto, 0);
-  const ingM      = ingresos.filter(i => !i.esTransferencia && (i.ymBase || i.key.slice(0,7)) === ym);
+  const ingM      = ingresos.filter(i => !i.esTransferencia && (i.ymBase || (i.key||'').slice(0,7)) === ym);
   const totalIng  = ingM.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
-  const totalAho  = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym).reduce((s, a) => s + a.monto, 0);
+  const totalAho  = ahorros.filter(a => (a.ymBase || (a.key||'').slice(0,7)) === ym).reduce((s, a) => s + a.monto, 0);
   const saldo     = totalIng - totalGasto - totalAho;
 
   function prevYm(y) {
@@ -3950,8 +3951,8 @@ function renderDashboard() {
 
   const totalGasto = itemsM.filter(x => (x.moneda||'ARS')==='ARS').reduce((s, x) => s + x.monto, 0);
   const totalGastoUSDMes = itemsM.filter(x => x.moneda==='USD').reduce((s, x) => s + x.monto, 0);
-  const ingM = ingresos.filter(i => !i.esTransferencia && (i.ymBase || i.key.slice(0,7)) === ym);
-  const ahorrosM = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym);
+  const ingM = ingresos.filter(i => !i.esTransferencia && (i.ymBase || (i.key||'').slice(0,7)) === ym);
+  const ahorrosM = ahorros.filter(a => (a.ymBase || (a.key||'').slice(0,7)) === ym);
   const totalIngreso = ingM.reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
   const totalAhorroMes = ahorrosM.reduce((s, a) => s + a.monto, 0);
 
@@ -4012,7 +4013,7 @@ function renderDashboard() {
   }
   const prevM = prevYm(ym);
   const gastosPrevM = gastosDelMes(prevM).filter(x => (x.moneda||'ARS')==='ARS').reduce((s, x) => s + x.monto, 0);
-  const ingPrevM = ingresos.filter(i => !i.esTransferencia && (i.ymBase || i.key.slice(0,7)) === prevM).reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
+  const ingPrevM = ingresos.filter(i => !i.esTransferencia && (i.ymBase || (i.key||'').slice(0,7)) === prevM).reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
   setTrend('d-gasto-trend', totalGasto, gastosPrevM, true);
   setTrend('d-ingreso-trend', totalIngreso, ingPrevM, false);
   const nTx = gastosNormalesM.length + cuotasEnMes.length;
@@ -4033,6 +4034,21 @@ function renderDashboard() {
   }, 0);
   const subCuotas = $('d-cuotas-sub');
   if (subCuotas) subCuotas.textContent = totalAdeudado > 0 ? '$' + fmt(totalAdeudado) + ' adeudado' : 'todo pago';
+
+  // Header del panel de cuotas activas
+  const todayYmN = today.getFullYear() * 12 + today.getMonth();
+  const nActivas = gastos.filter(g => {
+    if (!g.cuota || g.esTransferencia) return false;
+    const [fy, fm] = g.fecha.split('-').map(Number);
+    const off = g.offsetCuotas || 0;
+    let sy = fy, sm = fm + off;
+    while (sm > 12) { sm -= 12; sy++; }
+    return todayYmN <= sy * 12 + (sm - 1) + g.ncuotas - 1;
+  }).length;
+  const dcActivas = $('dc-activas');
+  const dcTotal   = $('dc-total');
+  if (dcActivas) dcActivas.textContent = nActivas;
+  if (dcTotal)   dcTotal.textContent   = totalAdeudado > 0 ? '$' + fmt(totalAdeudado) : '$0';
 
   renderDashCuotas();
   _renderSaldoUSDPanel(ym);
@@ -4081,7 +4097,7 @@ function renderDashboard() {
     const labels = allMonths.map(m => MESES[parseInt(m.slice(5,7))-1].slice(0,3));
     const dataGasto  = allMonths.map(m => totalDelMes(m));
     const dataIngreso = allMonths.map(m =>
-      ingresos.filter(i=>(i.ymBase||i.key.slice(0,7))===m).reduce((s,i)=>s+(i.totalARS??i.total??0),0)
+      ingresos.filter(i=>(i.ymBase||(i.key||'').slice(0,7))===m).reduce((s,i)=>s+(i.totalARS??i.total??0),0)
     );
 
     // Saldo evolution chart
@@ -4089,10 +4105,10 @@ function renderDashboard() {
     if (saldoCanvas) {
       _destroyChart('saldo-evol');
       const saldoData = allMonths.map(m => {
-        const ing = ingresos.filter(i => !i.esTransferencia && (i.ymBase || i.key.slice(0,7)) === m)
+        const ing = ingresos.filter(i => !i.esTransferencia && (i.ymBase || (i.key||'').slice(0,7)) === m)
           .reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
         const gas = gastosDelMes(m).filter(x => (x.moneda||'ARS')==='ARS').reduce((s, x) => s + x.monto, 0);
-        const aho = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === m).reduce((s, a) => s + a.monto, 0);
+        const aho = ahorros.filter(a => (a.ymBase || (a.key||'').slice(0,7)) === m).reduce((s, a) => s + a.monto, 0);
         const adj = (ajustesCuentas || []).filter(a => a.fecha.slice(0,7) === m).reduce((s, a) => s + (a.monto || 0), 0);
         return ing - gas - aho + adj;
       });
@@ -4258,6 +4274,36 @@ function toggleCuentaPanel(panelId) {
   if (!isOpen) panel.style.display = 'flex';
 }
 
+// Suma lo que cae en la tarjeta de crédito exactamente en el mes `ym`:
+// - Gastos normales con fecha efectiva en ese mes
+// - La cuota que vence en ese mes (una por gasto en cuotas)
+function calcularTotalTarjetaMes(nombreTarjeta, ym) {
+  let total = 0;
+  gastos.forEach(g => {
+    if (g.esTransferencia) return;
+    if ((g.moneda || 'ARS') !== 'ARS') return;
+    if ((g.medio || '') !== nombreTarjeta) return;
+    if (!g.cuota) {
+      // Gasto normal: usar fecha original (sin offset). El dinero está comprometido
+      // desde el día de compra aunque el débito bancario sea el mes siguiente.
+      if (g.fecha.slice(0, 7) === ym) total += g.monto;
+    } else {
+      // Cuotas: solo la que cae exactamente en `ym`
+      const [fy, fm] = g.fecha.split('-').map(Number);
+      const off = g.offsetCuotas || 0;
+      for (let n = 0; n < g.ncuotas; n++) {
+        let cy = fy, cm = fm + off + n;
+        while (cm > 12) { cm -= 12; cy++; }
+        if (`${cy}-${String(cm).padStart(2, '0')}` === ym) {
+          total += g.montoXcuota;
+          break;
+        }
+      }
+    }
+  });
+  return total;
+}
+
 // Calcula el saldo ARS total de todas las cuentas (Efectivo + billeteras + débito).
 // Misma lógica que renderSaldoCuentas. Usado por el dashboard en "Dinero disponible".
 function _buildCuentasYSaldos() {
@@ -4396,8 +4442,8 @@ function renderSaldoCuentas() {
     // Detalle: movimientos que afectan esta cuenta
     const ingC = [];
     ingresos.forEach(i => {
-      if (i.sueldo > 0 && normalizarDestino(i.sueldoDestino||'') === c) ingC.push({ fecha: i.ymBase||i.key.slice(0,7), desc: 'Sueldo', monto: i.sueldo, moneda: i.sueldoMoneda||'ARS' });
-      (i.otros||[]).forEach(o => { if (normalizarDestino(o.destino||'') === c) ingC.push({ fecha: i.ymBase||i.key.slice(0,7), desc: o.concepto||o.nombre||'Ingreso', monto: o.monto, moneda: o.moneda||'ARS' }); });
+      if (i.sueldo > 0 && normalizarDestino(i.sueldoDestino||'') === c) ingC.push({ fecha: i.ymBase||(i.key||'').slice(0,7), desc: 'Sueldo', monto: i.sueldo, moneda: i.sueldoMoneda||'ARS' });
+      (i.otros||[]).forEach(o => { if (normalizarDestino(o.destino||'') === c) ingC.push({ fecha: i.ymBase||(i.key||'').slice(0,7), desc: o.concepto||o.nombre||'Ingreso', monto: o.monto, moneda: o.moneda||'ARS' }); });
     });
     const gasCAll = gastos.filter(g => normalizarDestino(g.medio||'') === c);
     const gasC    = gasCAll.filter(g => !g.cuota);
@@ -4481,7 +4527,7 @@ function renderSaldoCuentas() {
             <span style="font-family:monospace;font-weight:700;color:var(--accent4)">− $${fmt(totalAho)}</span>
           </div>
           ${ahoC.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px 6px 20px;border-bottom:1px solid rgba(255,255,255,0.04)">
-            <span style="color:var(--text3)">${a.ymBase||a.key.slice(0,7)} · ${a.concepto||a.tipo||'Ahorro'}</span>
+            <span style="color:var(--text3)">${a.ymBase||(a.key||'').slice(0,7)} · ${a.concepto||a.tipo||'Ahorro'}</span>
             <span style="font-family:monospace;color:var(--accent4);font-size:0.77rem">− $${fmt(a.monto-(a.rendimientos||0))}</span>
           </div>`).join('')}
         </div>` : ''}
@@ -4646,235 +4692,278 @@ function moverEntreCuentas(origen, safeC) {
     cuota: false, ncuotas: 1, montoXcuota: monto, offsetCuotas: 0,
     esTransferencia: true
   });
-  // Entrada en destino (como ingreso extra)
+  // Entrada al destino
+  const ymKeyT = hoy.slice(0,7);
   ingresos.push({
-    id: Date.now() + 1,
-    key: hoy.slice(0,7),
-    ymBase: hoy.slice(0,7),
-    año: parseInt(hoy.slice(0,4)),
-    mes: MESES[parseInt(hoy.slice(5,7))-1],
-    sueldo: 0, sueldoMoneda: 'ARS', sueldoConcepto: '', sueldoDestino: '',
-    otros: [{ nombre: `Transferencia desde ${origen}`, monto, moneda: 'ARS', destino }],
-    totalARS: monto, total: monto,
-    esTransferencia: true
+    id: Date.now()+1, key: `${ymKeyT}_tr${Date.now()}`, ymBase: ymKeyT,
+    fecha: hoy, sueldo: 0, sueldoMoneda: 'ARS',
+    otros: [{ id: Date.now()+2, nombre: `Transferencia desde ${origen}`, monto, moneda: 'ARS', destino, fecha: hoy }],
+    totalARS: monto, total: monto, extra: 0, esTransferencia: true
   });
-
   save();
-  notify(`✓ $${fmt(monto)} movido de ${origen} a ${destino}`);
+  notify(`✓ Movido $${fmt(monto)} de ${origen} → ${destino}`);
   input.value = '';
   destSel.value = '';
   renderSaldoCuentas();
-  renderDashboard();
 }
 
 function actualizarCotizacion(safeC) {
-  const ars = parseFloat(document.getElementById('cambio-ars-' + safeC)?.value);
-  const usd = parseFloat(document.getElementById('cambio-usd-' + safeC)?.value);
-  const el = document.getElementById('cambio-cotiz-' + safeC);
+  const ars = parseFloat(document.getElementById('cambio-ars-'+safeC)?.value) || 0;
+  const usd = parseFloat(document.getElementById('cambio-usd-'+safeC)?.value) || 0;
+  const el = document.getElementById('cambio-cotiz-'+safeC);
   if (!el) return;
-  if (ars > 0 && usd > 0) {
-    el.textContent = `Cotización: $${(ars/usd).toLocaleString('es-AR', {maximumFractionDigits: 2})} por u$s`;
-  } else {
-    el.textContent = 'Cotización: —';
-  }
+  el.textContent = (ars > 0 && usd > 0) ? `Cotización: $${fmt(ars/usd)} / u$s` : 'Cotización: —';
 }
 
 function comprarUSD(origen, safeC) {
-  const montoARS = parseFloat(document.getElementById('cambio-ars-' + safeC)?.value);
-  const montoUSD = parseFloat(document.getElementById('cambio-usd-' + safeC)?.value);
-
-  if (!montoARS || montoARS <= 0) { notify('⚠ Ingresá el monto en pesos'); return; }
-  if (!montoUSD || montoUSD <= 0) { notify('⚠ Ingresá el monto en u$s recibido'); return; }
-
+  const arsInput = document.getElementById('cambio-ars-'+safeC);
+  const usdInput = document.getElementById('cambio-usd-'+safeC);
+  const ars = parseFloat(arsInput?.value);
+  const usd = parseFloat(usdInput?.value);
+  if (!ars || ars <= 0) { notify('⚠ Ingresá el monto en pesos'); return; }
+  if (!usd || usd <= 0) { notify('⚠ Ingresá el monto en dólares'); return; }
   const hoy = new Date().toISOString().slice(0,10);
-  // Salida en pesos del origen
+  const cotiz = (ars/usd).toFixed(2);
   gastos.push({
-    id: Date.now(), fecha: hoy,
-    desc: `Compra de USD`, cat: 'Compra de USD',
-    medio: origen, monto: montoARS, moneda: 'ARS',
-    notas: `Cotización $${(montoARS/montoUSD).toLocaleString('es-AR', {maximumFractionDigits: 2})}`,
-    cuota: false, ncuotas: 1, montoXcuota: montoARS, offsetCuotas: 0
+    id: Date.now(), fecha: hoy, desc: `Compra USD u$s${fmt(usd)} @ $${cotiz}`,
+    cat: 'Transferencia', medio: origen, monto: ars,
+    cuota: false, ncuotas: 1, montoXcuota: ars, offsetCuotas: 0, esTransferencia: true
   });
-  // Entrada en USD
+  const ymKeyC = hoy.slice(0,7);
   ingresos.push({
-    id: Date.now() + 1,
-    key: hoy.slice(0,7),
-    ymBase: hoy.slice(0,7),
-    año: parseInt(hoy.slice(0,4)),
-    mes: MESES[parseInt(hoy.slice(5,7))-1],
-    sueldo: 0, sueldoMoneda: 'ARS', sueldoConcepto: '', sueldoDestino: '',
-    otros: [{ nombre: `Compra de USD`, monto: montoUSD, moneda: 'USD', destino: origen }],
-    totalARS: 0, total: 0
+    id: Date.now()+1, key: `${ymKeyC}_comprusd${Date.now()}`, ymBase: ymKeyC,
+    fecha: hoy, sueldo: 0, sueldoMoneda: 'ARS',
+    otros: [{ id: Date.now()+2, nombre: `Compra USD desde ${origen}`, monto: usd, moneda: 'USD', destino: origen, fecha: hoy }],
+    totalARS: 0, total: 0, extra: 0, esTransferencia: true
   });
-
   save();
-  notify(`✓ Comprados u$s ${fmt(montoUSD)} con $${fmt(montoARS)} de ${origen}`);
-  document.getElementById('cambio-ars-' + safeC).value = '';
-  document.getElementById('cambio-usd-' + safeC).value = '';
-  document.getElementById('cambio-cotiz-' + safeC).textContent = 'Cotización: —';
+  notify(`✓ Compra: u$s${fmt(usd)} → ${origen} (@ $${cotiz})`);
+  arsInput.value = ''; usdInput.value = '';
+  document.getElementById('cambio-cotiz-'+safeC).textContent = 'Cotización: —';
   renderSaldoCuentas();
-  renderDashboard();
 }
 
 function actualizarCotizacionVenta(safeC) {
-  const usd = parseFloat(document.getElementById('vender-usd-' + safeC)?.value);
-  const ars = parseFloat(document.getElementById('vender-ars-' + safeC)?.value);
-  const el = document.getElementById('vender-cotiz-' + safeC);
+  const usd = parseFloat(document.getElementById('vender-usd-'+safeC)?.value) || 0;
+  const ars = parseFloat(document.getElementById('vender-ars-'+safeC)?.value) || 0;
+  const el = document.getElementById('vender-cotiz-'+safeC);
   if (!el) return;
-  if (usd > 0 && ars > 0) {
-    el.textContent = `Cotización: $${(ars / usd).toLocaleString('es-AR', { maximumFractionDigits: 2 })} por dólar`;
-  } else {
-    el.textContent = 'Cotización: —';
-  }
+  el.textContent = (ars > 0 && usd > 0) ? `Cotización: $${fmt(ars/usd)} / u$s` : 'Cotización: —';
 }
 
 function venderUSD(origen, safeC) {
-  const montoUSD = parseFloat(document.getElementById('vender-usd-' + safeC)?.value);
-  const montoARS = parseFloat(document.getElementById('vender-ars-' + safeC)?.value);
-  const destino  = document.getElementById('vender-destino-' + safeC)?.value;
-
-  if (!montoUSD || montoUSD <= 0) { notify('⚠ Ingresá el monto en u$s a vender'); return; }
-  if (!montoARS || montoARS <= 0) { notify('⚠ Ingresá el monto en pesos recibido'); return; }
-  if (!destino) { notify('⚠ Seleccioná la cuenta destino de los pesos'); return; }
-
-  const hoy = new Date().toISOString().slice(0, 10);
-  const cotiz = (montoARS / montoUSD).toLocaleString('es-AR', { maximumFractionDigits: 2 });
-
-  // Salida en USD del origen
-  gastos.push({
-    id: Date.now(), fecha: hoy,
-    desc: `Venta de USD`, cat: 'Venta de USD',
-    medio: origen, monto: montoUSD, moneda: 'USD',
-    notas: `Cotización $${cotiz}`,
-    cuota: false, ncuotas: 1, montoXcuota: montoUSD, offsetCuotas: 0
-  });
-
-  // Entrada en ARS en la cuenta destino
+  const usdInput = document.getElementById('vender-usd-'+safeC);
+  const arsInput = document.getElementById('vender-ars-'+safeC);
+  const destSel2 = document.getElementById('vender-destino-'+safeC);
+  const usd = parseFloat(usdInput?.value);
+  const ars = parseFloat(arsInput?.value);
+  const destino = destSel2?.value;
+  if (!usd || usd <= 0) { notify('⚠ Ingresá el monto en dólares'); return; }
+  if (!ars || ars <= 0) { notify('⚠ Ingresá el monto en pesos recibido'); return; }
+  if (!destino) { notify('⚠ Seleccioná la cuenta destino'); return; }
+  const hoy = new Date().toISOString().slice(0,10);
+  const cotiz = (ars/usd).toFixed(2);
+  const ymKeyV = hoy.slice(0,7);
+  // Deducir USD de origen (ingreso con monto negativo)
   ingresos.push({
-    id: Date.now() + 1,
-    key: hoy.slice(0, 7),
-    ymBase: hoy.slice(0, 7),
-    año: parseInt(hoy.slice(0, 4)),
-    mes: MESES[parseInt(hoy.slice(5, 7)) - 1],
-    sueldo: 0, sueldoMoneda: 'ARS', sueldoConcepto: '', sueldoDestino: '',
-    otros: [{ nombre: `Venta de USD`, monto: montoARS, moneda: 'ARS', destino }],
-    totalARS: montoARS, total: montoARS
+    id: Date.now(), key: `${ymKeyV}_vendusd${Date.now()}`, ymBase: ymKeyV,
+    fecha: hoy, sueldo: 0, sueldoMoneda: 'ARS',
+    otros: [{ id: Date.now()+1, nombre: `Venta USD desde ${origen}`, monto: -usd, moneda: 'USD', destino: origen, fecha: hoy }],
+    totalARS: 0, total: 0, extra: 0, esTransferencia: true
   });
-
+  // Ingreso ARS al destino
+  ingresos.push({
+    id: Date.now()+2, key: `${ymKeyV}_ventaars${Date.now()}`, ymBase: ymKeyV,
+    fecha: hoy, sueldo: 0, sueldoMoneda: 'ARS',
+    otros: [{ id: Date.now()+3, nombre: `Venta USD → ARS`, monto: ars, moneda: 'ARS', destino, fecha: hoy }],
+    totalARS: ars, total: ars, extra: 0, esTransferencia: true
+  });
   save();
-  notify(`✓ Vendidos u$s ${fmt(montoUSD)} → $${fmt(montoARS)} en ${destino}`);
-  document.getElementById('vender-usd-' + safeC).value = '';
-  document.getElementById('vender-ars-' + safeC).value = '';
-  document.getElementById('vender-cotiz-' + safeC).textContent = 'Cotización: —';
-  document.getElementById('vender-destino-' + safeC).value = '';
+  notify(`✓ Vendido: u$s${fmt(usd)} → $${fmt(ars)} en ${destino} (@ $${cotiz})`);
+  usdInput.value = ''; arsInput.value = '';
+  document.getElementById('vender-cotiz-'+safeC).textContent = 'Cotización: —';
+  destSel2.value = '';
   renderSaldoCuentas();
-  renderDashboard();
 }
 
-function borrarTodosLosAjustes() {
-  ajustesCuentas = [];
-  save();
-  renderSaldoCuentas();
-  renderDashboard();
-}
+// ── CALENDARIO ────────────────────────────────────────────────────────────
+let _calMes = new Date().getMonth();
+let _calAño = new Date().getFullYear();
+let _calDiaSeleccionado = null;
 
-function calcularDeudaAcumuladaTarjeta(nombreTarjeta) {
-  const hoy = new Date().toISOString().slice(0,7);
-  const [wy, wm] = hoy.split('-').map(Number);
-  let total = 0;
+function renderCalendario() {
+  const el = $('cal-container');
+  if (!el) return;
+
+  const año = _calAño, mes = _calMes;
+  const ym  = `${año}-${String(mes+1).padStart(2,'0')}`;
+  const hoy = new Date().toISOString().slice(0,10);
+
+  // ── Construir mapa día → eventos ─────────────────────────────────────
+  const eventos = {}; // { 'YYYY-MM-DD': [{tipo, label, monto, moneda}] }
+  const addEv = (fecha, ev) => { if (!eventos[fecha]) eventos[fecha] = []; eventos[fecha].push(ev); };
+
+  // Gastos normales (no cuota)
   gastos.forEach(g => {
-    if ((g.medio || '') !== nombreTarjeta) return;
+    if (g.esTransferencia) return;
     if (!g.cuota) {
-      if (g.fecha.slice(0,7) <= hoy) total += g.monto;
-    } else {
-      const [fy, fm] = g.fecha.split('-').map(Number);
       const off = g.offsetCuotas || 0;
-      for (let n = 0; n < g.ncuotas; n++) {
-        let cy = fy, cm = fm + off + n;
-        while (cm > 12) { cm -= 12; cy++; }
-        const cuotaYm = cy + '-' + String(cm).padStart(2,'0');
-        if (cuotaYm <= hoy) total += g.montoXcuota;
+      let fecha = g.fecha;
+      if (off) {
+        const [fy,fm] = g.fecha.split('-').map(Number);
+        let cm = fm+off, cy = fy;
+        while (cm>12){cm-=12;cy++;}
+        fecha = `${cy}-${String(cm).padStart(2,'0')}-${g.fecha.slice(8)}`;
+      }
+      if (fecha.slice(0,7) === ym)
+        addEv(fecha, { tipo:'gasto', label: g.desc||g.concepto||'Gasto', monto: g.monto, moneda: g.moneda||'ARS' });
+    } else {
+      // Cuotas: mostrar en el 1° del mes donde cae cada cuota
+      const [fy,fm] = g.fecha.split('-').map(Number);
+      const off = g.offsetCuotas||0;
+      for (let n=0; n<g.ncuotas; n++) {
+        let cy=fy, cm=fm+off+n;
+        while(cm>12){cm-=12;cy++;}
+        const cuotaYm = `${cy}-${String(cm).padStart(2,'0')}`;
+        if (cuotaYm===ym) {
+          const dia1 = `${ym}-01`;
+          addEv(dia1, { tipo:'cuota', label:`${g.desc||'Cuota'} (${n+1}/${g.ncuotas})`, monto: g.montoXcuota, moneda: g.moneda||'ARS' });
+        }
       }
     }
   });
-  const pagosYaHechos = gastos
-    .filter(g => !g.cuota && g.cat === 'Tarjeta de crédito' && g.fecha.slice(0,7) <= hoy && g.desc === 'Pago resumen ' + nombreTarjeta)
-    .reduce((s, g) => s + g.monto, 0);
-  return Math.max(0, total - pagosYaHechos);
-}
 
-function calcularTotalTarjetaMes(nombreTarjeta, ym) {
-  const [wy, wm] = ym.split('-').map(Number);
-  let total = 0;
-  gastos.forEach(g => {
-    const medio = g.medio || '';
-    if (medio !== nombreTarjeta) return;
-    if (!g.cuota) {
-      if (g.fecha.slice(0,7) === ym) total += g.monto;
-    } else {
-      const [fy, fm] = g.fecha.split('-').map(Number);
-      const off = g.offsetCuotas || 0;
-      for (let n = 0; n < g.ncuotas; n++) {
-        let cy = fy, cm = fm + off + n;
-        while (cm > 12) { cm -= 12; cy++; }
-        if (cy === wy && cm === wm) total += g.montoXcuota;
-      }
+  // Ingresos → día 1 del mes
+  ingresos.forEach(i => {
+    const iym = i.ymBase || i.key?.slice(0,7) || '';
+    if (iym !== ym) return;
+    const dia1 = `${ym}-01`;
+    if (i.sueldo > 0) addEv(dia1, { tipo:'ingreso', label: i.sueldoConcepto||'Sueldo', monto: i.sueldo, moneda: i.sueldoMoneda||'ARS' });
+    (i.otros||[]).forEach(o => addEv(dia1, { tipo:'ingreso', label: o.nombre||'Ingreso', monto: o.monto, moneda: o.moneda||'ARS' }));
+  });
+
+  // Recurrentes → día 1 del mes (si están activos este mes)
+  recurrentes.forEach(r => {
+    if (r.mesesActivos && r.mesesActivos[ym]) {
+      // Buscar el gasto real para obtener fecha exacta
+      const gastoId = String(r.mesesActivos[ym]);
+      const g = gastos.find(x => String(x.id) === gastoId);
+      const fecha = (g?.fecha?.slice(0,7)===ym) ? g.fecha : `${ym}-01`;
+      addEv(fecha, { tipo:'recurrente', label: r.nombre||'Recurrente', monto: r.monto||0, moneda: r.moneda||'ARS' });
     }
   });
-  // Restar pagos ya registrados para esta tarjeta en este mes
-  const pagosYaHechos = gastos
-    .filter(g => !g.cuota && g.cat === 'Tarjeta de crédito' && g.fecha.slice(0,7) === ym && g.desc === 'Pago resumen ' + nombreTarjeta)
-    .reduce((s, g) => s + g.monto, 0);
-  return Math.max(0, total - pagosYaHechos);
-}
-// ---- DASHBOARD CUOTAS ----
 
-function toggleDashCuotas() {
-  const body = $('dash-cuotas-body');
-  const icon = $('dash-cuotas-icon');
-  if (!body) return;
-  const open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'block';
-  if (icon) icon.style.transform = open ? '' : 'rotate(180deg)';
+  // ── Construir grilla ─────────────────────────────────────────────────
+  const primerDia = new Date(año, mes, 1).getDay(); // 0=dom
+  const diasEnMes = new Date(año, mes+1, 0).getDate();
+  const offset    = (primerDia+6)%7; // lunes=0
+
+  const DIAS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  const colores = { gasto:'var(--accent2)', cuota:'var(--accent3)', ingreso:'var(--accent)', recurrente:'var(--accent4)' };
+
+  let html = `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+    <button onclick="navCalendario(-1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 14px;font-size:1rem;cursor:pointer">←</button>
+    <span style="font-weight:700;font-size:1rem;color:var(--text)">${MESES[mes]} ${año}</span>
+    <button onclick="navCalendario(1)"  style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 14px;font-size:1rem;cursor:pointer">→</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">
+    ${DIAS.map(d=>`<div style="text-align:center;font-size:0.65rem;color:var(--text3);font-weight:700;padding:4px 0">${d}</div>`).join('')}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">`;
+
+  // celdas vacías al inicio
+  for (let i=0; i<offset; i++) html += `<div></div>`;
+
+  for (let d=1; d<=diasEnMes; d++) {
+    const fecha = `${ym}-${String(d).padStart(2,'0')}`;
+    const evs   = eventos[fecha] || [];
+    const esHoy = fecha === hoy;
+    const selec = fecha === _calDiaSeleccionado;
+    const tipos = [...new Set(evs.map(e=>e.tipo))];
+
+    html += `<div onclick="selCalDia('${fecha}')" style="
+      background:${selec?'rgba(0,229,160,0.12)':(esHoy?'rgba(0,229,160,0.06)':'var(--surface)')};
+      border:1px solid ${selec?'var(--accent)':(esHoy?'rgba(0,229,160,0.4)':'var(--border)')};
+      border-radius:8px;padding:5px 3px;min-height:52px;cursor:pointer;
+      display:flex;flex-direction:column;align-items:center;gap:3px">
+      <span style="font-size:0.72rem;font-weight:${esHoy?'700':'400'};color:${esHoy?'var(--accent)':'var(--text2)'}">${d}</span>
+      <div style="display:flex;flex-wrap:wrap;gap:2px;justify-content:center">
+        ${tipos.map(t=>`<span style="width:7px;height:7px;border-radius:50%;background:${colores[t]};display:inline-block"></span>`).join('')}
+      </div>
+    </div>`;
+  }
+  html += `</div>`;
+
+  // Leyenda
+  html += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;padding:8px 0">
+    ${Object.entries(colores).map(([t,c])=>`
+      <div style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:var(--text3)">
+        <span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block"></span>
+        ${t.charAt(0).toUpperCase()+t.slice(1)}
+      </div>`).join('')}
+  </div>`;
+
+  // Detalle día seleccionado
+  if (_calDiaSeleccionado && eventos[_calDiaSeleccionado]?.length) {
+    const [ay,am,ad] = _calDiaSeleccionado.split('-');
+    html += `<div style="margin-top:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px">
+      <div style="font-weight:700;font-size:0.82rem;color:var(--text2);margin-bottom:8px">${parseInt(ad)} de ${MESES[parseInt(am)-1]}</div>`;
+    eventos[_calDiaSeleccionado].forEach(ev => {
+      const color = colores[ev.tipo];
+      const montoStr = ev.monto ? ` · ${ev.moneda==='USD'?'u$s':'$'}${fmt(ev.monto)}` : '';
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span>
+        <span style="font-size:0.82rem;color:var(--text)">${escHtml(ev.label)}</span>
+        <span style="margin-left:auto;font-size:0.78rem;font-family:'DM Mono',monospace;color:${color}">${montoStr}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  } else if (_calDiaSeleccionado) {
+    html += `<div style="margin-top:10px;text-align:center;color:var(--text3);font-size:0.78rem;padding:12px">Sin eventos este día</div>`;
+  }
+
+  el.innerHTML = html;
 }
+
+function navCalendario(dir) {
+  _calMes += dir;
+  if (_calMes > 11) { _calMes = 0; _calAño++; }
+  if (_calMes < 0)  { _calMes = 11; _calAño--; }
+  _calDiaSeleccionado = null;
+  renderCalendario();
+}
+
+function selCalDia(fecha) {
+  _calDiaSeleccionado = _calDiaSeleccionado === fecha ? null : fecha;
+  renderCalendario();
+}
+
+// ── CUOTAS DASHBOARD ──────────────────────────────────────────────────────────
 
 function renderDashCuotas() {
   const el = $('dash-cuotas-body');
   if (!el) return;
-  const hoy = new Date().toISOString().slice(0,7);
-  const [hy, hm] = hoy.split('-').map(Number);
-  // Cuotas activas: tienen cuotas restantes
+  const hoy = new Date();
+  const hy = hoy.getFullYear(), hm = hoy.getMonth() + 1;
+  const todayYm = hy * 12 + (hm - 1);
+
   const activas = gastos.filter(g => {
-    if (!g.cuota) return false;
+    if (!g.cuota || g.esTransferencia) return false;
     const [fy, fm] = g.fecha.split('-').map(Number);
     const off = g.offsetCuotas || 0;
     let sy = fy, sm = fm + off;
     while (sm > 12) { sm -= 12; sy++; }
-    const endCm = sm + g.ncuotas - 1;
-    let ey = sy, em = endCm;
-    while (em > 12) { em -= 12; ey++; }
-    const endYm = ey + '-' + String(em).padStart(2,'0');
-    return endYm >= hoy;
+    const startYm = sy * 12 + (sm - 1);
+    const endYm   = startYm + g.ncuotas - 1;
+    return todayYm <= endYm;
   });
 
-  // Actualizar contadores del header
-  const dcAct = $('dc-activas'); if (dcAct) dcAct.textContent = activas.length;
-  const totalAdeu = activas.reduce((s,g) => {
-    const [fy,fm] = g.fecha.split('-').map(Number);
-    const off = g.offsetCuotas||0; let sy=fy,sm=fm+off;
-    while(sm>12){sm-=12;sy++;}
-    const today2 = new Date(); const cuotaAct2 = (today2.getFullYear()-sy)*12+(today2.getMonth()+1-sm)+1;
-    const rest2 = g.ncuotas - Math.min(cuotaAct2, g.ncuotas);
-    return s + rest2 * g.montoXcuota;
-  }, 0);
-  const dcTot = $('dc-total'); if (dcTot) dcTot.textContent = '$' + fmt(totalAdeu);
-
   if (!activas.length) {
-    el.innerHTML = emptyState('cuotas', 'Sin cuotas activas', '¡Todo al día!');
+    el.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3);font-size:0.82rem">Sin cuotas activas</div>';
     return;
   }
 
-  // Calcular restantes para cada cuota y ordenar por urgencia (menos restantes primero)
   const activasConInfo = activas.map(g => {
     const [fy, fm] = g.fecha.split('-').map(Number);
     const off = g.offsetCuotas || 0;
@@ -4933,11 +5022,22 @@ function renderDashCuotas() {
   }).join('');
 }
 
-// ---- CARD PANELS ----
+function toggleDashCuotas() {
+  const body = $('dash-cuotas-body');
+  const icon = $('dash-cuotas-icon');
+  if (!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (icon) icon.style.transform = isOpen ? '' : 'rotate(180deg)';
+  if (!isOpen) renderDashCuotas();
+}
+
+// ── CARD PANELS ───────────────────────────────────────────────────────────────
 
 function toggleCardPanel(panelId) {
   const panel = document.getElementById(panelId);
   const icon  = document.getElementById('icon-' + panelId);
+  if (!panel) return;
   const isOpen = panel.classList.contains('panel-open');
   ['panel-gasto','panel-ingreso','panel-ahorro','panel-saldo','panel-saldo-usd'].forEach(id => {
     const p = document.getElementById(id);
@@ -5062,10 +5162,10 @@ function _renderSaldoPanel(ym) {
   const el = $('panel-saldo-body');
   if (!el) return;
 
-  const totalIngresosMes = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym).reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
+  const totalIngresosMes = ingresos.filter(i => (i.ymBase || i.key?.slice(0,7)) === ym).reduce((s, i) => s + (i.totalARS ?? i.total ?? 0), 0);
   const totalGastosMes   = gastosDelMes(ym).reduce((s, x) => s + x.monto, 0);
-  const totalAhorroMes   = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym && (a.moneda||'ARS')==='ARS').reduce((s, a) => s + a.monto, 0);
-  const ajustesMes       = (ajustesCuentas || []).filter(a => a.fecha.slice(0,7) === ym).reduce((s, a) => s + (a.monto || 0), 0);
+  const totalAhorroMes   = ahorros.filter(a => (a.ymBase || a.key?.slice(0,7)) === ym && (a.moneda||'ARS')==='ARS').reduce((s, a) => s + a.monto, 0);
+  const ajustesMes       = (ajustesCuentas || []).filter(a => a.fecha?.slice(0,7) === ym).reduce((s, a) => s + (a.monto || 0), 0);
   const balanceReal      = totalIngresosMes - totalGastosMes - totalAhorroMes + ajustesMes;
 
   const filas = [
@@ -5092,12 +5192,12 @@ function _renderSaldoPanel(ym) {
     </div>
     <div style="border-top:1px solid var(--border);padding-top:12px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:0.85rem;color:var(--text3)">Disponible del mes</span>
-        <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:1.05rem;color:${balanceReal>=0?'var(--accent)':'var(--accent2)'}">
-          ${balanceReal>=0?'+':''} $${fmt(Math.abs(balanceReal))}
+        <span style="font-size:0.85rem;color:var(--text3)">Disponible total</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:1.05rem;color:${calcTotalSaldoARS()>=0?'var(--accent)':'var(--accent2)'}">
+          ${calcTotalSaldoARS()>=0?'+':''} $${fmt(Math.abs(calcTotalSaldoARS()))}
         </span>
       </div>
-      ${balanceReal < 0 ? `<div style="margin-top:6px;font-size:0.72rem;color:var(--accent2);text-align:right">Déficit del mes</div>` : ''}
+      ${calcTotalSaldoARS() < 0 ? `<div style="margin-top:6px;font-size:0.72rem;color:var(--accent2);text-align:right">Saldo negativo</div>` : ''}
     </div>`;
 }
 
@@ -5107,15 +5207,15 @@ function _renderSaldoUSDPanel(ym) {
   const card = $('card-saldo-usd');
   if (!el || !card) return;
 
-  const ingresosMes = ingresos.filter(i => (i.ymBase || i.key.slice(0,7)) === ym);
+  const ingresosMes = ingresos.filter(i => (i.ymBase || i.key?.slice(0,7)) === ym);
   const totalIngresosUSD = ingresosMes.reduce((s, i) => {
     let usd = 0;
     if (i.sueldoMoneda === 'USD') usd += i.sueldo || 0;
     (i.otros || []).forEach(o => { if (o.moneda === 'USD') usd += o.monto || 0; });
     return s + usd;
   }, 0);
-  const totalAhorroUSD = ahorros.filter(a => (a.ymBase || a.key.slice(0,7)) === ym && a.moneda === 'USD').reduce((s, a) => s + a.monto, 0);
-  const totalGastoUSD = gastosDelMes(ym).filter(x => x.moneda === 'USD').reduce((s, x) => s + x.monto, 0);
+  const totalAhorroUSD = ahorros.filter(a => (a.ymBase || a.key?.slice(0,7)) === ym && a.moneda === 'USD').reduce((s, a) => s + a.monto, 0);
+  const totalGastoUSD  = gastosDelMes(ym).filter(x => x.moneda === 'USD').reduce((s, x) => s + x.monto, 0);
   const balanceUSD = totalIngresosUSD - totalAhorroUSD - totalGastoUSD;
 
   if (!totalIngresosUSD && !totalAhorroUSD && !totalGastoUSD) {
@@ -5128,8 +5228,8 @@ function _renderSaldoUSDPanel(ym) {
 
   const filas = [
     { label: '💵 Ingresos del mes', val: totalIngresosUSD, color: 'var(--accent3)' },
-    ...(totalGastoUSD ? [{ label: '💸 Gastos del mes', val: -totalGastoUSD, color: 'var(--accent2)' }] : []),
-    ...(totalAhorroUSD ? [{ label: '🏦 Ahorro del mes', val: -totalAhorroUSD, color: 'var(--accent4)' }] : []),
+    ...(totalGastoUSD  ? [{ label: '💸 Gastos del mes',  val: -totalGastoUSD,  color: 'var(--accent2)' }] : []),
+    ...(totalAhorroUSD ? [{ label: '🏦 Ahorro del mes',  val: -totalAhorroUSD, color: 'var(--accent4)' }] : []),
   ];
   const maxAbs = Math.max(...filas.map(f => Math.abs(f.val)), 1);
 
@@ -5156,465 +5256,111 @@ function _renderSaldoUSDPanel(ym) {
     </div>`;
 }
 
-// ---- ADMIN ----
+// ── ADMIN / AJUSTES ───────────────────────────────────────────────────────────
 
-async function addEmailHabilitado() {
-  const inp = $('admin-email-input');
-  const email = inp.value.trim().toLowerCase();
-  if (!email || !email.includes('@')) { notify('Email inválido'); return; }
-  try {
-    const ref = window._fbDoc(window._fbDb, 'config', 'habilitados');
-    const snap = await window._fbGetDoc(ref);
+function borrarTodosLosAjustes() {
+  ajustesCuentas = [];
+  save();
+  renderSaldoCuentas();
+  renderDashboard();
+}
+
+function iniciarEdicionAjuste(id) {
+  notify('Edición de ajustes próximamente');
+}
+
+function cancelarEdicionAjuste() {}
+
+function guardarEdicionAjuste(id) {}
+
+function addEmailHabilitado() {
+  const input = document.getElementById('admin-new-email');
+  if (!input) return;
+  const email = (input.value || '').trim().toLowerCase();
+  if (!email) { notify('⚠ Ingresá un email'); return; }
+  const ref = window._fbDoc(window._fbDb, 'config', 'habilitados');
+  window._fbGetDoc(ref).then(snap => {
     const lista = snap.exists() ? (snap.data().emails || []) : [];
-    if (lista.includes(email)) { notify('Email ya existe'); return; }
+    if (lista.includes(email)) { notify('Ya está habilitado'); return; }
     lista.push(email);
-    await window._fbSetDoc(ref, { emails: lista });
-    inp.value = '';
-    notify('✓ Email habilitado');
-    renderAdminPanel();
-  } catch(e) { notify('Error: ' + e.message); }
+    window._fbSetDoc(ref, { emails: lista }).then(() => {
+      notify('✓ Email habilitado');
+      input.value = '';
+    }).catch(e => notify('Error: ' + e.message));
+  });
 }
 
-async function removeEmailHabilitado(email) {
-  try {
-    const ref = window._fbDoc(window._fbDb, 'config', 'habilitados');
-    const snap = await window._fbGetDoc(ref);
+function removeEmailHabilitado(email) {
+  if (!confirm('¿Deshabilitar ' + email + '?')) return;
+  const ref = window._fbDoc(window._fbDb, 'config', 'habilitados');
+  window._fbGetDoc(ref).then(snap => {
     const lista = snap.exists() ? (snap.data().emails || []) : [];
-    await window._fbSetDoc(ref, { emails: lista.filter(e => e !== email) });
-    notify('Email eliminado');
-    renderAdminPanel();
-  } catch(e) { notify('Error: ' + e.message); }
+    const nueva = lista.filter(e => e !== email);
+    window._fbSetDoc(ref, { emails: nueva }).then(() => notify('✓ Email eliminado'));
+  });
 }
 
-async function renderAdminPanel() {
-  const el = $('admin-email-list');
-  if (!el) return;
-  el.innerHTML = '<div class="panel-empty">Cargando...</div>';
-  try {
-    const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'config', 'habilitados'));
-    const lista = snap.exists() ? (snap.data().emails || []) : [];
-    const countEl = $('admin-count');
-    if (countEl) countEl.textContent = lista.length;
-    if (!lista.length) {
-      el.innerHTML = '<div class="panel-empty">Sin emails habilitados</div>';
-      return;
-    }
-    el.innerHTML = lista.map(email => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)">
-        <span style="font-size:0.85rem;color:var(--text2)">${email}</span>
-        <button onclick="removeEmailHabilitado('${email}')"
-          style="background:none;border:1px solid rgba(255,79,94,0.4);color:var(--accent2);border-radius:8px;padding:4px 10px;font-size:0.72rem;cursor:pointer">✕</button>
-      </div>`).join('');
-  } catch(e) {
-    el.innerHTML = `<div class="panel-empty">Error: ${e.message}</div>`;
-    notify('Error al cargar admin');
-  }
+function borrarDatosUsuario() {
+  const emailInput = document.getElementById('admin-borrar-email');
+  const resultEl   = document.getElementById('admin-borrar-result');
+  const emailTarget = (emailInput?.value || '').trim().toLowerCase();
+  if (!emailTarget) { notify('⚠ Ingresá el email del usuario'); return; }
+  if (!confirm('¿Borrar TODOS los datos de ' + emailTarget + '? Esta acción no se puede deshacer.')) return;
+  if (resultEl) resultEl.textContent = 'Buscando usuario...';
+  window._fbGetDocs(window._fbCollection(window._fbDb, 'usuarios')).then(snap => {
+    const userDoc = snap.docs.find(d => d.data().email === emailTarget);
+    if (!userDoc) { if (resultEl) resultEl.textContent = '⚠ Usuario no encontrado'; return; }
+    window._fbSetDoc(userDoc.ref, {
+      gastos:[], ingresos:[], ahorros:[], saldosIniciales:{}, tarjetas:[],
+      pendientes:[], conceptosGuardados:[], ajustesCuentas:[], presupuestos:{},
+      presupuestosExplicitos:{}, metasAhorro:{}, recurrentes:[],
+      email: emailTarget, updatedAt: new Date().toISOString()
+    }).then(() => {
+      if (resultEl) resultEl.textContent = '✓ Datos borrados para ' + emailTarget;
+      notify('✓ Datos borrados');
+    }).catch(e => { if (resultEl) resultEl.textContent = 'Error: ' + e.message; });
+  });
 }
 
-async function diagUsuario() {
-  const el = $('diag-result');
+function verFirestoreRaw() {
+  const el = document.getElementById('diag-raw');
   if (!el) return;
-  el.innerHTML = '⏳ Cargando...';
   const uid = window._currentUser?.uid;
-  if (!uid) { el.innerHTML = 'Sin sesión activa'; return; }
-  try {
-    const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid));
-    const d = snap.exists() ? snap.data() : null;
-    if (!d) { el.innerHTML = 'Sin datos en Firestore'; return; }
-    el.innerHTML = `
-      <div style="font-size:0.8rem;line-height:1.7;color:var(--text2)">
-        <div>📧 <b>Email:</b> ${window._currentUser.email}</div>
-        <div>🆔 <b>UID:</b> ${uid}</div>
-        <div>💸 <b>Gastos:</b> ${(d.gastos||[]).length}</div>
-        <div>💵 <b>Ingresos:</b> ${(d.ingresos||[]).length}</div>
-        <div>🏦 <b>Ahorros:</b> ${(d.ahorros||[]).length}</div>
-        <div>🃏 <b>Tarjetas:</b> ${(d.tarjetas||[]).length}</div>
-        <div>📋 <b>Pendientes:</b> ${(d.pendientes||[]).length}</div>
-        <div>🔧 <b>Ajustes:</b> ${(d.ajustesCuentas||[]).length}</div>
-        <div>🕐 <b>Última actualización:</b> ${d.updatedAt ? new Date(d.updatedAt).toLocaleString('es-AR') : 'N/D'}</div>
-      </div>`;
-  } catch(e) { el.innerHTML = 'Error: ' + e.message; }
+  if (!uid) { notify('Sin sesión'); return; }
+  el.style.display = 'block';
+  el.textContent = 'Cargando...';
+  window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid)).then(snap => {
+    if (!snap.exists()) { el.textContent = 'Sin datos'; return; }
+    el.textContent = JSON.stringify(snap.data(), null, 2);
+  }).catch(e => { el.textContent = 'Error: ' + e.message; });
 }
 
-async function recuperarPendientes() {
-  const el = $('diag-result');
-  if (!el) return;
-  el.innerHTML = '⏳ Recuperando...';
-  const uid = window._currentUser?.uid;
-  if (!uid) { el.innerHTML = 'Sin sesión'; return; }
-  try {
-    const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid));
-    const d = snap.exists() ? snap.data() : null;
-    if (d && Array.isArray(d.pendientes) && d.pendientes.length > 0) {
-      pendientes = d.pendientes;
-      el.innerHTML = `✓ Recuperados ${pendientes.length} pendientes`;
-      notify(`✓ ${pendientes.length} pendientes recuperados`);
-    } else {
-      el.innerHTML = 'No hay pendientes guardados en Firestore';
-    }
-  } catch(e) { el.innerHTML = 'Error: ' + e.message; }
-}
-
-async function verFirestoreRaw() {
-  const el = $('diag-raw');
-  if (!el) return;
-  el.innerHTML = '⏳ Cargando raw...';
-  const uid = window._currentUser?.uid;
-  if (!uid) { el.innerHTML = 'Sin sesión'; return; }
-  try {
-    const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'usuarios', uid));
-    const d = snap.exists() ? snap.data() : {};
-    const summary = {
-      gastos: (d.gastos||[]).length,
-      ingresos: (d.ingresos||[]).length,
-      ahorros: (d.ahorros||[]).length,
-      tarjetas: (d.tarjetas||[]).length,
-      pendientes: (d.pendientes||[]).length,
-      ajustesCuentas: (d.ajustesCuentas||[]).length,
-      saldosIniciales: Object.keys(d.saldosIniciales||{}).length + ' cuentas',
-      updatedAt: d.updatedAt || 'N/D'
-    };
-    el.innerHTML = `<pre style="font-size:0.72rem;color:var(--text2);overflow:auto;max-height:280px;white-space:pre-wrap">${JSON.stringify(summary, null, 2)}</pre>`;
-  } catch(e) { el.innerHTML = 'Error: ' + e.message; }
-}
-
-async function limpiarAjustesViejos() {
-  if (!ajustesCuentas || ajustesCuentas.length === 0) { notify('No hay ajustes para limpiar'); return; }
-  const hace6meses = new Date();
-  hace6meses.setMonth(hace6meses.getMonth() - 6);
-  const corte = hace6meses.toISOString().slice(0,10);
+function limpiarAjustesViejos() {
+  const hace6Meses = new Date();
+  hace6Meses.setMonth(hace6Meses.getMonth() - 6);
+  const corte = hace6Meses.toISOString().slice(0,10);
   const antes = ajustesCuentas.length;
   ajustesCuentas = ajustesCuentas.filter(a => a.fecha >= corte);
   const eliminados = antes - ajustesCuentas.length;
   save();
-  notify(`✓ ${eliminados} ajustes eliminados`);
   renderSaldoCuentas();
+  notify(`✓ Eliminados ${eliminados} ajustes viejos`);
 }
 
-
-function renderAjustesHistorial() {
-  const el = $('ajustes-historial-body');
-  if (!el) return;
-  const lista = [...(ajustesCuentas || [])].sort((a, b) => b.fecha.localeCompare(a.fecha));
-  if (!lista.length) {
-    el.innerHTML = '<div class="panel-empty" style="padding:1.2rem">Sin ajustes registrados</div>';
-    return;
-  }
-  const cuentasDisp = ['Efectivo',
-    ...tarjetas.filter(t => t.tipo === 'billetera').map(t => t.label || t.banco || t.nombre),
-    ...tarjetas.filter(t => t.tipo === 'debito').map(t => {
-      let l = t.label || ('CA ' + t.banco);
-      return l.startsWith('Débito ') ? 'CA ' + l.slice(7) : l;
-    })
-  ];
-  el.innerHTML = lista.map(a => {
-    const pos = a.monto >= 0;
-    const isEditing = a._editando;
-    const cuentaOpts = cuentasDisp.map(c => `<option value="${c}" ${c === a.cuenta ? 'selected' : ''}>${c}</option>`).join('');
-    return `<div id="ajrow-${a.id}" style="padding:12px 16px;border-bottom:1px solid var(--border)">
-      ${isEditing ? `
-      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-        <div style="flex:1;min-width:120px">
-          <div style="font-size:0.68rem;color:var(--text3);margin-bottom:3px">Fecha</div>
-          <input id="aj-fecha-${a.id}" type="date" value="${a.fecha}"
-            style="background:var(--bg);border:1px solid var(--accent3);border-radius:8px;color:var(--text);font-size:16px;padding:12px 14px;width:100%;box-sizing:border-box;min-height:46px">
-        </div>
-        <div style="flex:1;min-width:120px">
-          <div style="font-size:0.68rem;color:var(--text3);margin-bottom:3px">Cuenta</div>
-          <select id="aj-cuenta-${a.id}"
-            style="background:var(--bg);border:1px solid var(--accent3);border-radius:8px;color:var(--text);font-size:16px;padding:12px 14px;width:100%;box-sizing:border-box;min-height:46px">
-            ${cuentaOpts}
-          </select>
-        </div>
-        <div style="flex:1;min-width:120px">
-          <div style="font-size:0.68rem;color:var(--text3);margin-bottom:3px">Saldo real</div>
-          <input id="aj-saldo-${a.id}" type="number" value="${a.saldoDespues}" step="0.01"
-            style="background:var(--bg);border:1px solid var(--accent3);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;padding:12px 14px;width:100%;box-sizing:border-box;min-height:46px">
-        </div>
-        <div style="display:flex;gap:6px;align-self:flex-end;padding-bottom:1px">
-          <button onclick="guardarEdicionAjuste(${a.id})"
-            style="background:var(--accent3);border:none;color:#0d0f14;border-radius:8px;padding:12px 20px;font-size:0.88rem;cursor:pointer;font-weight:700;min-height:44px;touch-action:manipulation">✓</button>
-          <button onclick="cancelarEdicionAjuste(${a.id})"
-            style="background:rgba(255,255,255,0.07);border:1px solid var(--border);color:var(--text3);border-radius:8px;padding:12px 18px;font-size:0.88rem;cursor:pointer;min-height:44px;touch-action:manipulation">✕</button>
-        </div>
-      </div>
-      ` : `
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <div style="min-width:0;flex:1">
-          <div style="font-size:0.82rem;color:var(--text2);font-weight:600">${a.cuenta}</div>
-          <div style="font-size:0.7rem;color:var(--text3);margin-top:2px">${a.fecha} · $${(a.saldoAntes||0).toLocaleString('es-AR')} → $${(a.saldoDespues||0).toLocaleString('es-AR')}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:0.9rem;color:${pos ? 'var(--accent)' : 'var(--accent2)'}">
-            ${pos ? '+' : '−'}$${Math.abs(a.monto).toLocaleString('es-AR')}
-          </span>
-          <button onclick="iniciarEdicionAjuste(${a.id})"
-            style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.35);color:var(--accent3);border-radius:8px;padding:11px 16px;font-size:0.85rem;cursor:pointer;min-height:44px;touch-action:manipulation">✏</button>
-          <button onclick="eliminarAjuste(${a.id})"
-            style="background:rgba(255,79,94,0.08);border:1px solid rgba(255,79,94,0.35);color:var(--accent2);border-radius:8px;padding:11px 16px;font-size:0.85rem;cursor:pointer;min-height:44px;touch-action:manipulation">✕</button>
-        </div>
-      </div>
-      `}
-    </div>`;
-  }).join('');
-}
-
-function iniciarEdicionAjuste(id) {
-  const aj = ajustesCuentas.find(a => a.id === id);
-  if (!aj) return;
-  aj._editando = true;
-  renderAjustesHistorial();
-}
-
-function cancelarEdicionAjuste(id) {
-  const aj = ajustesCuentas.find(a => a.id === id);
-  if (!aj) return;
-  delete aj._editando;
-  renderAjustesHistorial();
-}
-
-function guardarEdicionAjuste(id) {
-  const aj = ajustesCuentas.find(a => a.id === id);
-  if (!aj) return;
-  const nuevaFecha  = document.getElementById('aj-fecha-' + id)?.value;
-  const nuevaCuenta = document.getElementById('aj-cuenta-' + id)?.value;
-  const nuevoSaldo  = parseFloat(document.getElementById('aj-saldo-' + id)?.value);
-  if (!nuevaFecha || !nuevaCuenta || isNaN(nuevoSaldo)) { notify('⚠ Completá todos los campos'); return; }
-  aj.fecha        = nuevaFecha;
-  aj.cuenta       = nuevaCuenta;
-  aj.saldoDespues = nuevoSaldo;
-  aj.monto        = +(nuevoSaldo - (aj.saldoAntes || 0)).toFixed(2);
-  delete aj._editando;
-  save();
-  renderSaldoCuentas();
-  renderAjustesHistorial();
-  notify('✓ Ajuste actualizado');
-}
-
-
-async function borrarDatosUsuario() {
-  const emailInput = $('admin-borrar-email');
-  const resultEl   = $('admin-borrar-result');
-  const email = (emailInput?.value || '').trim().toLowerCase();
-  if (!email || !email.includes('@')) { notify('⚠ Ingresá un email válido'); return; }
-
-  resultEl.innerHTML = '⏳ Buscando usuario...';
+function recuperarPendientes() {
   try {
-    let uid = null;
-
-    // 1. Si es el propio usuario logueado, usamos su UID directamente
-    if (window._currentUser && window._currentUser.email.toLowerCase() === email) {
-      uid = window._currentUser.uid;
-    }
-
-    // 2. Buscar en el índice email→UID guardado al hacer login
-    if (!uid) {
-      const idxSnap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'config', 'email_uid_index'));
-      if (idxSnap.exists()) {
-        uid = idxSnap.data()[email] || null;
-      }
-    }
-
-    // 3. Fallback: buscar en la colección usuarios por campo email
-    if (!uid) {
-      const snap = await window._fbGetDocs(
-        window._fbQuery(
-          window._fbCollection(window._fbDb, 'usuarios'),
-          window._fbWhere('email', '==', email)
-        )
-      );
-      if (!snap.empty) uid = snap.docs[0].id;
-    }
-
-    if (!uid) {
-      resultEl.innerHTML = `<span style="color:var(--accent2)">✕ No se encontró ningún usuario con ese email.<br><small>El usuario debe iniciar sesión al menos una vez para quedar registrado.</small></span>`;
-      return;
-    }
-
-    const docRef = window._fbDoc(window._fbDb, 'usuarios', uid);
-    await window._fbSetDoc(docRef, {
-      gastos: [], ingresos: [], ahorros: [], pendientes: [],
-      tarjetas: [], saldosIniciales: {}, conceptosGuardados: [],
-      ajustesCuentas: [], email,
-      updatedAt: new Date().toISOString(),
-      _resetAt: new Date().toISOString()
-    });
-
-    // Si borramos los datos del usuario actual, resetear estado local
-    if (window._currentUser && window._currentUser.uid === uid) {
-      gastos = []; ingresos = []; ahorros = []; pendientes = [];
-      tarjetas = []; saldosIniciales = {}; conceptosGuardados = []; ajustesCuentas = [];
-      renderDashboard();
-      renderSaldoCuentas();
-    }
-
-    resultEl.innerHTML = `<span style="color:var(--accent)">✓ Datos de <b>${email}</b> borrados correctamente</span>`;
-    emailInput.value = '';
-    notify(`✓ Datos de ${email} eliminados`);
-  } catch(e) {
-    resultEl.innerHTML = `<span style="color:var(--accent2)">Error: ${e.message}</span>`;
-    notify('Error: ' + e.message);
-  }
+    const local = JSON.parse(localStorage.getItem('gf_pendientes') || '[]');
+    if (!local.length) { notify('No hay memos en localStorage'); return; }
+    const ids = new Set(pendientes.map(p => String(p.id)));
+    const nuevos = local.filter(p => !ids.has(String(p.id)));
+    pendientes = [...pendientes, ...nuevos];
+    save();
+    notify(`✓ Recuperados ${nuevos.length} memos`);
+  } catch(e) { notify('Error: ' + e.message); }
 }
 
-// ---- CONFETTI ----
-const _celebratedMetas = new Set();
+// ── WINDOW EXPORTS ────────────────────────────────────────────────────────────
 
-function launchConfetti() {
-  const canvas = document.getElementById('confetti-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
-  canvas.style.display = 'block';
-  haptic([40, 60, 80]);
-
-  const COLORS = ['#18d47b','#38bdf8','#fbbf24','#f472b6','#a78bfa','#fb923c','#ffffff'];
-  const pieces = Array.from({ length: 120 }, () => ({
-    x: Math.random() * canvas.width,
-    y: -10 - Math.random() * 200,
-    w: 6 + Math.random() * 8,
-    h: 8 + Math.random() * 6,
-    r: Math.random() * Math.PI * 2,
-    dr: (Math.random() - 0.5) * 0.2,
-    dx: (Math.random() - 0.5) * 2.5,
-    dy: 2.5 + Math.random() * 3.5,
-    color: COLORS[Math.floor(Math.random() * COLORS.length)],
-    alpha: 1
-  }));
-
-  let frame;
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    let alive = false;
-    pieces.forEach(p => {
-      p.x  += p.dx;
-      p.y  += p.dy;
-      p.r  += p.dr;
-      p.dy += 0.07; // gravedad
-      if (p.y > canvas.height * 0.7) p.alpha -= 0.025;
-      if (p.alpha <= 0) return;
-      alive = true;
-      ctx.save();
-      ctx.globalAlpha = Math.max(0, p.alpha);
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.r);
-      ctx.fillStyle = p.color;
-      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-      ctx.restore();
-    });
-    if (alive) {
-      frame = requestAnimationFrame(draw);
-    } else {
-      canvas.style.display = 'none';
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-  }
-  if (frame) cancelAnimationFrame(frame);
-  draw();
-}
-
-// ---- SWIPE BETWEEN TABS ----
-(function initSwipeTabs() {
-  const TAB_ORDER = ['dashboard', 'gastos', 'ingresos', 'ahorro', 'pendientes', 'ajustes'];
-  let tx = 0, ty = 0, swiping = false;
-  const MIN_X = 55;   // px mínimo horizontal
-  const MAX_Y = 40;   // px máximo vertical (para no interferir con scroll)
-
-  function currentTab() {
-    const active = document.querySelector('section.active');
-    return active ? active.id.replace('tab-', '') : 'dashboard';
-  }
-
-  document.addEventListener('touchstart', e => {
-    // No iniciar swipe si el touch empieza en un contenedor con scroll horizontal
-    const el = e.target.closest('.cat-chips-row, .mes-nav, [style*="overflow-x"]');
-    if (el) { swiping = false; return; }
-    tx = e.touches[0].clientX;
-    ty = e.touches[0].clientY;
-    swiping = true;
-  }, { passive: true });
-
-  document.addEventListener('touchend', e => {
-    if (!swiping) return;
-    swiping = false;
-    const dx = e.changedTouches[0].clientX - tx;
-    const dy = Math.abs(e.changedTouches[0].clientY - ty);
-    if (Math.abs(dx) < MIN_X || dy > MAX_Y) return;
-    const cur = TAB_ORDER.indexOf(currentTab());
-    if (cur === -1) return;
-    const next = dx < 0
-      ? TAB_ORDER[Math.min(cur + 1, TAB_ORDER.length - 1)]
-      : TAB_ORDER[Math.max(cur - 1, 0)];
-    if (next !== currentTab()) {
-      haptic(30);
-      showTab(next);
-    }
-  }, { passive: true });
-})();
-
-// ---- PULL TO REFRESH ----
-(function initPullToRefresh() {
-  let startY = 0, pulling = false, triggered = false;
-  const THRESHOLD = 72;
-  const bar = document.getElementById('ptr-bar');
-  if (!bar) return;
-
-  document.addEventListener('touchstart', e => {
-    if (window.scrollY === 0) {
-      startY = e.touches[0].clientY;
-      pulling = true;
-      triggered = false;
-    }
-  }, { passive: true });
-
-  document.addEventListener('touchmove', e => {
-    if (!pulling) return;
-    const dy = e.touches[0].clientY - startY;
-    if (dy > 10 && window.scrollY === 0) {
-      bar.classList.add('ptr-visible');
-    } else if (dy <= 10) {
-      bar.classList.remove('ptr-visible');
-    }
-    if (dy >= THRESHOLD && !triggered) triggered = true;
-  }, { passive: true });
-
-  document.addEventListener('touchend', async () => {
-    if (!pulling) return;
-    pulling = false;
-    if (triggered && window._currentUser) {
-      bar.classList.remove('ptr-visible');
-      bar.classList.add('ptr-loading');
-      haptic(40);
-      try {
-        await window.loadUserData(window._currentUser.uid);
-      } finally {
-        bar.classList.remove('ptr-loading');
-      }
-    } else {
-      bar.classList.remove('ptr-visible');
-    }
-    triggered = false;
-  });
-})();
-
-// ---- WINDOW EXPORTS ----
-window.renderDashboard    = renderDashboard;
-window.toggleDashCuotas = toggleDashCuotas;
-window.toggleCardPanel    = toggleCardPanel;
-
-// ---- WINDOW EXPORTS ----
-window.renderSaldoCuentas     = renderSaldoCuentas;
-window.renderAhorroTable      = renderAhorroTable;
-window.renderFondos           = renderFondos;
-window.renderDashCuotas       = renderDashCuotas;
-window.renderAjustesHistorial = renderAjustesHistorial;
-window.renderPendientesTab    = renderPendientesTab;
-window.renderOrigenAhorro     = renderOrigenAhorro;
-window.renderAdminPanel       = renderAdminPanel;
-
-window.addAhorro              = addAhorro;
-window.deleteAhorro           = deleteAhorro;
 window.toggleMetaForm         = toggleMetaForm;
 window.guardarMeta            = guardarMeta;
 window.deleteMeta             = deleteMeta;
@@ -5643,6 +5389,10 @@ window.eliminarAjuste         = eliminarAjuste;
 window.moverEntreCuentas      = moverEntreCuentas;
 window.actualizarCotizacion   = actualizarCotizacion;
 window.comprarUSD             = comprarUSD;
+window.actualizarCotizacionVenta = actualizarCotizacionVenta;
+window.venderUSD              = venderUSD;
+window.navCalendario          = navCalendario;
+window.selCalDia              = selCalDia;
 window.borrarTodosLosAjustes  = borrarTodosLosAjustes;
 window.iniciarEdicionAjuste   = iniciarEdicionAjuste;
 window.cancelarEdicionAjuste  = cancelarEdicionAjuste;
@@ -5698,3 +5448,4 @@ window.seleccionarConcepto    = seleccionarConcepto;
 window.toggleConceptoOtro     = toggleConceptoOtro;
 window.filtrarConceptos       = filtrarConceptos;
 window.seleccionarConceptoOtro = seleccionarConceptoOtro;
+window.calcularTotalTarjetaMes = calcularTotalTarjetaMes;
