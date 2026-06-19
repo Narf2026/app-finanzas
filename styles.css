@@ -3281,22 +3281,7 @@ button:focus-visible {
 }
 
 .oi-row .oi-actions button {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text3);
-  cursor: pointer;
-  font-size: 0.65rem;
-  line-height: 1;
-  padding: 2px 6px;
-  min-height: 0;
-  min-width: 0;
-  transition: all 0.15s ease;
-}
-
-.oi-row .oi-actions button:hover {
-  color: var(--text);
-  border-color: var(--accent);
+  font-size: 0.75rem;
 }
 
 @media (max-width: 700px) {
