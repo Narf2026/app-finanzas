@@ -1293,15 +1293,19 @@ function renderTarjetas() {
   const el = $('tc-lista');
   if (!el) return;
   if (!tarjetas.length) {
-    el.innerHTML = '<div class="panel-empty">Sin medios de pago agregados</div>';
+    el.innerHTML = '<div class="panel-empty">Sin cuentas agregadas</div>';
     return;
   }
-  // Agrupar por banco
+
+  let saldos = {}, normalizarDestino = s => s;
+  try { ({ saldos, normalizarDestino } = _buildCuentasYSaldos()); } catch(e) {}
+
   const byBanco = {};
   tarjetas.forEach(t => {
     if (!byBanco[t.banco]) byBanco[t.banco] = [];
     byBanco[t.banco].push(t);
   });
+
   el.innerHTML = Object.entries(byBanco).map(([banco, ts]) => `
     <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px">
       <div style="padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:0.85rem;font-weight:700;color:var(--text2)">
@@ -1310,19 +1314,28 @@ function renderTarjetas() {
       ${ts.map(t => {
         const tipo = t.tipo || 'credito';
         const icon = tipo === 'billetera' ? '📱' : tipo === 'debito' ? '🏦' : '💳';
-        const label = t.label || (tipo === 'debito' ? 'CA ' + banco : (tipo === 'billetera' ? banco : banco));
+        const label = t.label || (tipo === 'debito' ? 'CA ' + banco : banco);
         const sub = tipo === 'credito'
           ? (t.red ? t.red : 'Crédito') + (t.limite > 0 ? ' · Límite $' + fmt(t.limite) : '')
           : tipo === 'debito' ? 'Cuenta / Débito' : 'Billetera virtual';
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:1.3rem">${icon}</span>
-            <div>
+        const key = normalizarDestino(label);
+        const saldoCuenta = saldos[key];
+        const saldoARS = saldoCuenta?.ars;
+        const saldoStr = saldoARS !== undefined
+          ? `<span style="font-family:'DM Mono',monospace;font-size:0.8rem;font-weight:700;color:${saldoARS >= 0 ? 'var(--accent3)' : 'var(--accent2)'}">$${fmt(saldoARS)}</span>`
+          : '';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);gap:8px">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+            <span style="font-size:1.3rem;flex-shrink:0">${icon}</span>
+            <div style="min-width:0">
               <div style="font-size:0.85rem;font-weight:600;color:var(--text2)">${label}</div>
               <div style="font-size:0.72rem;color:var(--text3)">${sub}</div>
             </div>
           </div>
-          <button class="btn-del" onclick="deleteTarjeta(${t.id})">✕</button>
+          <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+            ${saldoStr}
+            <button onclick="deleteTarjeta(${t.id})" title="Eliminar" style="background:transparent;border:none;cursor:pointer;color:var(--text3);font-size:1rem;padding:4px;line-height:1;transition:color 0.15s" onmouseover="this.style.color='var(--accent2)'" onmouseout="this.style.color='var(--text3)'">🗑</button>
+          </div>
         </div>`;
       }).join('')}
     </div>`).join('');
@@ -2183,18 +2196,20 @@ function abrirModalNota(id) {
   if (!overlay || !modal) return;
 
   _notaColorSeleccionado = 'default';
-  $('nota-titulo').value = '';
-  $('nota-body').value   = '';
-  $('nota-monto').value  = '';
-  $('nota-editing-id').value = '';
+  $('nota-titulo').value      = '';
+  $('nota-body').value        = '';
+  $('nota-monto').value       = '';
+  $('nota-vencimiento').value = '';
+  $('nota-editing-id').value  = '';
 
   if (id) {
     const p = pendientes.find(x => x.id === id);
     if (p) {
-      $('nota-titulo').value = p.desc || '';
-      $('nota-body').value   = p.body || '';
-      $('nota-monto').value  = p.monto || '';
-      $('nota-editing-id').value = id;
+      $('nota-titulo').value      = p.desc || '';
+      $('nota-body').value        = p.body || '';
+      $('nota-monto').value       = p.monto || '';
+      $('nota-vencimiento').value = p.vencimiento || '';
+      $('nota-editing-id').value  = id;
       _notaColorSeleccionado = p.color || 'default';
     }
   }
@@ -2240,14 +2255,16 @@ function guardarNota() {
   const monto  = parseFloat($('nota-monto').value) || 0;
   if (!titulo && !body) { notify('⚠ Escribí algo'); return; }
 
+  const vencimiento = $('nota-vencimiento').value || '';
   const editingId = parseInt($('nota-editing-id').value) || null;
   if (editingId) {
     const p = pendientes.find(x => x.id === editingId);
     if (p) {
-      p.desc  = titulo || body.slice(0, 40);
-      p.body  = body;
-      p.monto = monto;
-      p.color = _notaColorSeleccionado;
+      p.desc        = titulo || body.slice(0, 40);
+      p.body        = body;
+      p.monto       = monto;
+      p.color       = _notaColorSeleccionado;
+      p.vencimiento = vencimiento;
     }
   } else {
     pendientes.push({
@@ -2255,6 +2272,7 @@ function guardarNota() {
       desc:  titulo || body.slice(0, 40),
       body,
       monto,
+      vencimiento,
       color: _notaColorSeleccionado,
       estado: 'pendiente',
       fecha:  new Date().toISOString().slice(0,10)
@@ -2342,7 +2360,17 @@ function renderNotasGrid() {
   if (!el) return;
 
   const q = ($('notas-search')?.value || '').toLowerCase();
-  let rows = [...pendientes].sort((a,b) => b.id - a.id);
+  const hoy = new Date().toISOString().slice(0,10);
+  const _vScore = p => {
+    if (!p.vencimiento || p.estado === 'completado') return 99999;
+    const diff = Math.round((new Date(p.vencimiento) - new Date(hoy)) / 86400000);
+    return diff;
+  };
+  let rows = [...pendientes].sort((a,b) => {
+    const va = _vScore(a), vb = _vScore(b);
+    if (va !== vb) return va - vb;
+    return b.id - a.id;
+  });
   if (pendienteFiltro === 'pendientes')  rows = rows.filter(p => p.estado !== 'completado');
   if (pendienteFiltro === 'completados') rows = rows.filter(p => p.estado === 'completado');
   if (q) rows = rows.filter(p => (p.desc||'').toLowerCase().includes(q) || (p.body||'').toLowerCase().includes(q));
@@ -2387,6 +2415,16 @@ function renderNotasGrid() {
 
       <!-- Monto -->
       ${p.monto > 0 ? `<div style="margin-top:8px;font-family:'DM Mono',monospace;font-size:0.82rem;font-weight:700;color:var(--accent)">$${fmt(p.monto)}</div>` : ''}
+
+      <!-- Vencimiento -->
+      ${(() => {
+        if (!p.vencimiento || done) return '';
+        const hoy = new Date().toISOString().slice(0,10);
+        const diff = Math.round((new Date(p.vencimiento) - new Date(hoy)) / 86400000);
+        const color = diff < 0 ? '#f87171' : diff <= 3 ? '#fcd34d' : 'var(--text3)';
+        const label = diff < 0 ? `Venció hace ${-diff}d` : diff === 0 ? 'Vence hoy' : diff === 1 ? 'Vence mañana' : `Vence en ${diff}d`;
+        return `<div style="margin-top:6px;font-size:0.75rem;color:${color};font-weight:${diff<=3?'700':'400'}">📅 ${label}</div>`;
+      })()}
 
       <!-- Form registrar gasto -->
       ${mostrarForm ? `
@@ -3799,7 +3837,7 @@ function renderSaldoCuentas() {
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%;margin-top:8px">
-          <button onclick="toggleCuentaPanel('ajuste-${safeC}')" style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.4);color:var(--accent3);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">✏ Ajustar</button>
+          <button onclick="toggleCuentaPanel('ajuste-${safeC}')" style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.4);color:var(--accent3);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">✏ Corregir saldo</button>
           <button onclick="toggleCuentaPanel('mover-${safeC}')" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.4);color:var(--accent4);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">↔ Mover entre cuentas</button>
           <button onclick="toggleCuentaPanel('usd-${safeC}')" style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.4);color:var(--accent3);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;grid-column:span 2;touch-action:manipulation">💱 Compra/Venta USD</button>
         </div>
@@ -4001,6 +4039,28 @@ function aplicarAjusteCuenta(cuenta, safeC, saldoActual) {
   input.value = '';
   renderSaldoCuentas();
   renderAjustesHistorial();
+}
+
+function renderAjustesHistorial() {
+  const el = $('ajustes-historial-body');
+  if (!el) return;
+  if (!ajustesCuentas || !ajustesCuentas.length) {
+    el.innerHTML = '<div style="padding:1rem;color:var(--text3);font-size:0.85rem">Sin ajustes registrados.</div>';
+    return;
+  }
+  const sorted = [...ajustesCuentas].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+  el.innerHTML = sorted.map(a => {
+    const signo = a.monto >= 0 ? '+' : '';
+    const color = a.monto >= 0 ? 'var(--accent3)' : 'var(--accent2)';
+    return `<div class="oi-row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.88rem;color:var(--text1);font-weight:600">${escHtml(a.cuenta || '')}</div>
+        <div style="font-size:0.75rem;color:var(--text3)">${a.fecha || ''} ${a.notas ? '· ' + escHtml(a.notas) : ''}</div>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.9rem;font-weight:700;color:${color};flex-shrink:0">${signo}$${fmt(Math.abs(a.monto))}</div>
+      <button class="btn-del" style="padding:4px 10px;font-size:0.75rem;min-height:28px;flex-shrink:0" onclick="eliminarAjuste(${a.id})">✕</button>
+    </div>`;
+  }).join('');
 }
 
 function eliminarAjuste(id) {
@@ -4754,6 +4814,7 @@ window.renderDashboard        = renderDashboard;
 window.selectDashMonth        = selectDashMonth;
 
 window.aplicarAjusteCuenta    = aplicarAjusteCuenta;
+window.renderAjustesHistorial = renderAjustesHistorial;
 window.eliminarAjuste         = eliminarAjuste;
 window.moverEntreCuentas      = moverEntreCuentas;
 window.actualizarCotizacion   = actualizarCotizacion;
