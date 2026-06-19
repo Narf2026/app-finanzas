@@ -3159,26 +3159,45 @@ function renderReportes() {
 
   // ── 4. Evolución del ahorro total ────────────────────────────────────────
   _destroyChart('ahorro');
-  const ahorroData = meses.map(m => {
-    return ahorros.filter(a => {
-      const aym = a.ymBase || a.key?.slice(0, 7) || '';
-      return aym <= m;
-    }).reduce((s, a) => s + ((a.moneda || 'ARS') === 'ARS' ? (a.monto || 0) : 0), 0);
-  });
+  const ahorroMensual = meses.map(m =>
+    ahorros.filter(a => (a.ymBase || a.key?.slice(0, 7) || '') === m)
+           .reduce((s, a) => s + ((a.moneda || 'ARS') === 'ARS' ? (a.monto || 0) : 0), 0)
+  );
+  const ahorroData = meses.map(m =>
+    ahorros.filter(a => (a.ymBase || a.key?.slice(0, 7) || '') <= m)
+           .reduce((s, a) => s + ((a.moneda || 'ARS') === 'ARS' ? (a.monto || 0) : 0), 0)
+  );
 
   _charts['ahorro'] = new Chart($('chart-ahorro'), {
-    type: 'line',
+    type: 'bar',
     data: {
       labels,
-      datasets: [{
-        label: 'Ahorro acumulado ARS',
-        data: ahorroData,
-        borderColor: '#fcd34d', backgroundColor: '#fcd34d22',
-        borderWidth: 2, pointRadius: 4, fill: true, tension: 0.3
-      }]
+      datasets: [
+        {
+          label: 'Ahorro del mes',
+          data: ahorroMensual,
+          backgroundColor: '#fcd34d66',
+          borderColor: '#fcd34d',
+          borderWidth: 2,
+          borderRadius: 6,
+          order: 2
+        },
+        {
+          label: 'Acumulado',
+          data: ahorroData,
+          type: 'line',
+          borderColor: '#6ee7b7',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointRadius: 4,
+          tension: 0.3,
+          order: 1
+        }
+      ]
     },
     options: {
-      responsive: true, plugins: { legend: { labels: { color: text2 } } },
+      responsive: true,
+      plugins: { legend: { labels: { color: text2 } } },
       scales: {
         x: { ticks: { color: text2 }, grid: { color: border } },
         y: { ticks: { color: text2, callback: v => '$' + fmt(v) }, grid: { color: border } }
