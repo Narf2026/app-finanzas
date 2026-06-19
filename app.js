@@ -4617,8 +4617,32 @@ function cancelarEdicionAjuste() {}
 
 function guardarEdicionAjuste(id) {}
 
+async function renderAdminPanel() {
+  const listEl   = document.getElementById('admin-email-list');
+  const countEl  = document.getElementById('admin-count');
+  if (!listEl) return;
+  listEl.innerHTML = '<div style="padding:12px;color:var(--text3);font-size:0.85rem">Cargando...</div>';
+  try {
+    const ref  = window._fbDoc(window._fbDb, 'config', 'habilitados');
+    const snap = await window._fbGetDoc(ref);
+    const lista = snap.exists() ? (snap.data().emails || []) : [];
+    if (countEl) countEl.textContent = lista.length;
+    if (lista.length === 0) {
+      listEl.innerHTML = '<div style="padding:16px;color:var(--text3);font-size:0.85rem">No hay emails habilitados todavía.</div>';
+      return;
+    }
+    listEl.innerHTML = lista.map(email => `
+      <div class="oi-row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)">
+        <span style="font-size:0.9rem;color:var(--text)">${email}</span>
+        <button class="btn-del" style="padding:6px 12px;font-size:0.8rem" onclick="removeEmailHabilitado('${email}')">✕ Quitar</button>
+      </div>`).join('');
+  } catch(e) {
+    listEl.innerHTML = '<div style="padding:12px;color:var(--accent2);font-size:0.85rem">Error al cargar: ' + e.message + '</div>';
+  }
+}
+
 function addEmailHabilitado() {
-  const input = document.getElementById('admin-new-email');
+  const input = document.getElementById('admin-email-input');
   if (!input) return;
   const email = (input.value || '').trim().toLowerCase();
   if (!email) { notify('⚠ Ingresá un email'); return; }
@@ -4630,6 +4654,7 @@ function addEmailHabilitado() {
     window._fbSetDoc(ref, { emails: lista }).then(() => {
       notify('✓ Email habilitado');
       input.value = '';
+      renderAdminPanel();
     }).catch(e => notify('Error: ' + e.message));
   });
 }
@@ -4640,7 +4665,7 @@ function removeEmailHabilitado(email) {
   window._fbGetDoc(ref).then(snap => {
     const lista = snap.exists() ? (snap.data().emails || []) : [];
     const nueva = lista.filter(e => e !== email);
-    window._fbSetDoc(ref, { emails: nueva }).then(() => notify('✓ Email eliminado'));
+    window._fbSetDoc(ref, { emails: nueva }).then(() => { notify('✓ Email eliminado'); renderAdminPanel(); });
   });
 }
 
@@ -4781,6 +4806,7 @@ window.eliminarSueldoIngreso  = eliminarSueldoIngreso;
 
 window.deleteTarjeta          = deleteTarjeta;
 
+window.renderAdminPanel       = renderAdminPanel;
 window.addEmailHabilitado     = addEmailHabilitado;
 window.removeEmailHabilitado  = removeEmailHabilitado;
 window.borrarDatosUsuario     = borrarDatosUsuario;
