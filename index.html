@@ -69,15 +69,14 @@ onAuthStateChanged(auth, async (user) => {
     window._currentUser = user;
 
     // Verificar acceso: si es admin siempre pasa
+    let esUsuarioExistente = true;
     if (user.email !== 'pachadofran@gmail.com') {
-      // Chequear si ya tiene datos (usuario existente) o si está habilitado (usuario nuevo)
       const userSnap = await getDoc(doc(db, 'usuarios', user.uid));
-      const esUsuarioExistente = userSnap.exists() && userSnap.data().gastos?.length > 0;
+      esUsuarioExistente = userSnap.exists() && userSnap.data().gastos?.length > 0;
       if (!esUsuarioExistente) {
         const habSnap = await getDoc(doc(db, 'config', 'habilitados'));
         const lista = habSnap.exists() ? (habSnap.data().emails || []) : [];
         if (!lista.includes(user.email.toLowerCase())) {
-          // Sin acceso — mostrar pantalla de solicitud
           document.getElementById('auth-screen').style.display = 'none';
           document.getElementById('app-screen').style.display = 'none';
           document.getElementById('acceso-denegado-screen').style.display = 'flex';
@@ -87,9 +86,11 @@ onAuthStateChanged(auth, async (user) => {
       }
     }
 
+    const esNuevo = !esUsuarioExistente;
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('acceso-denegado-screen').style.display = 'none';
-    document.getElementById('app-screen').style.display = 'block';
+    document.getElementById('onboarding-screen').style.display = esNuevo ? 'flex' : 'none';
+    document.getElementById('app-screen').style.display = esNuevo ? 'none' : 'block';
     document.getElementById('user-email').textContent = user.email;
     const parts = user.email.split('@')[0].split(/[._\-]/);
     const initials = (parts[0][0] + (parts[1]?.[0] || parts[0][1] || '')).toUpperCase();
@@ -131,6 +132,11 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+  window.terminarOnboarding = function() {
+    document.getElementById('onboarding-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+    window.renderDashboard();
+  };
   </script>
   <script>
     if ('serviceWorker' in navigator) {
@@ -174,6 +180,53 @@ onAuthStateChanged(auth, async (user) => {
       <span onclick="window.resetPassword()">¿Olvidaste tu contraseña?</span>
     </div>
   </div>
+</div>
+
+<!-- ONBOARDING -->
+<div id="onboarding-screen" style="display:none;flex-direction:column;align-items:center;min-height:100vh;padding:36px 24px 40px;background:var(--bg);overflow-y:auto">
+  <img src="logo.webp" style="width:64px;height:64px;border-radius:50%;object-fit:cover;object-position:top;border:2px solid var(--accent);margin-bottom:16px">
+  <div style="font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:6px">Bienvenido a finanzapp</div>
+  <div style="color:var(--text-muted);margin-bottom:28px;text-align:center;max-width:340px;line-height:1.5">Tu lugar para ordenar las finanzas personales. Acá te contamos cómo funciona.</div>
+
+  <div style="display:flex;flex-direction:column;gap:14px;width:100%;max-width:420px;margin-bottom:32px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;display:flex;gap:16px;align-items:flex-start">
+      <div style="font-size:1.6rem">📊</div>
+      <div>
+        <div style="font-weight:600;color:var(--text);margin-bottom:4px">Dashboard</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);line-height:1.4">Ves un resumen del mes: cuánto gastaste, cuánto entrá y en qué estás parado.</div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;display:flex;gap:16px;align-items:flex-start">
+      <div style="font-size:1.6rem">💸</div>
+      <div>
+        <div style="font-weight:600;color:var(--text);margin-bottom:4px">Gastos</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);line-height:1.4">Registrá cada gasto con categoría, medio de pago y si impacta este mes o el que viene.</div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;display:flex;gap:16px;align-items:flex-start">
+      <div style="font-size:1.6rem">💰</div>
+      <div>
+        <div style="font-weight:600;color:var(--text);margin-bottom:4px">Ingresos</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);line-height:1.4">Cargá tus sueldos, extras o cualquier ingreso y asignalo a una cuenta.</div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;display:flex;gap:16px;align-items:flex-start">
+      <div style="font-size:1.6rem">🏦</div>
+      <div>
+        <div style="font-weight:600;color:var(--text);margin-bottom:4px">Mis Cuentas</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);line-height:1.4">Configurá tus cuentas bancarias, tarjetas y efectivo. Mové plata entre ellas o comprá dólares.</div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;display:flex;gap:16px;align-items:flex-start">
+      <div style="font-size:1.6rem">🛠️</div>
+      <div>
+        <div style="font-weight:600;color:var(--text);margin-bottom:4px">Utilidades</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);line-height:1.4">Dividí gastos, calculá cuotas, anotá recordatorios y más herramientas para el día a día.</div>
+      </div>
+    </div>
+  </div>
+
+  <button onclick="window.terminarOnboarding()" style="background:var(--accent);color:#fff;border:none;border-radius:14px;padding:16px 40px;font-size:1rem;font-weight:700;font-family:'Sora',sans-serif;cursor:pointer;width:100%;max-width:420px">Empezar →</button>
 </div>
 
 <!-- ACCESO DENEGADO -->

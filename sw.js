@@ -1,4 +1,4 @@
-const VERSION = 'v20260619155154';
+const VERSION = 'v20260619155715';
 const CACHE   = 'finanzapp-' + VERSION;
 const ASSETS  = ['/', '/index.html', '/app.js', '/styles.css', '/manifest.json', '/icon-192.png', '/icon-512.png', '/logo.webp'];
 
