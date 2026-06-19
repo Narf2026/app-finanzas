@@ -173,10 +173,12 @@ window.loadUserData = async function(uid) {
 // ---- UTILIDADES (sub-tabs dentro de "Utilidades") ----
 function showUtilSubtab(sub, btn) {
   document.querySelectorAll('[id^="util-tab-"]').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('[id^="util-"]:not([id^="util-tab-"])').forEach(s => s.style.display = 'none');
+  document.querySelectorAll('[id^="util-"]:not([id^="util-tab-"]):not(#util-menu):not(#util-detalle)').forEach(s => s.style.display = 'none');
   if (btn) btn.classList.add('active');
   const panel = document.getElementById('util-' + sub);
   if (panel) panel.style.display = '';
+  document.getElementById('util-menu').style.display = 'none';
+  document.getElementById('util-detalle').style.display = '';
   if (sub === 'compartir') ccRenderGrupos();
   if (sub === 'cotizaciones') cargarCotizaciones();
   if (sub === 'presupuesto') renderPresupuesto();
@@ -184,6 +186,14 @@ function showUtilSubtab(sub, btn) {
   if (sub === 'recurrentes') renderRecurrentesLista();
   if (sub === 'calendario') renderCalendario();
 }
+
+function volverUtilidades() {
+  document.querySelectorAll('[id^="util-"]:not([id^="util-tab-"]):not(#util-menu):not(#util-detalle)').forEach(s => s.style.display = 'none');
+  document.querySelectorAll('[id^="util-tab-"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('util-detalle').style.display = 'none';
+  document.getElementById('util-menu').style.display = '';
+}
+window.volverUtilidades = volverUtilidades;
 
 // ---- COTIZACIONES (USD/ARS y ARS/CLP) ----
 let cotizacionesActuales = null;
@@ -3578,8 +3588,8 @@ function toggleCuentaPanel(panelId) {
   if (!panel) return;
   const isOpen = panel.style.display !== 'none';
   // Cerrar todos los paneles de esta cuenta
-  const safeC = panelId.replace(/^(ajuste-|mover-|cambio-|vender-)/, '');
-  ['ajuste-' + safeC, 'mover-' + safeC, 'cambio-' + safeC, 'vender-' + safeC].forEach(id => {
+  const safeC = panelId.replace(/^(ajuste-|mover-|cambio-|vender-|usd-)/, '');
+  ['ajuste-' + safeC, 'mover-' + safeC, 'cambio-' + safeC, 'vender-' + safeC, 'usd-' + safeC].forEach(id => {
     const p = document.getElementById(id);
     if (p) p.style.display = 'none';
   });
@@ -3790,9 +3800,8 @@ function renderSaldoCuentas() {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%;margin-top:8px">
           <button onclick="toggleCuentaPanel('ajuste-${safeC}')" style="background:rgba(245,184,46,0.1);border:1px solid rgba(245,184,46,0.4);color:var(--accent3);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">✏ Ajustar</button>
-          <button onclick="toggleCuentaPanel('mover-${safeC}')" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.4);color:var(--accent4);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">↔ Mover</button>
-          <button onclick="toggleCuentaPanel('cambio-${safeC}')" style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.4);color:var(--accent3);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">💱 Comprar</button>
-          <button onclick="toggleCuentaPanel('vender-${safeC}')" style="background:rgba(255,184,0,0.1);border:1px solid rgba(255,184,0,0.4);color:var(--accent3);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">💵 Vender</button>
+          <button onclick="toggleCuentaPanel('mover-${safeC}')" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.4);color:var(--accent4);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;touch-action:manipulation">↔ Mover entre cuentas</button>
+          <button onclick="toggleCuentaPanel('usd-${safeC}')" style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.4);color:var(--accent3);border-radius:10px;padding:10px 8px;font-size:0.78rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:44px;grid-column:span 2;touch-action:manipulation">💱 Compra/Venta USD</button>
         </div>
       </div>
       <!-- Panel Detalle -->
@@ -3921,6 +3930,14 @@ function renderSaldoCuentas() {
         </select>
         <button onclick="moverEntreCuentas('${c}', '${safeC}')"
           style="background:var(--accent4);border:none;color:#fff;border-radius:10px;padding:14px;font-size:0.9rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:700;min-height:48px;width:100%;touch-action:manipulation">↔ Confirmar movimiento</button>
+      </div>
+      <!-- Panel USD (selector compra/venta) -->
+      <div id="usd-${safeC}" style="display:none;margin-top:10px;flex-direction:column;gap:8px;background:rgba(45,212,191,0.06);border:1px solid rgba(45,212,191,0.2);border-radius:12px;padding:12px">
+        <div style="font-size:0.72rem;color:var(--accent3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">¿Qué querés hacer con USD?</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button onclick="toggleCuentaPanel('usd-${safeC}');toggleCuentaPanel('cambio-${safeC}')" style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.4);color:var(--accent3);border-radius:10px;padding:12px 8px;font-size:0.82rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:48px;touch-action:manipulation">💱 Comprar USD</button>
+          <button onclick="toggleCuentaPanel('usd-${safeC}');toggleCuentaPanel('vender-${safeC}')" style="background:rgba(255,184,0,0.1);border:1px solid rgba(255,184,0,0.4);color:var(--accent3);border-radius:10px;padding:12px 8px;font-size:0.82rem;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;min-height:48px;touch-action:manipulation">💵 Vender USD</button>
+        </div>
       </div>
       <!-- Panel Cambio (compra de USD) -->
       <div id="cambio-${safeC}" style="display:none;margin-top:10px;flex-direction:column;gap:8px;background:rgba(45,212,191,0.06);border:1px solid rgba(45,212,191,0.2);border-radius:12px;padding:12px">

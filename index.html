@@ -666,6 +666,7 @@ onAuthStateChanged(auth, async (user) => {
     <small>HERRAMIENTAS ADICIONALES</small>
   </div>
 
+  <div id="util-menu">
   <div class="util-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:1.4rem">
     <button class="util-card" id="util-tab-recurrentes" onclick="showUtilSubtab('recurrentes',this)">
       <span class="util-card-icon">🔄</span>
@@ -714,6 +715,12 @@ onAuthStateChanged(auth, async (user) => {
       <span class="util-card-desc">Gastos, cuotas, ingresos y recurrentes por día</span>
     </button>
   </div>
+  </div><!-- /util-menu -->
+
+  <div id="util-detalle" style="display:none">
+    <div style="margin-bottom:1rem">
+      <button class="btn-secondary" onclick="volverUtilidades()">← Volver</button>
+    </div>
 
   <!-- CALENDARIO -->
   <div id="util-calendario" style="display:none">
@@ -1070,7 +1077,7 @@ onAuthStateChanged(auth, async (user) => {
       <div id="tc-lista"></div>
     </div>
 
-  </div>
+  </div><!-- /util-detalle -->
 </section>
 
 <!-- ADMIN -->

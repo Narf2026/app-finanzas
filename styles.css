@@ -3675,22 +3675,25 @@ tr.row-new td, div.row-new {
   gap: 3px;
   flex-shrink: 0;
 }
-.ing-card-item-btns button {
-  background: rgba(255,255,255,0.06);
-  border: none;
-  border-radius: 6px;
-  width: 26px;
-  height: 26px;
-  font-size: 0.7rem;
-  color: var(--text3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.ing-card-item-btns .btn-edit {
+  background: rgba(245,184,46,0.12);
+  border: 1px solid rgba(245,184,46,0.45);
+  color: var(--accent3);
+  font-size: 0.75rem;
 }
-.ing-card-item-btns button:hover {
-  background: rgba(255,255,255,0.12);
-  color: var(--text1);
+.ing-card-item-btns .btn-edit:hover {
+  background: rgba(245,184,46,0.22);
+  border-color: var(--accent3);
+}
+.ing-card-item-btns .btn-del {
+  background: rgba(255,79,94,0.12);
+  border: 1px solid rgba(255,79,94,0.45);
+  color: var(--accent2);
+  font-size: 0.75rem;
+}
+.ing-card-item-btns .btn-del:hover {
+  background: rgba(255,79,94,0.22);
+  border-color: var(--accent2);
 }
 
 /* ── INSIGHT DEL MES ── */
