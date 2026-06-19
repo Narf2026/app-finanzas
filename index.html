@@ -675,7 +675,7 @@ onAuthStateChanged(auth, async (user) => {
     <button class="util-card" id="util-tab-lista" onclick="showUtilSubtab('lista',this)">
       <span class="util-card-icon">📝</span>
       <span class="util-card-name">Lista</span>
-      <span class="util-card-desc">Notas y gastos planificados</span>
+      <span class="util-card-desc">Recordatorios y gastos pendientes</span>
     </button>
     <button class="util-card" id="util-tab-presupuesto" onclick="showUtilSubtab('presupuesto',this)">
       <span class="util-card-icon">🎯</span>
@@ -685,7 +685,7 @@ onAuthStateChanged(auth, async (user) => {
     <button class="util-card" id="util-tab-reportes" onclick="showUtilSubtab('reportes',this)">
       <span class="util-card-icon">📈</span>
       <span class="util-card-name">Reportes</span>
-      <span class="util-card-desc">Análisis y estadísticas</span>
+      <span class="util-card-desc">Gráficos y tendencias mensuales</span>
     </button>
     <button class="util-card" id="util-tab-cotizaciones" onclick="showUtilSubtab('cotizaciones',this)">
       <span class="util-card-icon">💱</span>
@@ -695,7 +695,7 @@ onAuthStateChanged(auth, async (user) => {
     <button class="util-card" id="util-tab-compartir" onclick="showUtilSubtab('compartir',this)">
       <span class="util-card-icon">👥</span>
       <span class="util-card-name">Compartir</span>
-      <span class="util-card-desc">Gastos con otras personas</span>
+      <span class="util-card-desc">Dividí gastos y saldá deudas</span>
     </button>
     <button class="util-card" id="util-tab-telegram" onclick="showUtilSubtab('telegram',this)">
       <span class="util-card-icon">🤖</span>
@@ -705,7 +705,7 @@ onAuthStateChanged(auth, async (user) => {
     <button class="util-card" id="util-tab-datos" onclick="showUtilSubtab('datos',this)">
       <span class="util-card-icon">💾</span>
       <span class="util-card-name">Datos</span>
-      <span class="util-card-desc">Exportar e importar información</span>
+      <span class="util-card-desc">Backup y exportación a Excel</span>
     </button>
 
     <button class="util-card" id="util-tab-calendario" onclick="showUtilSubtab('calendario',this)" style="grid-column:span 2">
@@ -912,6 +912,12 @@ onAuthStateChanged(auth, async (user) => {
     <div class="table-wrap" style="margin-bottom:1.2rem">
       <div class="table-header"><h3>📊 Ingresos vs Gastos</h3></div>
       <div style="padding:1.2rem"><canvas id="chart-ing-gasto" height="220"></canvas></div>
+    </div>
+
+    <!-- Balance mensual -->
+    <div class="table-wrap" style="margin-bottom:1.2rem">
+      <div class="table-header"><h3>📈 Balance mensual</h3></div>
+      <div style="padding:1.2rem"><canvas id="chart-balance" height="180"></canvas></div>
     </div>
 
     <!-- Gastos por categoría -->

@@ -3280,8 +3280,25 @@ button:focus-visible {
   flex-shrink: 0;
 }
 
-.oi-row .oi-actions button {
+.oi-row .oi-actions .btn-edit {
+  background: rgba(245,184,46,0.12);
+  border: 1px solid rgba(245,184,46,0.45);
+  color: var(--accent3);
   font-size: 0.75rem;
+}
+.oi-row .oi-actions .btn-edit:hover {
+  background: rgba(245,184,46,0.22);
+  border-color: var(--accent3);
+}
+.oi-row .oi-actions .btn-del {
+  background: rgba(255,79,94,0.12);
+  border: 1px solid rgba(255,79,94,0.45);
+  color: var(--accent2);
+  font-size: 0.75rem;
+}
+.oi-row .oi-actions .btn-del:hover {
+  background: rgba(255,79,94,0.22);
+  border-color: var(--accent2);
 }
 
 @media (max-width: 700px) {

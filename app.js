@@ -3066,7 +3066,70 @@ function renderReportes() {
     }
   });
 
-  // ── 2. Gastos por categoría (donut) ─────────────────────────────────────
+  // ── 2. Balance mensual (ingresos − gastos) ──────────────────────────────
+  _destroyChart('balance');
+  const balanceData = meses.map((m, i) => ingData[i] - gasData[i]);
+
+  // Ajustes por mes para tooltip
+  const ajustesPorMes = meses.map(m =>
+    (ajustesCuentas || []).filter(a => (a.fecha || '').slice(0, 7) === m).reduce((s, a) => s + a.monto, 0)
+  );
+  const ajustesDataset = meses.map((m, i) => ajustesPorMes[i] !== 0 ? balanceData[i] : null);
+
+  _charts['balance'] = new Chart($('chart-balance'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Balance',
+          data: balanceData,
+          borderColor: '#6ee7b7',
+          backgroundColor: balanceData.map(v => v >= 0 ? '#6ee7b722' : '#f8717122'),
+          borderWidth: 2,
+          pointRadius: 4,
+          pointBackgroundColor: balanceData.map(v => v >= 0 ? '#6ee7b7' : '#f87171'),
+          fill: true,
+          tension: 0.3
+        },
+        {
+          label: 'Ajuste manual',
+          data: ajustesDataset,
+          borderColor: 'transparent',
+          backgroundColor: 'transparent',
+          pointRadius: 7,
+          pointBackgroundColor: '#fcd34d',
+          pointBorderColor: '#fcd34d',
+          pointStyle: 'triangle',
+          showLine: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            afterBody: (items) => {
+              const idx = items[0]?.dataIndex;
+              if (idx === undefined) return;
+              const aj = ajustesPorMes[idx];
+              if (aj === 0) return;
+              return `⚠ Ajuste manual: ${aj > 0 ? '+' : ''}$${fmt(Math.abs(aj))}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: text2 }, grid: { color: border } },
+        y: { ticks: { color: text2, callback: v => '$' + fmt(v) }, grid: { color: border },
+             afterDataLimits: axis => { const m = Math.max(Math.abs(axis.min), Math.abs(axis.max)); axis.min = -m * 1.1; axis.max = m * 1.1; } }
+      }
+    }
+  });
+
+  // ── 3. Gastos por categoría (donut) ─────────────────────────────────────
   _destroyChart('cats');
   const gastadoCat = {};
   meses.forEach(m => gastosDelMes(m).forEach(g => {
@@ -3094,7 +3157,7 @@ function renderReportes() {
     $('chart-cats-legend').innerHTML = '<span style="color:var(--text3)">Sin datos</span>';
   }
 
-  // ── 3. Evolución del ahorro total ────────────────────────────────────────
+  // ── 4. Evolución del ahorro total ────────────────────────────────────────
   _destroyChart('ahorro');
   const ahorroData = meses.map(m => {
     return ahorros.filter(a => {
@@ -3123,7 +3186,7 @@ function renderReportes() {
     }
   });
 
-  // ── 4. Top categorías (barra horizontal) ────────────────────────────────
+  // ── 5. Top categorías (barra horizontal) ────────────────────────────────
   _destroyChart('top-cats');
   const top = catEntries.slice(0, 8);
 
