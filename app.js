@@ -468,7 +468,7 @@ function addGasto() {
 
   gastos.push(nuevoGasto);
   save();
-  notify(recurrente ? '✓ Gasto recurrente guardado' : 'Gasto agregado correctamente');
+  notify(recurrente ? '✓ Gasto recurrente guardado' : `✓ Gasto guardado: ${desc}`);
 
   // reset
   ['g-desc','g-notas','g-cat-otro','g-monto'].forEach(id => document.getElementById(id).value = '');
