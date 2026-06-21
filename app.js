@@ -1011,6 +1011,7 @@ function populateFilters() {
 }
 function renderOtrosPendientes() {
   const el = $('otros-pendientes');
+  if (!el) return;
   if (!otrosPendientes.length) { el.innerHTML = ''; return; }
   el.innerHTML = `<div style="padding:0.8rem 1.4rem;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
     <span style="font-size:0.7rem;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-right:4px">PENDIENTES DE GUARDAR:</span>
@@ -1451,14 +1452,10 @@ function addIngreso() {
   if ($('i-sueldo-destino')) $('i-sueldo-destino').value = '';
   if ($('i-sueldo-concepto')) $('i-sueldo-concepto').value = $('i-sueldo-concepto').options[0]?.value || '';
 
+  notify(`✓ Ingreso guardado`);
   renderIngresosTable();
   renderSaldoCuentas();
-  renderDashboard();
-  setTimeout(() => {
-    notify(`✓ Ingreso guardado`);
-    const historial = $('ingresos-table-body');
-    if (historial) historial.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 100);
+  setTimeout(() => renderDashboard(), 200);
   requestAnimationFrame(() => {
     const row = document.querySelector('#ingresos-table-body tr:first-child');
     if (row) row.classList.add('row-new');
