@@ -1444,7 +1444,14 @@ function addIngreso() {
   }
 
   save();
-  notify('✓ Ingreso guardado');
+  notify(`✓ Ingreso guardado: $${fmt(sueldo || 0)}`);
+
+  // Limpiar formulario
+  $('i-fecha').value = '';
+  $('i-sueldo').value = '';
+  if ($('i-sueldo-destino')) $('i-sueldo-destino').value = '';
+  if ($('i-sueldo-concepto')) $('i-sueldo-concepto').value = $('i-sueldo-concepto').options[0]?.value || '';
+
   renderIngresosTable();
   renderSaldoCuentas();
   renderDashboard();
