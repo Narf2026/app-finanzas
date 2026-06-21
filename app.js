@@ -1444,7 +1444,6 @@ function addIngreso() {
   }
 
   save();
-  notify(`✓ Ingreso guardado: $${fmt(sueldo || 0)}`);
 
   // Limpiar formulario
   $('i-fecha').value = '';
@@ -1455,6 +1454,11 @@ function addIngreso() {
   renderIngresosTable();
   renderSaldoCuentas();
   renderDashboard();
+  setTimeout(() => {
+    notify(`✓ Ingreso guardado`);
+    const historial = $('ingresos-table-body');
+    if (historial) historial.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
   requestAnimationFrame(() => {
     const row = document.querySelector('#ingresos-table-body tr:first-child');
     if (row) row.classList.add('row-new');
