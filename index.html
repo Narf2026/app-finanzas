@@ -71,19 +71,42 @@ onAuthStateChanged(auth, async (user) => {
     // Verificar acceso: si es admin siempre pasa
     let esUsuarioExistente = true;
     if (user.email !== 'pachadofran@gmail.com') {
-      const userSnap = await getDoc(doc(db, 'usuarios', user.uid));
-      esUsuarioExistente = userSnap.exists() && userSnap.data().gastos?.length > 0;
-      if (!esUsuarioExistente) {
-        const habSnap = await getDoc(doc(db, 'config', 'habilitados'));
-        const lista = habSnap.exists() ? (habSnap.data().emails || []) : [];
-        if (!lista.includes(user.email.toLowerCase())) {
-          window._accesoDenegado = true;
-          document.getElementById('auth-screen').style.display = 'none';
-          document.getElementById('app-screen').style.display = 'none';
-          document.getElementById('acceso-denegado-screen').style.display = 'flex';
-          await signOut(auth);
-          return;
+      try {
+        const userSnap = await getDoc(doc(db, 'usuarios', user.uid));
+        const data = userSnap.exists() ? userSnap.data() : null;
+        const tieneData = data && (
+          (data.gastos?.length > 0) ||
+          (data.ingresos?.length > 0) ||
+          (data.ahorros?.length > 0) ||
+          (data.tarjetas?.length > 0)
+        );
+        esUsuarioExistente = !!tieneData;
+        if (!esUsuarioExistente) {
+          const habSnap = await getDoc(doc(db, 'config', 'habilitados'));
+          const lista = habSnap.exists() ? (habSnap.data().emails || []) : [];
+          if (!lista.includes(user.email.toLowerCase())) {
+            const waMsg = encodeURIComponent(`Hola, quiero acceso a finanzapp. Mi correo es: ${user.email}`);
+            const waLink = document.getElementById('wa-acceso-link');
+            if (waLink) waLink.href = `https://wa.me/5492995075494?text=${waMsg}`;
+            window._accesoDenegado = true;
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('app-screen').style.display = 'none';
+            document.getElementById('acceso-denegado-screen').style.display = 'flex';
+            await signOut(auth);
+            return;
+          }
         }
+      } catch(e) {
+        console.warn('Error verificando acceso:', e);
+        const waMsg = encodeURIComponent(`Hola, quiero acceso a finanzapp. Mi correo es: ${user.email}`);
+        const waLink = document.getElementById('wa-acceso-link');
+        if (waLink) waLink.href = `https://wa.me/5492995075494?text=${waMsg}`;
+        window._accesoDenegado = true;
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('app-screen').style.display = 'none';
+        document.getElementById('acceso-denegado-screen').style.display = 'flex';
+        await signOut(auth);
+        return;
       }
     }
 
@@ -174,6 +197,7 @@ onAuthStateChanged(auth, async (user) => {
     <input class="auth-input" type="email" id="auth-email" placeholder="tu@email.com" autocomplete="email">
     <input class="auth-input" type="password" id="auth-pass" placeholder="Contraseña" autocomplete="current-password"
       onkeydown="if(event.key==='Enter') window.authAction()">
+    <div id="auth-pass-hint" style="display:none;font-size:0.78rem;color:var(--text3);margin-top:-8px;margin-bottom:4px;padding:0 4px">Mínimo 6 caracteres</div>
     <div id="auth-pass2-wrap" style="display:none">
       <input class="auth-input" type="password" id="auth-pass2" placeholder="Repetir contraseña" style="margin-top:0">
     </div>
@@ -239,7 +263,7 @@ onAuthStateChanged(auth, async (user) => {
   <img src="logo.webp" style="width:72px;height:72px;border-radius:50%;object-fit:cover;object-position:top;border:2px solid var(--accent);margin-bottom:20px">
   <div style="font-size:1.4rem;font-weight:700;color:var(--text);margin-bottom:8px">Acceso restringido</div>
   <div style="color:var(--text-muted);margin-bottom:28px;max-width:300px;line-height:1.5">Tu cuenta todavía no está habilitada. Pedile acceso al administrador por WhatsApp.</div>
-  <a href="https://wa.me/5492995075494?text=Hola%2C%20quiero%20acceso%20a%20finanzapp" target="_blank" style="display:inline-flex;align-items:center;gap:10px;background:#25D366;color:#fff;text-decoration:none;padding:14px 24px;border-radius:14px;font-weight:600;font-size:1rem">
+  <a id="wa-acceso-link" href="https://wa.me/5492995075494?text=Hola%2C%20quiero%20acceso%20a%20finanzapp" target="_blank" style="display:inline-flex;align-items:center;gap:10px;background:#25D366;color:#fff;text-decoration:none;padding:14px 24px;border-radius:14px;font-weight:600;font-size:1rem">
     <svg width="22" height="22" viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M16 3C8.82 3 3 8.82 3 16c0 2.48.68 4.8 1.87 6.78L3 29l6.38-1.84A13 13 0 0 0 16 29c7.18 0 13-5.82 13-13S23.18 3 16 3zm0 23.5a10.48 10.48 0 0 1-5.34-1.46l-.38-.23-3.79 1.09 1.06-3.71-.25-.4A10.5 10.5 0 1 1 16 26.5zm5.77-7.87c-.32-.16-1.88-.93-2.17-1.03-.29-.1-.5-.16-.71.16-.21.32-.81 1.03-1 1.24-.18.21-.37.24-.69.08-.32-.16-1.34-.49-2.55-1.57-.94-.84-1.58-1.88-1.76-2.2-.18-.32-.02-.49.14-.65.14-.14.32-.37.48-.55.16-.18.21-.32.32-.53.1-.21.05-.4-.03-.56-.08-.16-.71-1.7-.97-2.33-.26-.61-.52-.53-.71-.54l-.6-.01c-.21 0-.55.08-.84.4-.29.32-1.1 1.07-1.1 2.61s1.13 3.03 1.29 3.24c.16.21 2.22 3.39 5.38 4.76.75.32 1.34.52 1.8.66.75.24 1.44.21 1.98.13.6-.09 1.88-.77 2.15-1.51.26-.74.26-1.38.18-1.51-.08-.13-.29-.21-.6-.37z"/></svg>
     Pedir acceso por WhatsApp
   </a>

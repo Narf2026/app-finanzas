@@ -2671,6 +2671,7 @@ function toggleAuthMode() {
     ? '¿Ya tenés cuenta? <span onclick="window.toggleAuthMode()">Ingresá</span>'
     : '¿No tenés cuenta? <span onclick="window.toggleAuthMode()">Registrate</span>';
   $('auth-pass2-wrap').style.display = authMode === 'register' ? '' : 'none';
+  $('auth-pass-hint').style.display = authMode === 'register' ? '' : 'none';
   $('auth-error').textContent = '';
 }
 
