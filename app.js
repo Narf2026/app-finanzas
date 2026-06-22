@@ -2653,6 +2653,7 @@ function authAction() {
   }
 
   if (authMode === 'register') {
+    if (pass.length < 6) { errEl.textContent = 'La contraseña debe tener al menos 6 caracteres'; return; }
     const pass2 = $('auth-pass2').value;
     if (pass !== pass2) { errEl.textContent = 'Las contraseñas no coinciden'; return; }
     window._fbCreateUser(window._fbAuth, email, pass)
