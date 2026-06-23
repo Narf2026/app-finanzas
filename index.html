@@ -620,7 +620,7 @@ onAuthStateChanged(auth, async (user) => {
         <input type="date" id="i-fecha">
       </div>
       <div class="form-group" style="min-width:200px;flex:3">
-        <label>Sueldo / Salario</label>
+        <label id="i-sueldo-label">Sueldo / Salario</label>
         <div style="display:flex;gap:6px">
           <select id="i-sueldo-moneda" style="width:90px;flex-shrink:0;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.82rem;padding:9px 8px;outline:none">
             <option value="ARS">$ ARS</option>
@@ -639,6 +639,7 @@ onAuthStateChanged(auth, async (user) => {
           <option value="Inversión">📈 Inversión</option>
           <option value="Otros">✏ Otros...</option>
         </select>
+        <button id="concepto-delete-btn" onclick="deleteConceptoIngreso()" style="display:none;margin-top:6px;width:100%;background:rgba(255,79,94,0.1);border:1px solid rgba(255,79,94,0.3);border-radius:8px;color:var(--accent2);font-size:0.78rem;padding:6px;cursor:pointer;font-family:inherit">✕ Eliminar este concepto</button>
         <input type="text" id="i-sueldo-concepto-otro" placeholder="Escribí el concepto" style="display:none;margin-top:6px;width:100%;background:var(--bg);border:1px solid var(--accent);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none;box-sizing:border-box">
         <div id="conceptos-custom-lista" style="display:none;margin-top:6px"></div>
       </div>
@@ -1425,6 +1426,40 @@ onAuthStateChanged(auth, async (user) => {
 </div>
 
 <!-- MODAL EDITAR GASTO -->
+<!-- MODAL EDITAR INGRESO -->
+<div class="modal-overlay" id="edit-ingreso-modal" onclick="if(event.target===this)closeEditIngresoModal()">
+  <div class="modal" style="max-width:420px;text-align:left">
+    <h3>Editar ingreso</h3>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Concepto</label>
+      <select id="ei-concepto" style="width:100% !important"></select>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div class="form-group" style="width:110px;flex-shrink:0">
+        <label>Moneda</label>
+        <select id="ei-moneda" style="width:100% !important">
+          <option value="ARS">$ ARS</option>
+          <option value="USD">u$s USD</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1;min-width:0">
+        <label>Monto</label>
+        <input type="number" id="ei-monto" min="0" step="0.01" style="width:100% !important;box-sizing:border-box">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Destino</label>
+      <select id="ei-destino" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.85rem;padding:9px 12px;outline:none"></select>
+    </div>
+    <input type="hidden" id="ei-ingreso-id">
+    <input type="hidden" id="ei-otro-id">
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeEditIngresoModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="saveEditIngresoModal()">✓ Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="edit-gasto-modal">
   <div class="modal" style="max-width:420px;text-align:left">
     <h3>Editar gasto</h3>

@@ -1133,6 +1133,7 @@ function renderMedioPago() {
 }
 
 function renderDestinosIngreso() {
+  renderConceptosDropdown();
   const ids = ['i-sueldo-destino','i-otro-destino'];
   ids.forEach(id => {
     const sel = document.getElementById(id);
@@ -1385,8 +1386,19 @@ function addIngreso() {
   const conceptoOtro = $('i-sueldo-concepto-otro')?.value.trim() || '';
   const sueldoConcepto = conceptoSel === 'Otros' ? (conceptoOtro || 'Otros') : conceptoSel;
 
-  if (!fechaI) { notify('⚠ Completá la fecha'); return; }
-  if (sueldo <= 0 && !otrosPendientes.length) { notify('⚠ Ingresá al menos un monto'); return; }
+  if (!fechaI) {
+    notify('⚠ Completá la fecha');
+    $('i-fecha').style.borderColor = 'var(--accent2)';
+    setTimeout(() => { $('i-fecha').style.borderColor = ''; }, 2000);
+    return;
+  }
+  if (sueldo <= 0 && !otrosPendientes.length) {
+    notify('⚠ Ingresá el monto del ingreso');
+    $('i-sueldo').style.borderColor = 'var(--accent2)';
+    setTimeout(() => { $('i-sueldo').style.borderColor = ''; }, 2000);
+    $('i-sueldo').focus();
+    return;
+  }
 
   const ymBase = fechaI.slice(0, 7);
   const key = ymBase;
@@ -1443,6 +1455,7 @@ function addIngreso() {
   // Guardar concepto personalizado
   if (sueldoConcepto && conceptoSel === 'Otros' && !conceptosGuardados.includes(sueldoConcepto)) {
     conceptosGuardados.push(sueldoConcepto);
+    renderConceptosDropdown();
   }
 
   save();
@@ -1458,33 +1471,53 @@ function addIngreso() {
   renderSaldoCuentas();
   setTimeout(() => renderDashboard(), 200);
   requestAnimationFrame(() => {
-    const row = document.querySelector('#ingresos-table-body tr:first-child');
-    if (row) row.classList.add('row-new');
+    const historial = $('ingresos-table-body');
+    if (historial) historial.closest('.table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const card = historial?.querySelector('.gasto-card');
+    if (card) card.classList.add('row-new');
   });
+}
+
+function _destinosOptsHtml() {
+  let html = '<option value="">Sin destino</option><option value="Efectivo">💵 Efectivo</option>';
+  tarjetas.filter(t => t.tipo === 'billetera').forEach(t => { const l = t.label||t.banco||t.nombre; html += `<option value="${l}">📱 ${l}</option>`; });
+  tarjetas.filter(t => t.tipo === 'debito').forEach(t => { let l = t.label||('CA '+t.banco); if(l.startsWith('Débito ')) l='CA '+l.slice(7); html += `<option value="${l}">🏦 ${l}</option>`; });
+  return html;
+}
+
+function _renderEiConceptos(currentValue) {
+  const sel = $('ei-concepto');
+  if (!sel) return;
+  const custom = (conceptosGuardados || []).filter(c => !CONCEPTOS_PREDEFINIDOS.includes(c));
+  let html = `<option value="Sueldo">💼 Sueldo</option>
+<option value="Freelance">💻 Freelance</option>
+<option value="Alquiler">🏠 Alquiler</option>
+<option value="Facturación">🧾 Facturación</option>
+<option value="Inversión">📈 Inversión</option>`;
+  if (custom.length) {
+    html += `<optgroup label="Mis conceptos">`;
+    custom.forEach(c => { html += `<option value="${escHtml(c)}">📝 ${escHtml(c)}</option>`; });
+    html += `</optgroup>`;
+  }
+  const known = ['Sueldo','Freelance','Alquiler','Facturación','Inversión',...custom];
+  if (currentValue && !known.includes(currentValue)) {
+    html += `<option value="${escHtml(currentValue)}">📝 ${escHtml(currentValue)}</option>`;
+  }
+  sel.innerHTML = html;
+  if (currentValue) sel.value = currentValue;
 }
 
 function editarSueldoIngreso(id) {
   const i = ingresos.find(x => x.id === id);
   if (!i) return;
-  const nombre = i.sueldoConcepto || 'Sueldo';
-  const nuevo = prompt(`Nuevo monto para "${nombre}" (${i.sueldoMoneda === 'USD' ? 'u$s' : '$'}):`, i.sueldo || 0);
-  if (nuevo === null) return;
-  const monto = parseFloat(nuevo);
-  if (isNaN(monto) || monto < 0) { notify('⚠ Monto inválido'); return; }
-  const diff = monto - (i.sueldo || 0);
-  i.sueldo = monto;
-  if ((i.sueldoMoneda || 'ARS') === 'ARS') {
-    i.totalARS = (i.totalARS ?? i.total ?? 0) + diff;
-    i.total = i.totalARS;
-  }
-  if (monto <= 0 && !(i.otros && i.otros.length)) {
-    ingresos = ingresos.filter(x => x.id !== id);
-  }
-  save();
-  renderIngresosTable();
-  renderSaldoCuentas();
-  renderDashboard();
-  notify('✓ Ingreso actualizado');
+  _renderEiConceptos(i.sueldoConcepto || 'Sueldo');
+  $('ei-moneda').value     = i.sueldoMoneda   || 'ARS';
+  $('ei-monto').value      = i.sueldo         || 0;
+  $('ei-destino').innerHTML = _destinosOptsHtml();
+  $('ei-destino').value    = i.sueldoDestino  || '';
+  $('ei-ingreso-id').value = id;
+  $('ei-otro-id').value    = '';
+  $('edit-ingreso-modal').style.display = 'flex';
 }
 
 function eliminarSueldoIngreso(id) {
@@ -1542,21 +1575,67 @@ function editarOtroIngreso(ingresoId, otroId) {
   if (!ing) return;
   const o = (ing.otros || []).find(x => x.id === otroId);
   if (!o) return;
-  const nuevo = prompt(`Nuevo monto para "${o.nombre}" (${o.moneda === 'USD' ? 'u$s' : '$'}):`, o.monto);
-  if (nuevo === null) return;
-  const monto = parseFloat(nuevo);
-  if (isNaN(monto) || monto < 0) { notify('⚠ Monto inválido'); return; }
-  if (o.moneda === 'ARS') {
-    ing.totalARS = (ing.totalARS || 0) - o.monto + monto;
-    ing.total = ing.totalARS;
+  _renderEiConceptos(o.nombre || '');
+  $('ei-moneda').value      = o.moneda  || 'ARS';
+  $('ei-monto').value       = o.monto   || 0;
+  $('ei-destino').innerHTML = _destinosOptsHtml();
+  $('ei-destino').value     = o.destino || '';
+  $('ei-ingreso-id').value  = ingresoId;
+  $('ei-otro-id').value     = otroId;
+  $('edit-ingreso-modal').style.display = 'flex';
+}
+
+function closeEditIngresoModal() {
+  $('edit-ingreso-modal').style.display = 'none';
+}
+
+function saveEditIngresoModal() {
+  const concepto = $('ei-concepto').value.trim();
+  const moneda   = $('ei-moneda').value;
+  const monto    = parseFloat($('ei-monto').value);
+  const destino  = $('ei-destino').value;
+  const ingresoId = parseInt($('ei-ingreso-id').value);
+  const otroId    = parseInt($('ei-otro-id').value) || null;
+  if (!concepto || isNaN(monto) || monto < 0) { notify('⚠ Completá concepto y monto'); return; }
+
+  const ing = ingresos.find(i => i.id === ingresoId);
+  if (!ing) return;
+
+  if (!otroId) {
+    // Editando sueldo principal
+    const diff = monto - (ing.sueldo || 0);
+    const oldMoneda = ing.sueldoMoneda || 'ARS';
+    if (oldMoneda === 'ARS') ing.totalARS = (ing.totalARS ?? ing.total ?? 0) - (ing.sueldo || 0);
+    if (moneda   === 'ARS') ing.totalARS = (ing.totalARS ?? 0) + monto;
+    ing.total        = ing.totalARS;
+    ing.sueldo       = monto;
+    ing.sueldoConcepto = concepto;
+    ing.sueldoMoneda   = moneda;
+    ing.sueldoDestino  = destino;
+    if (monto <= 0 && !(ing.otros && ing.otros.length)) {
+      ingresos = ingresos.filter(x => x.id !== ingresoId);
+    }
+  } else {
+    // Editando item de "otros"
+    const o = (ing.otros || []).find(x => x.id === otroId);
+    if (!o) return;
+    if (o.moneda === 'ARS') ing.totalARS = (ing.totalARS || 0) - o.monto;
+    if (moneda   === 'ARS') ing.totalARS = (ing.totalARS || 0) + monto;
+    ing.total  = ing.totalARS;
+    o.nombre   = concepto;
+    o.monto    = monto;
+    o.moneda   = moneda;
+    o.destino  = destino;
   }
-  o.monto = monto;
+
   save();
+  closeEditIngresoModal();
   renderIngresosTable();
   renderSaldoCuentas();
   renderDashboard();
   notify('✓ Ingreso actualizado');
 }
+
 
 function eliminarOtroIngreso(ingresoId, otroId) {
   const ing = ingresos.find(i => i.id === ingresoId);
@@ -1695,17 +1774,53 @@ function seleccionarConcepto(val, selId) {
   if (otro) otro.style.display = 'none';
 }
 
+const CONCEPTOS_PREDEFINIDOS = ['Sueldo','Freelance','Alquiler','Facturación','Inversión','Otros'];
+
+function renderConceptosDropdown() {
+  const sel = $('i-sueldo-concepto');
+  if (!sel) return;
+  const current = sel.value;
+  const custom = (conceptosGuardados || []).filter(c => !CONCEPTOS_PREDEFINIDOS.includes(c));
+  let html = `<option value="Sueldo">💼 Sueldo</option>
+    <option value="Freelance">💻 Freelance</option>
+    <option value="Alquiler">🏠 Alquiler</option>
+    <option value="Facturación">🧾 Facturación</option>
+    <option value="Inversión">📈 Inversión</option>`;
+  if (custom.length) {
+    html += `<optgroup label="Mis conceptos">`;
+    custom.forEach(c => { html += `<option value="${c}">📝 ${c}</option>`; });
+    html += `</optgroup>`;
+  }
+  html += `<option value="Otros">✏ Otros...</option>`;
+  sel.innerHTML = html;
+  if (current && [...sel.options].some(o => o.value === current)) sel.value = current;
+  toggleConceptoOtro();
+}
+
 function toggleConceptoOtro() {
   const sel = $('i-sueldo-concepto');
   const inp = $('i-sueldo-concepto-otro');
-  if (!inp) return;
-  if (sel.value === 'Otros') {
-    inp.style.display = 'block';
-    inp.focus();
-  } else {
-    inp.style.display = 'none';
-    inp.value = '';
-  }
+  const lbl = $('i-sueldo-label');
+  const delBtn = $('concepto-delete-btn');
+  if (!inp || !sel) return;
+  const isOtros = sel.value === 'Otros';
+  const isCustom = !CONCEPTOS_PREDEFINIDOS.includes(sel.value);
+  inp.style.display = isOtros ? 'block' : 'none';
+  if (isOtros) { inp.value = ''; inp.focus(); }
+  if (delBtn) delBtn.style.display = (isCustom && !isOtros) ? 'block' : 'none';
+  if (lbl) lbl.textContent = (isOtros || isCustom) ? 'Monto del ingreso' : (sel.value === 'Sueldo' ? 'Sueldo / Salario' : 'Monto');
+}
+
+function deleteConceptoIngreso() {
+  const sel = $('i-sueldo-concepto');
+  if (!sel) return;
+  const nombre = sel.value;
+  if (CONCEPTOS_PREDEFINIDOS.includes(nombre)) return;
+  if (!confirm(`¿Eliminar el concepto "${nombre}"?`)) return;
+  conceptosGuardados = conceptosGuardados.filter(c => c !== nombre);
+  save();
+  renderConceptosDropdown();
+  notify(`✓ Concepto "${nombre}" eliminado`);
 }
 
 function filtrarConceptos() {
@@ -3287,19 +3402,80 @@ function renderReportes() {
   const totalCat = catEntries.reduce((s, [, v]) => s + v, 0);
 
   if (catEntries.length) {
+    const catColors = catEntries.map(([c]) => catColor(c));
+    const centerTextPlugin = {
+      id: 'centerText',
+      beforeDatasetsDraw(chart) {
+        const { ctx, chartArea: { width, height, left, top } } = chart;
+        ctx.save();
+        const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+        const cx = left + width / 2;
+        const cy = top + height / 2;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = "700 15px 'Sora', sans-serif";
+        ctx.fillText('$' + fmt(total), cx, cy - 9);
+        ctx.font = "11px 'Sora', sans-serif";
+        ctx.fillStyle = 'rgba(148,163,184,0.7)';
+        ctx.fillText('total', cx, cy + 10);
+        ctx.restore();
+      }
+    };
     _charts['cats'] = new Chart($('chart-cats'), {
       type: 'doughnut',
       data: {
         labels: catEntries.map(([c]) => c),
-        datasets: [{ data: catEntries.map(([, v]) => v), backgroundColor: catEntries.map(([c]) => catColor(c)), borderWidth: 0 }]
+        datasets: [{
+          data: catEntries.map(([, v]) => v),
+          backgroundColor: catColors,
+          borderWidth: 2,
+          borderColor: 'rgba(9,16,28,0.85)',
+          hoverOffset: 10,
+          hoverBorderWidth: 0
+        }]
       },
-      options: { responsive: true, plugins: { legend: { display: false } } }
+      options: {
+        responsive: true,
+        cutout: '72%',
+        animation: { duration: 700, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(9,16,28,0.92)',
+            borderColor: 'rgba(255,255,255,0.1)',
+            borderWidth: 1,
+            titleColor: '#f8fafc',
+            bodyColor: 'rgba(182,194,209,0.85)',
+            titleFont: { family: "'Sora', sans-serif", size: 12, weight: '700' },
+            bodyFont: { family: "'DM Mono', monospace", size: 11 },
+            padding: 10,
+            cornerRadius: 10,
+            callbacks: {
+              label: ctx => {
+                const pct = totalCat > 0 ? Math.round(ctx.parsed / totalCat * 100) : 0;
+                return `  $${fmt(ctx.parsed)}  (${pct}%)`;
+              }
+            }
+          }
+        }
+      },
+      plugins: [centerTextPlugin]
     });
-    $('chart-cats-legend').innerHTML = catEntries.map(([c, v], i) =>
-      `<div style="display:flex;justify-content:space-between;gap:12px">
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${catColor(c)};margin-right:6px"></span>${escHtml(c)}</span>
-        <span style="color:var(--text3)">${totalCat > 0 ? Math.round(v / totalCat * 100) : 0}% · $${fmt(v)}</span>
-      </div>`).join('');
+    $('chart-cats-legend').innerHTML = catEntries.map(([c, v]) => {
+      const pct = totalCat > 0 ? Math.round(v / totalCat * 100) : 0;
+      const color = catColor(c);
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></span>
+          <span style="font-size:0.8rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(c)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <span style="font-size:0.72rem;background:${color}22;color:${color};border-radius:6px;padding:1px 6px;font-weight:600">${pct}%</span>
+          <span style="font-size:0.75rem;color:var(--text3);font-family:'DM Mono',monospace">$${fmt(v)}</span>
+        </div>
+      </div>`;
+    }).join('');
   } else {
     $('chart-cats-legend').innerHTML = '<span style="color:var(--text3)">Sin datos</span>';
   }
@@ -4619,18 +4795,27 @@ function _renderIngresoPanel() {
     return;
   }
   const totalARS = ingM.reduce((s,i) => s+(i.totalARS??i.total??0), 0);
-  el.innerHTML = ingM.map(i => {
-    const rows = [];
-    if (i.sueldo > 0) rows.push({ label: i.sueldoConcepto || 'Sueldo', monto: i.sueldo, moneda: i.sueldoMoneda||'ARS', dest: i.sueldoDestino||'' });
-    (i.otros||[]).forEach(o => rows.push({ label: o.concepto||o.nombre||'Ingreso extra', monto: o.monto, moneda: o.moneda||'ARS', dest: o.destino||'' }));
-    return rows.map(r => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div>
-        <div style="font-size:0.82rem;color:var(--text2);font-weight:600">${r.label}</div>
-        ${r.dest ? `<div style="font-size:0.68rem;color:var(--text3)">→ ${r.dest}</div>` : ''}
-      </div>
-      <span style="font-family:monospace;font-weight:700;color:var(--accent);font-size:0.88rem">${r.moneda==='USD'?'u$s':'$'}${fmt(r.monto)}</span>
-    </div>`).join('');
-  }).join('') +
+  // Recolectar todas las filas
+  const allRows = [];
+  ingM.forEach(i => {
+    if (i.sueldo > 0) allRows.push({ label: i.sueldoConcepto||'Sueldo', monto: i.sueldo, moneda: i.sueldoMoneda||'ARS', dest: i.sueldoDestino||'' });
+    (i.otros||[]).forEach(o => allRows.push({ label: o.concepto||o.nombre||'Ingreso extra', monto: o.monto, moneda: o.moneda||'ARS', dest: o.destino||'' }));
+  });
+  // Agrupar por concepto + moneda + destino
+  const grouped = [];
+  const groupMap = new Map();
+  allRows.forEach(r => {
+    const key = `${r.label}||${r.moneda}||${r.dest}`;
+    if (groupMap.has(key)) { grouped[groupMap.get(key)].monto += r.monto; }
+    else { groupMap.set(key, grouped.length); grouped.push({...r}); }
+  });
+  el.innerHTML = grouped.map(r => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+    <div>
+      <div style="font-size:0.82rem;color:var(--text2);font-weight:600">${r.label}</div>
+      ${r.dest ? `<div style="font-size:0.68rem;color:var(--text3)">→ ${r.dest}</div>` : ''}
+    </div>
+    <span style="font-family:monospace;font-weight:700;color:var(--accent);font-size:0.88rem">${r.moneda==='USD'?'u$s':'$'}${fmt(r.monto)}</span>
+  </div>`).join('') +
   `<div style="padding-top:10px;display:flex;justify-content:space-between;align-items:center">
     <span style="font-size:0.8rem;color:var(--text3)">Total ARS</span>
     <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:1rem;color:var(--accent)">$${fmt(totalARS)}</span>
@@ -4968,6 +5153,8 @@ window.eliminarRecurrente     = eliminarRecurrente;
 
 window.addIngreso             = addIngreso;
 window.editarOtroIngreso      = editarOtroIngreso;
+window.closeEditIngresoModal  = closeEditIngresoModal;
+window.saveEditIngresoModal   = saveEditIngresoModal;
 window.eliminarOtroIngreso    = eliminarOtroIngreso;
 window.editarSueldoIngreso    = editarSueldoIngreso;
 window.eliminarSueldoIngreso  = eliminarSueldoIngreso;
@@ -4985,5 +5172,6 @@ window.recuperarPendientes    = recuperarPendientes;
 window.seleccionarConcepto    = seleccionarConcepto;
 window.toggleConceptoOtro     = toggleConceptoOtro;
 window.filtrarConceptos       = filtrarConceptos;
+window.deleteConceptoIngreso  = deleteConceptoIngreso;
 window.seleccionarConceptoOtro = seleccionarConceptoOtro;
 window.calcularTotalTarjetaMes = calcularTotalTarjetaMes;
