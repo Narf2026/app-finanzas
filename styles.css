@@ -1216,6 +1216,19 @@ tr.edit-row.edit-open { display: table-row; }
   color: var(--accent); text-decoration: underline; cursor: pointer;
 }
 
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.auth-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text2);
+  padding-left: 2px;
+}
+
 .auth-error {
   background: rgba(255,107,107,0.1);
     border: 1px solid rgba(255,107,107,0.3);
@@ -3867,16 +3880,18 @@ tr.row-new td, div.row-new {
   transition: transform 0.08s ease;
 }
 
-/* ── EMPTY STATE
-/* CALENDARIO */
-#cal-container {
-  user-select: none;
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 }
-#cal-container div[onclick] {
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-h: 54px;
+
+.empty-state-icon {
+  width: 54px;
   height: 54px;
   border-radius: 16px;
   background: rgba(255,255,255,0.04);
@@ -3896,6 +3911,15 @@ h: 54px;
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0.7;
+}
+
+/* ── CALENDARIO ── */
+#cal-container {
+  user-select: none;
+}
+#cal-container div[onclick] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .empty-state-title {

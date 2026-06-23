@@ -4,13 +4,14 @@ const fmt = n => (n ?? 0).toLocaleString('es-AR');
 
 let _newRowId = null;
 
+const _SVG = `fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"`;
 const EMPTY_ICONS = {
-  gastos:   `<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8L2 7h20l-6-4z"/><circle cx="12" cy="14" r="2"/></svg>`,
-  ingresos: `<svg viewBox="0 0 24 24"><path d="M12 2v20M17 7l-5-5-5 5"/><path d="M2 17h20"/></svg>`,
-  ahorro:   `<svg viewBox="0 0 24 24"><path d="M19 8a7 7 0 1 0-13.47 2.67A2 2 0 0 0 7 14v1h10v-1a2 2 0 0 0 1.47-3.33z"/><path d="M9 14v3m6-3v3M10 21h4"/></svg>`,
-  cuotas:   `<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>`,
-  chart:    `<svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 16 4-4 4 4 4-6"/></svg>`,
-  fondos:   `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 3"/></svg>`,
+  gastos:   `<svg viewBox="0 0 24 24" ${_SVG}><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8L2 7h20l-6-4z"/><circle cx="12" cy="14" r="2"/></svg>`,
+  ingresos: `<svg viewBox="0 0 24 24" ${_SVG}><path d="M12 2v20M17 7l-5-5-5 5"/><path d="M2 17h20"/></svg>`,
+  ahorro:   `<svg viewBox="0 0 24 24" ${_SVG}><path d="M19 8a7 7 0 1 0-13.47 2.67A2 2 0 0 0 7 14v1h10v-1a2 2 0 0 0 1.47-3.33z"/><path d="M9 14v3m6-3v3M10 21h4"/></svg>`,
+  cuotas:   `<svg viewBox="0 0 24 24" ${_SVG}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>`,
+  chart:    `<svg viewBox="0 0 24 24" ${_SVG}><path d="M3 3v18h18"/><path d="m7 16 4-4 4 4 4-6"/></svg>`,
+  fondos:   `<svg viewBox="0 0 24 24" ${_SVG}><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 3"/></svg>`,
 };
 
 function emptyState(type, title, sub = '') {
@@ -2199,10 +2200,6 @@ function _notaColor(id) {
 let _notaColorSeleccionado = 'default';
 
 function abrirModalNota(id) {
-  const overlay = $('nota-modal-overlay');
-  const modal   = $('nota-modal');
-  if (!overlay || !modal) return;
-
   _notaColorSeleccionado = 'default';
   $('nota-titulo').value      = '';
   $('nota-body').value        = '';
@@ -2223,11 +2220,11 @@ function abrirModalNota(id) {
   }
 
   _renderColorPicker();
-  overlay.style.display = 'flex';
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    modal.style.transform = 'translateY(0)';
-    $('nota-titulo').focus();
-  }));
+  $('notas-grid').style.display    = 'none';
+  $('notas-search').closest('div').style.display = 'none';
+  $('notas-filtros').style.display = 'none';
+  $('nota-panel').style.display = 'block';
+  setTimeout(() => $('nota-titulo').focus(), 100);
 }
 
 function _renderColorPicker() {
@@ -2248,13 +2245,11 @@ function _selectNotaColor(id) {
 }
 
 function cerrarModalNota(e) {
-  if (e && e.target !== $('nota-modal-overlay')) return;
-  const modal = $('nota-modal');
-  if (modal) modal.style.transform = 'translateY(100%)';
-  setTimeout(() => {
-    const overlay = $('nota-modal-overlay');
-    if (overlay) overlay.style.display = 'none';
-  }, 280);
+  $('nota-panel').style.display = 'none';
+  $('notas-grid').style.display = 'grid';
+  const searchWrap = $('notas-search')?.closest('div');
+  if (searchWrap) searchWrap.style.display = '';
+  $('notas-filtros').style.display = 'flex';
 }
 
 function guardarNota() {
@@ -2290,7 +2285,7 @@ function guardarNota() {
   save();
   cerrarModalNota();
   notify('✓ Nota guardada');
-  setTimeout(renderNotasGrid, 300);
+  renderNotasGrid();
 }
 
 function togglePendiente(id) {
@@ -2640,49 +2635,143 @@ function deleteCat(idx) {
 
 // ---- AUTH ----
 let authMode = 'login'; // 'login' | 'register'
+let registerStep = 1;   // 1 = verificar email, 2 = crear cuenta
+
+function _authError(msg) {
+  const el = $('auth-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
 
 function authAction() {
   const email = $('auth-email').value.trim();
-  const pass  = $('auth-pass').value;
   const errEl = $('auth-error');
   errEl.textContent = '';
+  errEl.style.display = 'none';
+  errEl.style.background = '';
+  errEl.style.borderColor = '';
+  errEl.style.color = '';
 
-  if (!email || !pass) {
-    errEl.textContent = 'Completá email y contraseña';
+  if (!email) { _authError('Ingresá tu correo electrónico'); return; }
+
+  if (authMode === 'login') {
+    const pass = $('auth-pass').value;
+    if (!pass) { _authError('Ingresá tu contraseña'); return; }
+    window._fbSignIn(window._fbAuth, email, pass)
+      .catch(e => _authError(e.code === 'auth/invalid-credential' ? 'Email o contraseña incorrectos' : e.message));
     return;
   }
 
-  if (authMode === 'register') {
-    if (pass.length < 6) { errEl.textContent = 'La contraseña debe tener al menos 6 caracteres'; return; }
-    const pass2 = $('auth-pass2').value;
-    if (pass !== pass2) { errEl.textContent = 'Las contraseñas no coinciden'; return; }
-    window._fbCreateUser(window._fbAuth, email, pass)
-      .then(() => notify('✓ Cuenta creada'))
-      .catch(e => { errEl.textContent = e.message; });
-  } else {
-    window._fbSignIn(window._fbAuth, email, pass)
-      .catch(e => { errEl.textContent = e.message; });
+  // Modo registro - paso 1: verificar si el email está habilitado
+  if (registerStep === 1) {
+    const btn = $('auth-btn');
+    btn.textContent = 'Verificando...';
+    btn.disabled = true;
+    window._fbGetDoc(window._fbDoc(window._fbDb, 'config', 'habilitados'))
+      .then(snap => {
+        const lista = snap.exists() ? (snap.data().emails || []) : [];
+        if (lista.includes(email.toLowerCase())) {
+          registerStep = 2;
+          $('auth-pass-wrap').style.display  = '';
+          $('auth-pass2-wrap').style.display = '';
+          $('auth-pass-hint').style.display  = '';
+          $('auth-subtitle').textContent = 'Tu correo está habilitado. Elegí una contraseña.';
+          btn.textContent = 'Crear cuenta';
+          btn.disabled = false;
+          setTimeout(() => $('auth-pass').focus(), 100);
+        } else {
+          const waMsg = encodeURIComponent(`Hola, quiero acceso a finanzapp. Mi correo es: ${email}`);
+          const waLink = $('wa-acceso-link');
+          if (waLink) waLink.href = `https://wa.me/5492995075494?text=${waMsg}`;
+          document.getElementById('auth-screen').style.display = 'none';
+          document.getElementById('acceso-denegado-screen').style.display = 'flex';
+          btn.textContent = 'Verificar acceso';
+          btn.disabled = false;
+        }
+      })
+      .catch(() => {
+        const waMsg = encodeURIComponent(`Hola, quiero acceso a finanzapp. Mi correo es: ${email}`);
+        const waLink = $('wa-acceso-link');
+        if (waLink) waLink.href = `https://wa.me/5492995075494?text=${waMsg}`;
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('acceso-denegado-screen').style.display = 'flex';
+        $('auth-btn').textContent = 'Verificar acceso';
+        $('auth-btn').disabled = false;
+      });
+    return;
   }
+
+  // Modo registro - paso 2: crear cuenta
+  const pass  = $('auth-pass').value;
+  const pass2 = $('auth-pass2').value;
+  if (pass.length < 6) { _authError('La contraseña debe tener al menos 6 caracteres'); return; }
+  if (pass !== pass2)  { _authError('Las contraseñas no coinciden'); return; }
+  const btn = $('auth-btn');
+  btn.textContent = 'Creando cuenta...';
+  btn.disabled = true;
+  window._fbCreateUser(window._fbAuth, email, pass)
+    .catch(e => {
+      btn.textContent = 'Crear cuenta';
+      btn.disabled = false;
+      if (e.code === 'auth/email-already-in-use') {
+        _authError('Ya existe una cuenta con este email. Usá la opción "Ingresá" para iniciar sesión.');
+      } else {
+        _authError(e.message);
+      }
+    });
 }
 
 function toggleAuthMode() {
   authMode = authMode === 'login' ? 'register' : 'login';
-  $('auth-btn').textContent = authMode === 'register' ? 'Registrarse' : 'Ingresar';
-  $('auth-toggle').innerHTML = authMode === 'register'
+  const isReg = authMode === 'register';
+  registerStep = 1;
+  $('auth-title').textContent    = isReg ? 'Crear cuenta' : 'Iniciar sesión';
+  $('auth-subtitle').textContent = isReg ? 'Ingresá tu correo para verificar si tenés acceso' : 'Ingresá con tu cuenta para continuar';
+  $('auth-btn').textContent      = isReg ? 'Verificar acceso' : 'Ingresar';
+  $('auth-toggle').innerHTML     = isReg
     ? '¿Ya tenés cuenta? <span onclick="window.toggleAuthMode()">Ingresá</span>'
     : '¿No tenés cuenta? <span onclick="window.toggleAuthMode()">Registrate</span>';
-  $('auth-pass2-wrap').style.display = authMode === 'register' ? '' : 'none';
-  $('auth-pass-hint').style.display = authMode === 'register' ? '' : 'none';
+  $('auth-pass-wrap').style.display   = isReg ? 'none' : '';
+  $('auth-pass2-wrap').style.display  = 'none';
+  $('auth-pass-hint').style.display   = 'none';
+  $('auth-reset-wrap').style.display  = isReg ? 'none' : '';
   $('auth-error').textContent = '';
+  $('auth-error').style.display = 'none';
+  $('auth-pass').value  = '';
+  $('auth-pass2').value = '';
 }
 
 function resetPassword() {
   const email = $('auth-email').value.trim();
-  if (!email) { $('auth-error').textContent = 'Ingresá tu email primero'; return; }
+  if (!email) { _authError('Ingresá tu email arriba y luego tocá este botón'); return; }
   window._fbResetPassword(window._fbAuth, email)
-    .then(() => notify('✓ Email de recuperación enviado'))
-    .catch(e => { $('auth-error').textContent = e.message; });
+    .then(() => {
+      const el = $('auth-error');
+      el.style.background = 'rgba(24,212,123,0.1)';
+      el.style.borderColor = 'rgba(24,212,123,0.3)';
+      el.style.color = 'var(--accent)';
+      el.textContent = '✓ Te enviamos un email para restablecer la contraseña';
+      el.style.display = 'block';
+    })
+    .catch(e => _authError(e.code === 'auth/user-not-found' ? 'No existe una cuenta con ese email' : e.message));
 }
+
+window.volverAlLogin = function() {
+  document.getElementById('acceso-denegado-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  // Resetear al paso 1 de registro por si quiere reintentar
+  if (authMode === 'register') {
+    registerStep = 1;
+    $('auth-pass-wrap').style.display  = 'none';
+    $('auth-pass2-wrap').style.display = 'none';
+    $('auth-pass-hint').style.display  = 'none';
+    $('auth-subtitle').textContent = 'Ingresá tu correo para verificar si tenés acceso';
+    $('auth-btn').textContent = 'Verificar acceso';
+    $('auth-btn').disabled = false;
+    $('auth-pass').value  = '';
+    $('auth-pass2').value = '';
+  }
+};
 
 window.doLogout = function() {
   window._fbSignOut(window._fbAuth).catch(console.error);
@@ -3462,7 +3551,15 @@ function renderDashboard() {
 
     _destroyChart('monthly');
 
-    if (!allMonths.length) return;
+    const monthlyBars = $('monthly-bars');
+    const saldoWrap = $('chart-saldo-evol')?.parentElement;
+    if (!allMonths.length) {
+      if (monthlyBars) monthlyBars.style.display = 'none';
+      if (saldoWrap) saldoWrap.style.display = 'none';
+      return;
+    }
+    if (monthlyBars) monthlyBars.style.display = '';
+    if (saldoWrap) saldoWrap.style.display = '';
 
     const labels = allMonths.map(m => MESES[parseInt(m.slice(5,7))-1].slice(0,3));
     const dataGasto  = allMonths.map(m => totalDelMes(m));
