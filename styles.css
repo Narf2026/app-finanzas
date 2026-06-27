@@ -2852,31 +2852,54 @@ button:focus-visible {
    La nav ahora es hermana del header, no hija.
    ========================================================= */
 
-/* DESKTOP: nav flotante centrada sobre el header */
+/* DESKTOP: nav como barra propia debajo del header (evita superposición con logo y user-bar) */
 @media (min-width: 701px) {
-  nav.app-nav {
-    position: fixed;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    /* Misma altura que el header */
-    height: calc(62px + max(env(safe-area-inset-top, 0px), 16px));
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    z-index: 101;
-    /* Sin fondo propio — el header queda visible detrás */
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    padding: 0;
-    border-radius: 0;
-  }
-
-  /* El header sólo necesita mostrar logo (izq) y data-btns (der) */
   header {
     justify-content: space-between;
+    height: 64px;
+    min-height: 64px;
+    padding-top: 0;
   }
+
+  nav.app-nav {
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: 0;
+    transform: none;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: safe center;
+    gap: 4px;
+    z-index: 99;
+    background: rgba(5, 10, 18, 0.72);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    padding: 0 8px;
+    border-radius: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav.app-nav::-webkit-scrollbar { display: none; }
+
+  /* El contenido arranca debajo de la barra de nav */
+  main {
+    margin-top: 50px;
+  }
+
+  /* El pill deslizante no aplica con la nav centrada full-width; el estado activo ya tiene su fondo */
+  #nav-pill { display: none; }
+}
+
+/* TABLET / desktop chico: compactar los 7 botones para que entren sin desbordar */
+@media (min-width: 701px) and (max-width: 920px) {
+  nav.app-nav { gap: 1px; }
+  nav.app-nav button { padding: 5px 6px; font-size: 0.62rem; gap: 4px; letter-spacing: 0; }
+  nav.app-nav .nav-icon { width: 18px; height: 18px; }
+  nav.app-nav .nav-icon svg { width: 12px; height: 12px; }
 }
 
 /* MOBILE: nav fixed al fondo — sin padre sticky ni backdrop-filter que interfiera */

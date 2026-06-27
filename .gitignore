@@ -1,0 +1,11 @@
+# Config local de herramientas
+.claude/
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs / temporales
+*.log
+*.tmp
