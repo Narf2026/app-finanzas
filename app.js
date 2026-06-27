@@ -2141,11 +2141,15 @@ function renderAhorroTable() {
   const ahorrosUSD = ahorros.filter(a => a.moneda === 'USD');
   const totalARS = ahorrosARS.reduce((s,a) => s + a.monto, 0);
   const totalUSD = ahorrosUSD.reduce((s,a) => s + a.monto, 0);
-  const meses = [...new Set(ahorrosARS.map(a => a.ymBase || a.key))];
-  const promedio = meses.length ? totalARS / meses.length : 0;
+  // "Promedio" y "Mejor mes" cuentan solo depósitos reales: excluyen rescates
+  // (retiros) y transferencias entre fondos (movimientos de plata que ya estaba ahorrada)
+  const depositosARS = ahorrosARS.filter(a => !a.rescate && !a.transfer && a.monto > 0);
+  const mesesDep = [...new Set(depositosARS.map(a => a.ymBase || a.key))];
+  const totalDepARS = depositosARS.reduce((s,a) => s + a.monto, 0);
+  const promedio = mesesDep.length ? totalDepARS / mesesDep.length : 0;
   // Mejor mes
   const byMes = {};
-  ahorrosARS.forEach(a => {
+  depositosARS.forEach(a => {
     const k = a.ymBase || a.key || '';
     byMes[k] = (byMes[k] || 0) + a.monto;
   });
@@ -2190,23 +2194,22 @@ function renderFondos() {
     el.innerHTML = emptyState('fondos', 'Sin fondos registrados', 'Los fondos aparecen cuando registrás ahorros');
     return;
   }
+  const btn = (color, bg) => `border:1px solid ${color};background:${bg};color:${color};border-radius:10px;padding:9px 8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;min-height:42px;touch-action:manipulation;white-space:nowrap`;
   el.innerHTML = Object.entries(tipos).map(([tipo, v]) => `
-    <div style="padding:0.9rem 1.2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:0.88rem;font-weight:600;color:var(--text2)">${escHtml(tipo)}</div>
-        ${v.rend > 0 ? `<div style="font-size:0.72rem;color:var(--accent);font-family:'DM Mono',monospace;margin-top:2px">▲ rendimientos: +$${fmt(v.rend)}</div>` : ''}
-        ${v.usd > 0 ? `<div style="font-size:0.75rem;color:var(--accent3);font-family:'DM Mono',monospace">u$s ${fmt(v.usd)}</div>` : ''}
+    <div style="padding:0.9rem 1.2rem;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.9rem;font-weight:600;color:var(--text2)">${escHtml(tipo)}</div>
+          ${v.rend > 0 ? `<div style="font-size:0.72rem;color:var(--accent);font-family:'DM Mono',monospace;margin-top:2px">▲ rendimientos: +$${fmt(v.rend)}</div>` : ''}
+          ${v.usd > 0 ? `<div style="font-size:0.75rem;color:var(--accent3);font-family:'DM Mono',monospace">u$s ${fmt(v.usd)}</div>` : ''}
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-weight:700;color:var(--accent);font-size:1.05rem;flex-shrink:0">$${fmt(v.ars)}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-        <div style="font-family:'DM Mono',monospace;font-weight:700;color:var(--accent);font-size:1rem">$${fmt(v.ars)}</div>
-        <button onclick="agregarRendimientoFondo(this.dataset.tipo)" data-tipo="${tipo}"
-          style="background:rgba(168,255,220,0.08);border:1px solid rgba(168,255,220,0.3);color:var(--accent);border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;min-height:36px;touch-action:manipulation;white-space:nowrap">
-          +$ Interés
-        </button>
-        <button onclick="rescatarFondo(this.dataset.tipo)" data-tipo="${tipo}"
-          style="background:rgba(255,79,94,0.08);border:1px solid rgba(255,79,94,0.35);color:var(--accent2);border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;min-height:36px;touch-action:manipulation;white-space:nowrap">
-          Rescatar
-        </button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <button onclick="agregarRendimientoFondo(this.dataset.tipo)" data-tipo="${tipo}" style="${btn('var(--accent)','rgba(168,255,220,0.08)')}">+$ Interés</button>
+        <button onclick="transferirFondo(this.dataset.tipo)" data-tipo="${tipo}" style="${btn('var(--accent4)','rgba(59,130,246,0.1)')}">↔ Transferir</button>
+        <button onclick="rescatarFondo(this.dataset.tipo)" data-tipo="${tipo}" style="${btn('var(--accent3)','rgba(245,184,46,0.1)')}">↓ Rescatar</button>
+        <button onclick="eliminarFondo(this.dataset.tipo)" data-tipo="${tipo}" style="${btn('var(--accent2)','rgba(255,79,94,0.08)')}">🗑 Eliminar</button>
       </div>
     </div>`).join('');
 }
@@ -2295,6 +2298,115 @@ function confirmarRescate() {
   renderSaldoCuentas();
   renderDashboard();
   notify(`✓ Rescate de $${fmt(monto)} → ${destino}`);
+}
+
+// ---- TRANSFERENCIA ENTRE FONDOS ----
+
+function transferirFondo(tipo) {
+  const sel = $('transfer-destino');
+  if (!sel) return;
+  // Fondos existentes distintos del origen
+  const otros = [...new Set(ahorros.map(a => a.tipo || a.concepto || 'Otros'))].filter(t => t !== tipo);
+  let opts = '<option value="">Seleccionar...</option>';
+  otros.forEach(t => { opts += `<option value="${escHtml(t)}">💼 ${escHtml(t)}</option>`; });
+  opts += '<option value="__nuevo__">➕ Nuevo fondo...</option>';
+  sel.innerHTML = opts;
+
+  const sub = $('transfer-modal-sub');
+  if (sub) sub.textContent = `Desde: ${tipo}`;
+  const montoEl = $('transfer-monto');
+  if (montoEl) montoEl.value = '';
+  const nuevoWrap = $('transfer-nuevo-wrap');
+  if (nuevoWrap) nuevoWrap.style.display = 'none';
+  const nuevoInp = $('transfer-destino-nuevo');
+  if (nuevoInp) nuevoInp.value = '';
+
+  window._transfiriendoTipo = tipo;
+  const modal = $('transfer-modal');
+  if (modal) modal.style.display = 'flex';
+  setTimeout(() => { if (montoEl) montoEl.focus(); }, 100);
+}
+
+function onTransferDestinoChange() {
+  const sel = $('transfer-destino');
+  const wrap = $('transfer-nuevo-wrap');
+  if (!sel || !wrap) return;
+  if (sel.value === '__nuevo__') { wrap.style.display = 'block'; setTimeout(() => $('transfer-destino-nuevo')?.focus(), 50); }
+  else wrap.style.display = 'none';
+}
+
+function cerrarTransferencia() {
+  const modal = $('transfer-modal');
+  if (modal) modal.style.display = '';
+  window._transfiriendoTipo = null;
+}
+
+function confirmarTransferencia() {
+  const origen = window._transfiriendoTipo;
+  if (!origen) return;
+  const monto = parseFloat($('transfer-monto')?.value);
+  let destino = $('transfer-destino')?.value;
+  if (destino === '__nuevo__') destino = ($('transfer-destino-nuevo')?.value || '').trim();
+  if (!monto || monto <= 0) { notify('⚠ Ingresá un monto válido'); return; }
+  if (!destino) { notify('⚠ Elegí o nombrá el fondo destino'); return; }
+  if (destino === origen) { notify('⚠ El fondo destino debe ser distinto al de origen'); return; }
+
+  // Verificar saldo suficiente en el fondo de origen (ARS)
+  const totalFondo = ahorros
+    .filter(a => (a.tipo || a.concepto || 'Otros') === origen && (a.moneda||'ARS') === 'ARS')
+    .reduce((s, a) => s + (a.monto || 0), 0);
+  if (monto > totalFondo) { notify(`⚠ Saldo insuficiente ($${fmt(totalFondo)})`); return; }
+
+  const hoy = new Date();
+  const fecha = hoy.toISOString().slice(0, 10);
+  const ymBase = fecha.slice(0, 7);
+  const mes  = MESES[hoy.getMonth()];
+  const año  = hoy.getFullYear();
+  const baseId = Date.now();
+
+  // Sale del fondo origen (origen:'' → no afecta el saldo de ninguna cuenta)
+  ahorros.push({
+    id: baseId, ymBase, key: ymBase, fecha, año, mes,
+    monto: -monto, moneda: 'ARS', tipo: origen, concepto: origen,
+    notas: `Transferencia → ${destino}`, origen: '',
+    rendimientos: 0, transfer: true
+  });
+  // Entra al fondo destino
+  ahorros.push({
+    id: baseId + 1, ymBase, key: ymBase, fecha, año, mes,
+    monto: monto, moneda: 'ARS', tipo: destino, concepto: destino,
+    notas: `Transferencia ← ${origen}`, origen: '',
+    rendimientos: 0, transfer: true
+  });
+
+  cerrarTransferencia();
+  save();
+  renderAhorroTable();
+  renderSaldoCuentas();
+  renderDashboard();
+  notify(`✓ Transferencia de $${fmt(monto)}: ${origen} → ${destino}`);
+}
+
+function eliminarFondo(tipo) {
+  const delTipo = ahorros.filter(a => (a.tipo || a.concepto || 'Otros') === tipo);
+  if (!delTipo.length) return;
+  const saldoArs = delTipo.filter(a => (a.moneda||'ARS') === 'ARS').reduce((s,a) => s + (a.monto||0), 0);
+  const saldoUsd = delTipo.filter(a => a.moneda === 'USD').reduce((s,a) => s + (a.monto||0), 0);
+  let msg = `¿Eliminar el fondo "${tipo}"?\n\nSe borrarán ${delTipo.length} movimiento(s) del historial de ahorro.`;
+  if (saldoArs !== 0 || saldoUsd !== 0) {
+    msg += `\n\n⚠ OJO: este fondo todavía tiene saldo (`;
+    const partes = [];
+    if (saldoArs !== 0) partes.push(`$${fmt(saldoArs)}`);
+    if (saldoUsd !== 0) partes.push(`u$s ${fmt(saldoUsd)}`);
+    msg += partes.join(' / ') + `). Esa plata se va a descontar de tu total ahorrado.`;
+  }
+  if (!confirm(msg)) return;
+  ahorros = ahorros.filter(a => (a.tipo || a.concepto || 'Otros') !== tipo);
+  save({ skipMerge: true });
+  renderAhorroTable();
+  renderSaldoCuentas();
+  renderDashboard();
+  notify(`✓ Fondo "${tipo}" eliminado`);
 }
 
 // ---- PENDIENTES (MEMO) ----
@@ -3285,6 +3397,32 @@ function _getMeses(n) {
   return meses;
 }
 
+// Los n meses justo anteriores al período actual (para comparar)
+function _getMesesPrevios(n) {
+  const meses = [];
+  const now = new Date();
+  for (let i = 2 * n - 1; i >= n; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    meses.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+  }
+  return meses;
+}
+
+// Chip de variación vs período anterior. invert=true → bajar es bueno (gastos). points=true → diferencia en pp.
+function _kpiVar(actual, prev, { invert = false, points = false } = {}) {
+  if (prev === null || prev === undefined) return '';
+  if (!points && prev === 0) return '';
+  const igual = Math.abs(actual - prev) < 0.005;
+  if (igual) return `<span style="font-size:0.66rem;color:var(--text3);font-weight:600">→ 0%${points ? 'pp' : ''}</span>`;
+  const subio = actual > prev;
+  const texto = points
+    ? Math.abs(Math.round(actual - prev)) + 'pp'
+    : Math.abs(Math.round((actual - prev) / Math.abs(prev) * 100)) + '%';
+  const good = invert ? !subio : subio;
+  const color = good ? 'var(--accent)' : 'var(--accent2)';
+  return `<span style="font-size:0.66rem;color:${color};font-weight:600">${subio ? '▲' : '▼'} ${texto}<span style="color:var(--text3);font-weight:400"> vs ant.</span></span>`;
+}
+
 function _totalIngresosYm(ym) {
   let total = 0;
   ingresos.forEach(ing => {
@@ -3328,14 +3466,42 @@ function renderReportes() {
     }
   });
 
+  // Ahorro neto y ajustes por mes (para la tasa de ahorro y el gráfico de balance)
+  const ahorroPorMes  = meses.map(m => ahorros.filter(a => (a.ymBase || a.key?.slice(0, 7) || '') === m && (a.moneda || 'ARS') === 'ARS').reduce((s, a) => s + (a.monto || 0), 0));
+  const ajustesPorMes = meses.map(m => (ajustesCuentas || []).filter(a => (a.fecha || '').slice(0, 7) === m).reduce((s, a) => s + (a.monto || 0), 0));
+
+  // ── Resumen del período (KPIs con variación vs período anterior) ─────────
+  const totIng = ingData.reduce((a, b) => a + b, 0);
+  const totGas = gasData.reduce((a, b) => a + b, 0);
+  const totAho = ahorroPorMes.reduce((a, b) => a + b, 0);
+  const tasa   = totIng > 0 ? (totAho / totIng * 100) : 0;
+
+  const mesesPrev = _getMesesPrevios(repPeriodo);
+  const sumIngM = mm => mm.reduce((s, m) => s + _totalIngresosYm(m), 0);
+  const sumGasM = mm => mm.reduce((s, m) => s + gastosDelMes(m).filter(g => (g.moneda || 'ARS') === 'ARS').reduce((ss, g) => ss + g.monto, 0), 0);
+  const sumAhoM = mm => mm.reduce((s, m) => s + ahorros.filter(a => (a.ymBase || a.key?.slice(0, 7) || '') === m && (a.moneda || 'ARS') === 'ARS').reduce((ss, a) => ss + (a.monto || 0), 0), 0);
+  const totIngPrev = sumIngM(mesesPrev);
+  const totGasPrev = sumGasM(mesesPrev);
+  const totAhoPrev = sumAhoM(mesesPrev);
+  const tasaPrev   = totIngPrev > 0 ? (totAhoPrev / totIngPrev * 100) : 0;
+
+  const resumenEl = $('rep-resumen');
+  if (resumenEl) {
+    const card = (label, valor, varHtml, color, title) => `
+      <div title="${title}" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:0.9rem 1rem">
+        <div style="font-size:0.64rem;color:var(--text3);font-weight:600;letter-spacing:0.6px;text-transform:uppercase;margin-bottom:6px">${label}</div>
+        <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:1.12rem;color:${color}">${valor}</div>
+        <div style="margin-top:4px;min-height:14px">${varHtml}</div>
+      </div>`;
+    resumenEl.innerHTML =
+      card('Ingresos', '$' + fmt(totIng), _kpiVar(totIng, totIngPrev), 'var(--accent)', 'Total de ingresos registrados en el período') +
+      card('Gastos', '$' + fmt(totGas), _kpiVar(totGas, totGasPrev, { invert: true }), 'var(--accent2)', 'Total de gastos del período') +
+      card('Tasa de ahorro', Math.round(tasa) + '%', _kpiVar(tasa, tasaPrev, { points: true }), tasa >= 0 ? 'var(--accent3)' : 'var(--accent2)', 'Que parte de tus ingresos fue a ahorro (Ahorro neto / Ingresos)');
+  }
+
   // ── 2. Balance mensual (ingresos − gastos) ──────────────────────────────
   _destroyChart('balance');
   const balanceData = meses.map((m, i) => ingData[i] - gasData[i]);
-
-  // Ajustes por mes para tooltip
-  const ajustesPorMes = meses.map(m =>
-    (ajustesCuentas || []).filter(a => (a.fecha || '').slice(0, 7) === m).reduce((s, a) => s + a.monto, 0)
-  );
   const ajustesDataset = meses.map((m, i) => ajustesPorMes[i] !== 0 ? balanceData[i] : null);
 
   _charts['balance'] = new Chart($('chart-balance'), {
@@ -3527,6 +3693,98 @@ function renderReportes() {
       }
     }
   });
+
+  // ── 4b. Dónde está el ahorro: distribución por fondo (saldo actual) ──────
+  _destroyChart('fondos');
+  const fondoTotals = {};
+  const fondoUsd = {};
+  ahorros.forEach(a => {
+    const t = a.tipo || a.concepto || 'Otros';
+    if ((a.moneda || 'ARS') === 'ARS') fondoTotals[t] = (fondoTotals[t] || 0) + (a.monto || 0);
+    else fondoUsd[t] = (fondoUsd[t] || 0) + (a.monto || 0);
+  });
+  const fondoEntries = Object.entries(fondoTotals).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const totalFondos = fondoEntries.reduce((s, [, v]) => s + v, 0);
+
+  if (fondoEntries.length) {
+    const fondoColors = fondoEntries.map((_, i) => PALETTE[i % PALETTE.length]);
+    const centerTextFondos = {
+      id: 'centerTextFondos',
+      beforeDatasetsDraw(chart) {
+        const { ctx, chartArea: { width, height, left, top } } = chart;
+        ctx.save();
+        const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+        const cx = left + width / 2;
+        const cy = top + height / 2;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = "700 15px 'Sora', sans-serif";
+        ctx.fillText('$' + fmt(total), cx, cy - 9);
+        ctx.font = "11px 'Sora', sans-serif";
+        ctx.fillStyle = 'rgba(148,163,184,0.7)';
+        ctx.fillText('total ahorrado', cx, cy + 10);
+        ctx.restore();
+      }
+    };
+    _charts['fondos'] = new Chart($('chart-fondos'), {
+      type: 'doughnut',
+      data: {
+        labels: fondoEntries.map(([c]) => c),
+        datasets: [{
+          data: fondoEntries.map(([, v]) => v),
+          backgroundColor: fondoColors,
+          borderWidth: 2,
+          borderColor: 'rgba(9,16,28,0.85)',
+          hoverOffset: 10,
+          hoverBorderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        cutout: '72%',
+        animation: { duration: 700, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(9,16,28,0.92)',
+            borderColor: 'rgba(255,255,255,0.1)',
+            borderWidth: 1,
+            titleColor: '#f8fafc',
+            bodyColor: 'rgba(182,194,209,0.85)',
+            titleFont: { family: "'Sora', sans-serif", size: 12, weight: '700' },
+            bodyFont: { family: "'DM Mono', monospace", size: 11 },
+            padding: 10,
+            cornerRadius: 10,
+            callbacks: {
+              label: ctx => {
+                const pct = totalFondos > 0 ? Math.round(ctx.parsed / totalFondos * 100) : 0;
+                return `  $${fmt(ctx.parsed)}  (${pct}%)`;
+              }
+            }
+          }
+        }
+      },
+      plugins: [centerTextFondos]
+    });
+    $('chart-fondos-legend').innerHTML = fondoEntries.map(([c, v], i) => {
+      const pct = totalFondos > 0 ? Math.round(v / totalFondos * 100) : 0;
+      const color = fondoColors[i];
+      const usd = fondoUsd[c] || 0;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></span>
+          <span style="font-size:0.8rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(c)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <span style="font-size:0.72rem;background:${color}22;color:${color};border-radius:6px;padding:1px 6px;font-weight:600">${pct}%</span>
+          <span style="font-size:0.75rem;color:var(--text3);font-family:'DM Mono',monospace">$${fmt(v)}${usd > 0 ? ` · u$s ${fmt(usd)}` : ''}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } else if ($('chart-fondos-legend')) {
+    $('chart-fondos-legend').innerHTML = '<span style="color:var(--text3)">Sin fondos con saldo</span>';
+  }
 
   // ── 5. Top categorías (barra horizontal) ────────────────────────────────
   _destroyChart('top-cats');
@@ -5090,6 +5348,11 @@ window.agregarRendimientoFondo = agregarRendimientoFondo;
 window.rescatarFondo          = rescatarFondo;
 window.cerrarRescate          = cerrarRescate;
 window.confirmarRescate       = confirmarRescate;
+window.transferirFondo        = transferirFondo;
+window.onTransferDestinoChange = onTransferDestinoChange;
+window.cerrarTransferencia    = cerrarTransferencia;
+window.confirmarTransferencia = confirmarTransferencia;
+window.eliminarFondo          = eliminarFondo;
 window.addPendiente           = addPendiente;
 window.togglePendiente        = togglePendiente;
 window.deletePendiente        = deletePendiente;

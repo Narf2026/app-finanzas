@@ -1048,6 +1048,9 @@ onAuthStateChanged(auth, async (user) => {
       <button class="month-btn" id="rep-per-12" onclick="setRepPeriodo(12,this)">1 año</button>
     </div>
 
+    <!-- Resumen del período (KPIs) -->
+    <div id="rep-resumen" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1.2rem"></div>
+
     <!-- Ingresos vs Gastos -->
     <div class="table-wrap" style="margin-bottom:1.2rem">
       <div class="table-header"><h3>📊 Ingresos vs Gastos</h3></div>
@@ -1073,6 +1076,18 @@ onAuthStateChanged(auth, async (user) => {
     <div class="table-wrap" style="margin-bottom:1.2rem">
       <div class="table-header"><h3>💰 Ahorro mensual y acumulado</h3></div>
       <div style="padding:1.2rem"><canvas id="chart-ahorro" height="180"></canvas></div>
+    </div>
+
+    <!-- Dónde está el ahorro (por fondo) -->
+    <div class="table-wrap" style="margin-bottom:1.2rem">
+      <div class="table-header"><h3>🏦 Dónde está tu ahorro</h3></div>
+      <div style="padding:1.2rem">
+        <div style="font-size:0.74rem;color:var(--text3);margin-bottom:0.8rem">Distribución actual por fondo · el centro muestra tu total ahorrado en ARS</div>
+        <div style="display:flex;flex-wrap:wrap;gap:1.5rem;align-items:flex-start">
+          <div style="flex:1;min-width:200px;max-width:300px"><canvas id="chart-fondos"></canvas></div>
+          <div id="chart-fondos-legend" style="flex:1;min-width:160px;font-size:0.8rem;color:var(--text2);line-height:2"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Top categorías -->
@@ -1512,6 +1527,31 @@ onAuthStateChanged(auth, async (user) => {
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn-cancel" onclick="cerrarRescate()">Cancelar</button>
       <button class="btn-add" style="padding:9px 20px" onclick="confirmarRescate()">Rescatar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="transfer-modal" onclick="if(event.target===this)cerrarTransferencia()">
+  <div class="modal" style="max-width:400px;text-align:left">
+    <h3 style="margin-bottom:4px">Transferir entre fondos</h3>
+    <p id="transfer-modal-sub" style="font-size:0.78rem;color:var(--text3);margin-bottom:16px"></p>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Monto a transferir</label>
+      <input type="number" id="transfer-monto" placeholder="0.00" min="0.01" step="0.01" style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.9rem;outline:none;box-sizing:border-box">
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Fondo destino</label>
+      <select id="transfer-destino" onchange="onTransferDestinoChange()" style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.9rem;outline:none">
+        <option value="">Seleccionar...</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom:16px;display:none" id="transfer-nuevo-wrap">
+      <label>Nombre del nuevo fondo</label>
+      <input type="text" id="transfer-destino-nuevo" placeholder="Ej: Plazo fijo" style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Sora',sans-serif;font-size:0.9rem;outline:none;box-sizing:border-box">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn-cancel" onclick="cerrarTransferencia()">Cancelar</button>
+      <button class="btn-add" style="padding:9px 20px" onclick="confirmarTransferencia()">Transferir</button>
     </div>
   </div>
 </div>
