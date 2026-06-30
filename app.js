@@ -592,7 +592,8 @@ function renderRecurrentesLista() {
   el.innerHTML = recurrentes.map(r => {
     const mesActual = hoy.toISOString().slice(0,7);
     const switchesMes = meses.map(mes => {
-      const activo = !!r.mesesActivos?.[mes];
+      const gid = r.mesesActivos?.[mes];
+      const activo = !!gid;
       const label = MESES[parseInt(mes.slice(5,7))-1].slice(0,3);
       const esActual = mes === mesActual;
       return `<div class="rec-mes-item">
@@ -601,6 +602,9 @@ function renderRecurrentesLista() {
           <input type="checkbox" onchange="toggleMesRecurrente(${r.id},'${mes}',this.checked)"${activo?' checked':''}>
           <span class="toggle-track"></span>
         </label>
+        ${activo
+          ? `<button onclick="abrirRecMesModal(${r.id},'${mes}',${gid})" title="Editar este mes" style="background:none;border:none;color:var(--accent4);cursor:pointer;font-size:0.8rem;padding:0;line-height:1;height:16px">✏</button>`
+          : `<span style="height:16px"></span>`}
       </div>`;
     }).join('');
 
@@ -694,50 +698,128 @@ function actualizarRecurrente(id, campo, valor) {
   save();
 }
 
+function _reabrirRecCard(id) {
+  const body = $(`rec-body-${id}`);
+  if (body) body.style.display = '';
+  const arrow = $(`rec-arrow-${id}`);
+  if (arrow) arrow.style.transform = 'rotate(90deg)';
+}
+
 function toggleMesRecurrente(id, mes, activo) {
   const r = recurrentes.find(x => x.id === id);
   if (!r) return;
   if (!r.mesesActivos) r.mesesActivos = {};
 
   if (activo) {
-    const mesNombre = MESES[parseInt(mes.slice(5,7)) - 1];
-    const montoStr = prompt(`Monto de "${r.nombre}" en ${mesNombre}:`, r.monto || '');
-    if (montoStr === null) {
-      // Usuario canceló — restaurar el estado visual
-      renderRecurrentesLista();
-      const body = $(`rec-body-${id}`);
-      if (body) body.style.display = '';
-      const arrow = $(`rec-arrow-${id}`);
-      if (arrow) arrow.style.transform = 'rotate(90deg)';
-      return;
-    }
-    const monto = parseFloat(String(montoStr).replace(',', '.'));
-    if (isNaN(monto) || monto <= 0) {
-      notify('⚠ Monto inválido');
-      renderRecurrentesLista();
-      const body = $(`rec-body-${id}`);
-      if (body) body.style.display = '';
-      const arrow = $(`rec-arrow-${id}`);
-      if (arrow) arrow.style.transform = 'rotate(90deg)';
-      return;
-    }
-    const nuevoId = Date.now();
-    gastos.push({
-      id: nuevoId, fecha: `${mes}-01`, desc: r.nombre,
-      cat: r.cat || '', medio: r.medio || '',
-      monto, moneda: r.moneda || 'ARS', notas: r.notas || '',
-      recurrenteId: id
-    });
-    r.mesesActivos[mes] = nuevoId;
-    notify(`✓ "${r.nombre}" $${fmt(monto)} agregado en ${mesNombre}`);
+    // Abrir el modal para configurar el gasto de este mes (categoría, medio, monto, moneda)
+    abrirRecMesModal(id, mes, null);
   } else {
     const gastoId = r.mesesActivos[mes];
     if (gastoId) gastos = gastos.filter(g => g.id !== gastoId);
     delete r.mesesActivos[mes];
+    save();
+    renderRecurrentesLista();
+    _reabrirRecCard(id);
+    renderGastosTable();
     notify(`Gasto de ${MESES[parseInt(mes.slice(5,7))-1]} eliminado`);
   }
+}
+
+function abrirRecMesModal(recId, mes, gastoId) {
+  const r = recurrentes.find(x => x.id === recId);
+  if (!r) return;
+  // Valores iniciales: si es re-edición, los del gasto existente; si es nuevo, los de la plantilla
+  let monto, cat, medio, moneda;
+  if (gastoId) {
+    const g = gastos.find(x => x.id === gastoId);
+    monto  = g?.monto  ?? r.monto  ?? '';
+    cat    = g?.cat    ?? r.cat    ?? '';
+    medio  = g?.medio  ?? r.medio  ?? '';
+    moneda = g?.moneda ?? r.moneda ?? 'ARS';
+  } else {
+    monto  = r.monto  || '';
+    cat    = r.cat    || '';
+    medio  = r.medio  || '';
+    moneda = r.moneda || 'ARS';
+  }
+  // Poblar categoría
+  let catHtml = '<option value="">Seleccionar...</option>';
+  (cats.gastos || []).forEach(c => { catHtml += `<option value="${escHtml(c)}"${cat === c ? ' selected' : ''}>${escHtml(c)}</option>`; });
+  $('rec-mes-cat').innerHTML = catHtml;
+  // Poblar medio de pago (Efectivo + tarjetas)
+  let medioHtml = '<option value="">Seleccionar...</option>';
+  medioHtml += `<option value="Efectivo"${medio === 'Efectivo' ? ' selected' : ''}>💵 Efectivo</option>`;
+  tarjetas.forEach(t => { const l = t.label || t.banco || t.nombre; medioHtml += `<option value="${escHtml(l)}"${medio === l ? ' selected' : ''}>${escHtml(l)}</option>`; });
+  $('rec-mes-medio').innerHTML = medioHtml;
+  // Monto y moneda
+  $('rec-mes-monto').value = monto;
+  $('rec-mes-moneda').value = moneda;
+  // Título y contexto
+  const mesNombre = MESES[parseInt(mes.slice(5, 7)) - 1];
+  $('rec-mes-modal-title').textContent = `${gastoId ? 'Editar' : 'Activar'} ${mesNombre} — ${r.nombre}`;
+  $('rec-mes-recid').value  = recId;
+  $('rec-mes-mes').value    = mes;
+  $('rec-mes-gastoid').value = gastoId || '';
+  const modal = $('rec-mes-modal');
+  modal.dataset.nueva = gastoId ? '0' : '1';
+  modal.style.display = 'flex';
+  setTimeout(() => $('rec-mes-monto')?.focus(), 60);
+}
+
+function cerrarRecMesModal() {
+  const modal = $('rec-mes-modal');
+  const eraNueva = modal.dataset.nueva === '1';
+  const recId = parseInt($('rec-mes-recid').value);
+  modal.style.display = 'none';
+  if (eraNueva) {
+    // Se canceló una activación: re-render para volver a desmarcar el toggle
+    renderRecurrentesLista();
+    if (!isNaN(recId)) _reabrirRecCard(recId);
+  }
+}
+
+function guardarRecMesModal() {
+  const recId = parseInt($('rec-mes-recid').value);
+  const mes = $('rec-mes-mes').value;
+  const gidVal = $('rec-mes-gastoid').value;
+  const gastoIdExist = gidVal ? parseInt(gidVal) : null;
+  const r = recurrentes.find(x => x.id === recId);
+  if (!r) return;
+  const monto  = parseFloat(String($('rec-mes-monto').value).replace(',', '.'));
+  const cat    = $('rec-mes-cat').value;
+  const medio  = $('rec-mes-medio').value;
+  const moneda = $('rec-mes-moneda').value || 'ARS';
+  if (isNaN(monto) || monto <= 0) { notify('⚠ Ingresá un monto válido'); return; }
+  if (!cat) { notify('⚠ Seleccioná una categoría'); return; }
+
+  if (!r.mesesActivos) r.mesesActivos = {};
+  if (gastoIdExist) {
+    // Re-edición: actualizar el gasto existente de ese mes
+    const g = gastos.find(x => x.id === gastoIdExist);
+    if (g) { g.monto = monto; g.cat = cat; g.medio = medio; g.moneda = moneda; }
+  } else {
+    // Nueva activación: crear el gasto del mes
+    const nuevoId = Date.now();
+    gastos.push({
+      id: nuevoId, fecha: `${mes}-01`, desc: r.nombre,
+      cat, medio, monto, moneda, notas: r.notas || '',
+      recurrenteId: recId
+    });
+    r.mesesActivos[mes] = nuevoId;
+  }
+  // El último cambio queda como base para los meses que se activen después
+  r.monto = monto; r.cat = cat; r.medio = medio; r.moneda = moneda;
+
+  const modal = $('rec-mes-modal');
+  modal.dataset.nueva = '0';
+  modal.style.display = 'none';
+
   save();
+  renderRecurrentesLista();
+  _reabrirRecCard(recId);
   renderGastosTable();
+  const mesNombre = MESES[parseInt(mes.slice(5, 7)) - 1];
+  notify(`✓ "${r.nombre}" $${fmt(monto)} en ${mesNombre}`);
 }
 
 function eliminarRecurrente(id) {
@@ -4213,6 +4295,17 @@ function calcularTotalTarjetaMes(nombreTarjeta, ym) {
   return total;
 }
 
+// Mes (YYYY-MM) en que un gasto impacta efectivamente la cuenta (considera el offset de cuotas).
+function _mesEfectivoGasto(g) {
+  if (g.offsetCuotas) {
+    const [fy, fm] = (g.fecha || '').split('-').map(Number);
+    let cm = fm + g.offsetCuotas, cy = fy;
+    while (cm > 12) { cm -= 12; cy++; }
+    return `${cy}-${String(cm).padStart(2, '0')}`;
+  }
+  return (g.fecha || '').slice(0, 7);
+}
+
 // Calcula el saldo ARS total de todas las cuentas (Efectivo + billeteras + débito).
 // Misma lógica que renderSaldoCuentas. Usado por el dashboard en "Dinero disponible".
 function _buildCuentasYSaldos() {
@@ -4261,14 +4354,8 @@ function _buildCuentasYSaldos() {
   const mesActualStr = new Date().toISOString().slice(0, 7);
   gastos.forEach(g => {
     if (g.cuota) return;
-    // Si tiene offset, verificar que el mes efectivo ya llegó
-    if (g.offsetCuotas) {
-      const [fy, fm] = g.fecha.split('-').map(Number);
-      let cm = fm + g.offsetCuotas, cy = fy;
-      while (cm > 12) { cm -= 12; cy++; }
-      const mesEfectivo = `${cy}-${String(cm).padStart(2,'0')}`;
-      if (mesEfectivo > mesActualStr) return; // aún no impacta
-    }
+    // Un gasto con mes efectivo futuro (recurrente agendado o gasto con offset) aún no impacta el saldo
+    if (_mesEfectivoGasto(g) > mesActualStr) return;
     const medio = normalizarDestino(g.medio || '');
     if (medio && saldos[medio] !== undefined) saldos[medio].ars -= g.monto;
   });
@@ -4314,6 +4401,7 @@ function renderSaldoCuentas() {
   if (!el) return;
 
   const { cuentas, saldos, normalizarDestino } = _buildCuentasYSaldos();
+  const mesActualStr = new Date().toISOString().slice(0, 7);
 
   const mediosReales = new Set(cuentas);
 
@@ -4355,7 +4443,9 @@ function renderSaldoCuentas() {
       (i.otros||[]).forEach(o => { if (normalizarDestino(o.destino||'') === c) ingC.push({ fecha: i.ymBase||(i.key||'').slice(0,7), desc: o.concepto||o.nombre||'Ingreso', monto: o.monto, moneda: o.moneda||'ARS' }); });
     });
     const gasCAll = gastos.filter(g => normalizarDestino(g.medio||'') === c);
-    const gasC    = gasCAll.filter(g => !g.cuota);
+    const gasCNoCuota = gasCAll.filter(g => !g.cuota);
+    const gasC    = gasCNoCuota.filter(g => _mesEfectivoGasto(g) <= mesActualStr); // ya impactaron el saldo
+    const gasCFut = gasCNoCuota.filter(g => _mesEfectivoGasto(g) >  mesActualStr); // agendados (mes futuro)
     const gasCQ   = gasCAll.filter(g => !!g.cuota);
     const ahoC = ahorros.filter(a => normalizarDestino(a.origen||'') === c);
     const ahoCPreex = ahorros.filter(a => (a.origen||'') === '__ya_lo_tenia__');
@@ -4414,6 +4504,23 @@ function renderSaldoCuentas() {
             </div>
             <span style="font-family:monospace;color:var(--accent2);font-size:0.77rem;flex-shrink:0">− $${fmt(g.monto)}</span>
           </div>`).join('')}
+        </div>` : ''}
+        ${gasCFut.length ? `
+        <div style="background:rgba(255,255,255,0.02);border:1px dashed var(--border);border-radius:10px;overflow:hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:rgba(255,255,255,0.02);border-bottom:1px solid var(--border)">
+            <span style="font-weight:600;color:var(--text3)">🕒 Agendados <span style="font-size:0.7rem;color:var(--text3);font-weight:400">${gasCFut.length} · todavía no impactan</span></span>
+            <span style="font-family:monospace;font-weight:700;color:var(--text3)">− $${fmt(gasCFut.reduce((s,g)=>s+g.monto,0))}</span>
+          </div>
+          ${gasCFut.sort((a,b)=>_mesEfectivoGasto(a).localeCompare(_mesEfectivoGasto(b))).map(g=>{
+            const me = _mesEfectivoGasto(g);
+            const mesLbl = MESES[parseInt(me.slice(5,7))-1] + ' ' + me.slice(0,4);
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px 6px 20px;border-bottom:1px solid rgba(255,255,255,0.04);opacity:0.6">
+            <div style="min-width:0;flex:1;margin-right:8px">
+              <div style="color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(g.desc||g.cat)}</div>
+              <div style="font-size:0.68rem;color:var(--text3)">📅 ${mesLbl} · ${escHtml(g.cat||'')}</div>
+            </div>
+            <span style="font-family:monospace;color:var(--text3);font-size:0.77rem;flex-shrink:0">− $${fmt(g.monto)}</span>
+          </div>`;}).join('')}
         </div>` : ''}
         ${gasCQ.length ? `
         <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;overflow:hidden">
@@ -5412,6 +5519,9 @@ window.toggleRecurrenteCard   = toggleRecurrenteCard;
 window.actualizarRecurrente   = actualizarRecurrente;
 window.guardarCamposRecurrente = guardarCamposRecurrente;
 window.toggleMesRecurrente    = toggleMesRecurrente;
+window.abrirRecMesModal       = abrirRecMesModal;
+window.cerrarRecMesModal      = cerrarRecMesModal;
+window.guardarRecMesModal     = guardarRecMesModal;
 window.eliminarRecurrente     = eliminarRecurrente;
 
 window.addIngreso             = addIngreso;
