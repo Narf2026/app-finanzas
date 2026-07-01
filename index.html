@@ -137,16 +137,6 @@ onAuthStateChanged(auth, async (user) => {
         pill.style.transform = `translateX(${btnRect.left - navRect.left}px) translateY(-50%)`;
       }
     });
-    // Guardar email→UID en índice para que el admin pueda buscar por email
-    try {
-      const idxRef = doc(db, 'config', 'email_uid_index');
-      const idxSnap = await getDoc(idxRef);
-      const idx = idxSnap.exists() ? idxSnap.data() : {};
-      if (idx[user.email] !== user.uid) {
-        idx[user.email] = user.uid;
-        await setDoc(idxRef, idx);
-      }
-    } catch(e) { console.warn('No se pudo actualizar índice email→UID', e); }
     window.renderDashboard();
   } else {
     window._currentUser = null;
@@ -1264,6 +1254,12 @@ onAuthStateChanged(auth, async (user) => {
     <!-- Lista de emails habilitados -->
     <div class="table-wrap" style="max-width:600px">
       <div class="table-header"><h3>EMAILS HABILITADOS PARA REGISTRARSE</h3></div>
+      <!-- MIGRACIÓN TEMPORAL: habilitados → nuevo formato (ejecutar UNA sola vez, luego se quita) -->
+      <div style="padding:1rem 1.2rem;background:rgba(245,184,46,0.07);border-bottom:1px solid var(--border)">
+        <div style="font-size:0.8rem;color:var(--text2);margin-bottom:8px">⚙️ <b>Migración de seguridad</b> — copiá los emails al nuevo formato (ejecutá una sola vez):</div>
+        <button class="btn-add" style="padding:8px 16px;font-size:0.82rem" onclick="migrarHabilitados()">🔄 Migrar habilitados</button>
+        <div id="migrar-habilitados-result" style="font-size:0.78rem;color:var(--text3);margin-top:10px;white-space:pre-wrap;line-height:1.45"></div>
+      </div>
       <div id="admin-email-list"></div>
     </div>
 

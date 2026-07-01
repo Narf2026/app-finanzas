@@ -5386,6 +5386,39 @@ function removeEmailHabilitado(email) {
   });
 }
 
+// TEMPORAL: copia los emails del formato viejo (config/habilitados.emails) a la
+// colección nueva (habilitados/{email}). Solo copia, no borra nada. Ejecutar una vez.
+function migrarHabilitados() {
+  const resEl = document.getElementById('migrar-habilitados-result');
+  const setRes = msg => { if (resEl) resEl.textContent = msg; };
+  setRes('Leyendo la lista actual...');
+  window._fbGetDoc(window._fbDoc(window._fbDb, 'config', 'habilitados')).then(async snap => {
+    const lista = snap.exists() ? (snap.data().emails || []) : [];
+    if (!lista.length) { setRes('⚠ No hay emails en el formato viejo. Nada que migrar.'); return; }
+    setRes(`Migrando ${lista.length} emails...`);
+    let ok = 0, errores = 0, primerError = '';
+    for (const emailRaw of lista) {
+      const email = String(emailRaw).trim().toLowerCase();
+      if (!email) continue;
+      try {
+        await window._fbSetDoc(window._fbDoc(window._fbDb, 'habilitados', email), {
+          habilitado: true, migradoAt: new Date().toISOString()
+        });
+        ok++;
+      } catch (e) {
+        errores++;
+        if (!primerError) primerError = e.message || String(e);
+      }
+    }
+    if (errores && ok === 0) {
+      setRes(`✕ No se pudo migrar (${errores} errores).\nCasi seguro falta agregar la regla de "habilitados" en Firebase.\nDetalle: ${primerError}`);
+    } else {
+      setRes(`✓ Listo: ${ok} emails copiados al nuevo formato${errores ? `, ${errores} con error` : ''}.\nLa lista vieja NO se tocó. Verificá en Firebase que exista la colección "habilitados" con ${ok} documentos.`);
+      notify(`✓ ${ok} emails migrados`);
+    }
+  }).catch(e => setRes('Error leyendo la lista: ' + (e.message || e)));
+}
+
 function borrarDatosUsuario() {
   const emailInput = document.getElementById('admin-borrar-email');
   const resultEl   = document.getElementById('admin-borrar-result');
@@ -5537,6 +5570,7 @@ window.deleteTarjeta          = deleteTarjeta;
 window.renderAdminPanel       = renderAdminPanel;
 window.addEmailHabilitado     = addEmailHabilitado;
 window.removeEmailHabilitado  = removeEmailHabilitado;
+window.migrarHabilitados      = migrarHabilitados;
 window.borrarDatosUsuario     = borrarDatosUsuario;
 window.verFirestoreRaw        = verFirestoreRaw;
 window.limpiarAjustesViejos   = limpiarAjustesViejos;
