@@ -82,9 +82,18 @@ onAuthStateChanged(auth, async (user) => {
         );
         esUsuarioExistente = !!tieneData;
         if (!esUsuarioExistente) {
-          const habSnap = await getDoc(doc(db, 'config', 'habilitados'));
-          const lista = habSnap.exists() ? (habSnap.data().emails || []) : [];
-          if (!lista.includes(user.email.toLowerCase())) {
+          const em = user.email.toLowerCase();
+          // Formato nuevo (habilitados/{email}) con fallback al viejo (config/habilitados)
+          let habilitado = false;
+          const habNuevo = await getDoc(doc(db, 'habilitados', em));
+          if (habNuevo.exists()) {
+            habilitado = true;
+          } else {
+            const habSnap = await getDoc(doc(db, 'config', 'habilitados'));
+            const lista = habSnap.exists() ? (habSnap.data().emails || []) : [];
+            habilitado = lista.includes(em);
+          }
+          if (!habilitado) {
             const waMsg = encodeURIComponent(`Hola, quiero acceso a finanzapp. Mi correo es: ${user.email}`);
             const waLink = document.getElementById('wa-acceso-link');
             if (waLink) waLink.href = `https://wa.me/5492995075494?text=${waMsg}`;

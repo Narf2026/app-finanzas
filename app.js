@@ -2952,6 +2952,21 @@ function _authError(msg) {
   el.style.display = 'block';
 }
 
+// Verifica si un email está habilitado. Formato nuevo (habilitados/{email}) con fallback al viejo (config/habilitados.emails).
+async function estaHabilitado(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e) return false;
+  try {
+    const nuevo = await window._fbGetDoc(window._fbDoc(window._fbDb, 'habilitados', e));
+    if (nuevo.exists()) return true;
+  } catch (err) { /* seguir al fallback */ }
+  try {
+    const viejo = await window._fbGetDoc(window._fbDoc(window._fbDb, 'config', 'habilitados'));
+    const lista = viejo.exists() ? (viejo.data().emails || []) : [];
+    return lista.includes(e);
+  } catch (err) { return false; }
+}
+
 function authAction() {
   const email = $('auth-email').value.trim();
   const errEl = $('auth-error');
@@ -2976,10 +2991,9 @@ function authAction() {
     const btn = $('auth-btn');
     btn.textContent = 'Verificando...';
     btn.disabled = true;
-    window._fbGetDoc(window._fbDoc(window._fbDb, 'config', 'habilitados'))
-      .then(snap => {
-        const lista = snap.exists() ? (snap.data().emails || []) : [];
-        if (lista.includes(email.toLowerCase())) {
+    estaHabilitado(email)
+      .then(habilitado => {
+        if (habilitado) {
           registerStep = 2;
           $('auth-pass-wrap').style.display  = '';
           $('auth-pass2-wrap').style.display = '';
@@ -5340,9 +5354,8 @@ async function renderAdminPanel() {
   if (!listEl) return;
   listEl.innerHTML = '<div style="padding:12px;color:var(--text3);font-size:0.85rem">Cargando...</div>';
   try {
-    const ref  = window._fbDoc(window._fbDb, 'config', 'habilitados');
-    const snap = await window._fbGetDoc(ref);
-    const lista = snap.exists() ? (snap.data().emails || []) : [];
+    const snap = await window._fbGetDocs(window._fbCollection(window._fbDb, 'habilitados'));
+    const lista = snap.docs.map(d => d.id).sort();
     if (countEl) countEl.textContent = lista.length;
     if (lista.length === 0) {
       listEl.innerHTML = '<div style="padding:16px;color:var(--text3);font-size:0.85rem">No hay emails habilitados todavía.</div>';
@@ -5363,12 +5376,10 @@ function addEmailHabilitado() {
   if (!input) return;
   const email = (input.value || '').trim().toLowerCase();
   if (!email) { notify('⚠ Ingresá un email'); return; }
-  const ref = window._fbDoc(window._fbDb, 'config', 'habilitados');
+  const ref = window._fbDoc(window._fbDb, 'habilitados', email);
   window._fbGetDoc(ref).then(snap => {
-    const lista = snap.exists() ? (snap.data().emails || []) : [];
-    if (lista.includes(email)) { notify('Ya está habilitado'); return; }
-    lista.push(email);
-    window._fbSetDoc(ref, { emails: lista }).then(() => {
+    if (snap.exists()) { notify('Ya está habilitado'); return; }
+    window._fbSetDoc(ref, { habilitado: true, addedAt: new Date().toISOString() }).then(() => {
       notify('✓ Email habilitado');
       input.value = '';
       renderAdminPanel();
@@ -5376,14 +5387,21 @@ function addEmailHabilitado() {
   });
 }
 
-function removeEmailHabilitado(email) {
+async function removeEmailHabilitado(email) {
   if (!confirm('¿Deshabilitar ' + email + '?')) return;
-  const ref = window._fbDoc(window._fbDb, 'config', 'habilitados');
-  window._fbGetDoc(ref).then(snap => {
+  const e = String(email).trim().toLowerCase();
+  // Quitar del formato nuevo
+  try { await window._fbDeleteDoc(window._fbDoc(window._fbDb, 'habilitados', e)); } catch(err) {}
+  // Quitar también del viejo, para que no siga entrando por el fallback
+  try {
+    const viejoRef = window._fbDoc(window._fbDb, 'config', 'habilitados');
+    const snap = await window._fbGetDoc(viejoRef);
     const lista = snap.exists() ? (snap.data().emails || []) : [];
-    const nueva = lista.filter(e => e !== email);
-    window._fbSetDoc(ref, { emails: nueva }).then(() => { notify('✓ Email eliminado'); renderAdminPanel(); });
-  });
+    const nueva = lista.filter(x => x !== e);
+    if (nueva.length !== lista.length) await window._fbSetDoc(viejoRef, { emails: nueva });
+  } catch(err) {}
+  notify('✓ Email eliminado');
+  renderAdminPanel();
 }
 
 // TEMPORAL: copia los emails del formato viejo (config/habilitados.emails) a la
